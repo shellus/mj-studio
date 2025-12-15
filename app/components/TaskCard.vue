@@ -138,10 +138,15 @@ async function handleAction(customId: string) {
 }
 
 // 删除确认
+const showDeleteConfirm = ref(false)
+
 function handleRemove() {
-  if (confirm('确定要删除这个任务吗？')) {
-    emit('remove')
-  }
+  showDeleteConfirm.value = true
+}
+
+function confirmDelete() {
+  showDeleteConfirm.value = false
+  emit('remove')
 }
 
 // 下载图片
@@ -169,7 +174,7 @@ function downloadImage() {
       />
       <div
         v-else
-        class="w-full h-full flex items-center justify-center"
+        class="w-full h-full flex items-center justify-center p-4"
       >
         <div class="text-center">
           <!-- 竖线加载动画 -->
@@ -183,7 +188,11 @@ function downloadImage() {
             :name="statusInfo.icon"
             :class="['w-12 h-12 mb-2', statusInfo.color]"
           />
-          <p :class="['text-sm', statusInfo.color]">{{ statusInfo.text }}</p>
+          <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
+          <!-- 失败时显示错误信息 -->
+          <p v-if="task.error" class="text-red-400/80 text-xs leading-relaxed break-all">
+            {{ task.error }}
+          </p>
         </div>
       </div>
 
@@ -207,9 +216,10 @@ function downloadImage() {
       </div>
 
       <!-- 左上角按钮组 -->
-      <div v-if="task.imageUrl" class="absolute top-2 left-2 flex gap-1">
+      <div class="absolute top-2 left-2 flex gap-1">
         <!-- 下载按钮 -->
         <button
+          v-if="task.imageUrl"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="下载图片"
           @click="downloadImage"
@@ -218,12 +228,29 @@ function downloadImage() {
         </button>
         <!-- 恢复模糊按钮 -->
         <button
-          v-if="!isBlurred"
+          v-if="task.imageUrl && !isBlurred"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="隐藏图片"
           @click="toggleBlur(true)"
         >
           <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 text-white" />
+        </button>
+        <!-- 重试按钮 -->
+        <button
+          v-if="task.status === 'failed'"
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="重试"
+          @click="emit('retry')"
+        >
+          <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 text-white" />
+        </button>
+        <!-- 删除按钮 -->
+        <button
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-red-500/70 transition-colors"
+          title="删除"
+          @click="handleRemove"
+        >
+          <UIcon name="i-heroicons-trash" class="w-4 h-4 text-white" />
         </button>
       </div>
 
@@ -256,11 +283,6 @@ function downloadImage() {
         <span class="text-white/50">提示词：</span>{{ task.prompt || '图片混合' }}
       </p>
 
-      <!-- 失败原因 -->
-      <p v-if="task.error" class="text-red-400 text-xs mb-3">
-        {{ task.error }}
-      </p>
-
       <!-- 操作按钮 (仅MJ任务有) -->
       <div v-if="modelInfo.type === 'midjourney' && buttons.length > 0" class="flex flex-wrap gap-2">
         <UButton
@@ -275,28 +297,21 @@ function downloadImage() {
           {{ btn.emoji || btn.label }}
         </UButton>
       </div>
-
-      <!-- 删除按钮 -->
-      <div class="mt-3 flex justify-end gap-2">
-        <UButton
-          v-if="task.status === 'failed'"
-          size="xs"
-          variant="outline"
-          color="primary"
-          @click="emit('retry')"
-        >
-          <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 mr-1" />
-          重试
-        </UButton>
-        <UButton
-          size="xs"
-          variant="ghost"
-          color="error"
-          @click="handleRemove"
-        >
-          <UIcon name="i-heroicons-trash" class="w-4 h-4" />
-        </UButton>
-      </div>
     </div>
+
+    <!-- 删除确认 Modal -->
+    <UModal v-model:open="showDeleteConfirm">
+      <template #content>
+        <div class="p-6 text-center">
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 text-(--ui-warning) mx-auto mb-4" />
+          <h3 class="text-lg font-medium text-(--ui-text) mb-2">确认删除</h3>
+          <p class="text-(--ui-text-muted) text-sm mb-6">确定要删除这个任务吗？此操作不可撤销。</p>
+          <div class="flex justify-center gap-3">
+            <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
+            <UButton color="error" @click="confirmDelete">删除</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
