@@ -1,0 +1,5 @@
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - better-sqlite3
+  - esbuild
+  - vue-demi

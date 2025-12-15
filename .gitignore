@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+.nuxt/
+.output/
+dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+data/
+*.db
+*.sqlite
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Cache
+.cache/
+node-compile-cache/
+
+# Test
+coverage/
+
+# Misc
+*.png
+*.jpg
+*.jpeg

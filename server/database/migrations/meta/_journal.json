@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1765785278556,
+      "tag": "0000_last_proemial_gods",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1765786023799,
+      "tag": "0001_productive_prima",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1765787289564,
+      "tag": "0002_loose_thaddeus_ross",
+      "breakpoints": true
+    }
+  ]
+}
