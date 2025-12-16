@@ -56,17 +56,17 @@ async function toggleBlur(blur: boolean) {
 const statusInfo = computed(() => {
   switch (props.task.status) {
     case 'pending':
-      return { text: '等待中', color: 'text-yellow-400', icon: 'i-heroicons-clock', showBars: false }
+      return { text: '等待中', color: 'text-(--ui-warning)', icon: 'i-heroicons-clock', showBars: false }
     case 'submitting':
-      return { text: '提交中', color: 'text-orange-400', icon: null, showBars: true }
+      return { text: '提交中', color: 'text-(--ui-info)', icon: null, showBars: true }
     case 'processing':
-      return { text: props.task.progress || '生成中', color: 'text-blue-400', icon: null, showBars: true }
+      return { text: props.task.progress || '生成中', color: 'text-(--ui-primary)', icon: null, showBars: true }
     case 'success':
-      return { text: '已完成', color: 'text-green-400', icon: 'i-heroicons-check-circle', showBars: false }
+      return { text: '已完成', color: 'text-(--ui-success)', icon: 'i-heroicons-check-circle', showBars: false }
     case 'failed':
-      return { text: '失败', color: 'text-red-400', icon: 'i-heroicons-x-circle', showBars: false }
+      return { text: '失败', color: 'text-(--ui-error)', icon: 'i-heroicons-x-circle', showBars: false }
     default:
-      return { text: '未知', color: 'text-gray-400', icon: 'i-heroicons-question-mark-circle', showBars: false }
+      return { text: '未知', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-question-mark-circle', showBars: false }
   }
 })
 
@@ -175,7 +175,7 @@ function downloadImage() {
 </script>
 
 <template>
-  <div class="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl border border-(--ui-border) overflow-hidden">
     <!-- 图片预览 -->
     <div class="aspect-square bg-black/20 relative">
       <img
@@ -204,7 +204,7 @@ function downloadImage() {
           />
           <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
           <!-- 失败时显示错误信息 -->
-          <p v-if="task.error" class="text-red-400/80 text-xs leading-relaxed break-all">
+          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed break-all">
             {{ task.error }}
           </p>
         </div>
@@ -268,7 +268,7 @@ function downloadImage() {
         </button>
         <!-- 删除按钮 -->
         <button
-          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-red-500/70 transition-colors"
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-(--ui-error)/70 transition-colors"
           title="删除"
           @click="handleRemove"
         >
@@ -288,10 +288,10 @@ function downloadImage() {
     <!-- 信息区 -->
     <div class="p-4">
       <!-- 任务ID和时间信息 -->
-      <div class="flex items-center justify-between text-white/40 text-xs mb-2">
+      <div class="flex items-center justify-between text-(--ui-text-dimmed) text-xs mb-2">
         <div class="flex items-center gap-2">
           <span
-            class="font-mono bg-white/10 px-1.5 py-0.5 rounded cursor-pointer hover:bg-white/20 select-none"
+            class="font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded cursor-pointer hover:bg-(--ui-bg-inverted)/20 select-none"
             title="点击复制"
             @click="copyTaskId"
           >ID:{{ taskSqid }}</span>
@@ -301,8 +301,8 @@ function downloadImage() {
       </div>
 
       <!-- 提示词 -->
-      <p class="text-white/70 text-sm line-clamp-2 mb-3" :title="task.prompt ?? ''">
-        <span class="text-white/50">提示词：</span>{{ task.prompt || '图片混合' }}
+      <p class="text-(--ui-text-muted) text-sm line-clamp-2 mb-3" :title="task.prompt ?? ''">
+        <span class="text-(--ui-text-dimmed)">提示词：</span>{{ task.prompt || '图片混合' }}
       </p>
 
       <!-- 操作按钮 (仅MJ任务有) -->
@@ -380,7 +380,7 @@ function downloadImage() {
             </div>
             <div v-if="task.error">
               <span class="text-(--ui-text-muted) block mb-1">错误信息</span>
-              <p class="text-red-400 bg-red-500/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
+              <p class="text-(--ui-error) bg-(--ui-error)/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
             </div>
           </div>
           <div class="mt-6 flex justify-end">
@@ -391,25 +391,25 @@ function downloadImage() {
     </UModal>
 
     <!-- 大图预览 Modal -->
-    <UModal v-model:open="showImagePreview" :ui="{ width: 'max-w-[90vw]' }">
+    <UModal v-model:open="showImagePreview" :ui="{ content: 'sm:max-w-4xl' }">
       <template #content>
-        <div class="relative bg-black">
+        <div class="relative bg-(--ui-bg) flex items-center justify-center">
           <img
             v-if="task.imageUrl"
             :src="task.imageUrl"
             :alt="task.prompt ?? ''"
-            class="w-full h-auto max-h-[90vh] object-contain"
+            class="max-h-[85vh]"
           />
           <!-- 关闭按钮 -->
           <button
-            class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+            class="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
             @click="showImagePreview = false"
           >
             <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-white" />
           </button>
           <!-- 下载按钮 -->
           <button
-            class="absolute top-2 left-2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+            class="absolute top-3 left-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
             title="下载图片"
             @click="downloadImage"
           >

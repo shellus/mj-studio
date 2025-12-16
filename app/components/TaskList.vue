@@ -24,20 +24,20 @@ async function handleRetry(taskId: number) {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h2 class="text-white text-lg font-medium">生成任务</h2>
-      <span class="text-white/40 text-sm">{{ tasks.length }} 个任务</span>
+      <h2 class="text-(--ui-text) text-lg font-medium">生成任务</h2>
+      <span class="text-(--ui-text-dimmed) text-sm">{{ tasks.length }} 个任务</span>
     </div>
 
     <!-- 加载状态 -->
     <div v-if="isLoading" class="text-center py-12">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-white/40 mx-auto mb-2 animate-spin" />
-      <p class="text-white/40">加载中...</p>
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-(--ui-text-dimmed) mx-auto mb-2 animate-spin" />
+      <p class="text-(--ui-text-dimmed)">加载中...</p>
     </div>
 
     <div v-else-if="tasks.length === 0" class="text-center py-12">
-      <UIcon name="i-heroicons-photo" class="w-16 h-16 text-white/20 mx-auto mb-4" />
-      <p class="text-white/40">还没有生成任务</p>
-      <p class="text-white/30 text-sm mt-1">输入提示词开始创作</p>
+      <UIcon name="i-heroicons-photo" class="w-16 h-16 text-(--ui-text-dimmed)/50 mx-auto mb-4" />
+      <p class="text-(--ui-text-dimmed)">还没有生成任务</p>
+      <p class="text-(--ui-text-dimmed)/70 text-sm mt-1">输入提示词开始创作</p>
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

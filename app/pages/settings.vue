@@ -134,8 +134,8 @@ function formatTypes(types: ModelType[]) {
       <!-- 头部 -->
       <header class="mb-8 flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-white mb-1">模型配置</h1>
-          <p class="text-white/60 text-sm">管理你的AI绘图服务配置</p>
+          <h1 class="text-2xl font-bold text-(--ui-text) mb-1">模型配置</h1>
+          <p class="text-(--ui-text-muted) text-sm">管理你的AI绘图服务配置</p>
         </div>
         <div class="flex gap-3">
           <UButton variant="ghost" color="neutral" @click="router.push('/')">
@@ -151,12 +151,12 @@ function formatTypes(types: ModelType[]) {
 
       <!-- 配置列表 -->
       <div v-if="isLoading" class="text-center py-12">
-        <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-white/40 animate-spin" />
+        <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-(--ui-text-dimmed) animate-spin" />
       </div>
 
       <div v-else-if="configs.length === 0" class="text-center py-12">
-        <UIcon name="i-heroicons-cog-6-tooth" class="w-16 h-16 text-white/20 mx-auto mb-4" />
-        <p class="text-white/60 mb-4">还没有模型配置</p>
+        <UIcon name="i-heroicons-cog-6-tooth" class="w-16 h-16 text-(--ui-text-dimmed)/50 mx-auto mb-4" />
+        <p class="text-(--ui-text-muted) mb-4">还没有模型配置</p>
         <UButton @click="openCreateForm">添加第一个配置</UButton>
       </div>
 
@@ -164,25 +164,25 @@ function formatTypes(types: ModelType[]) {
         <div
           v-for="config in configs"
           :key="config.id"
-          class="bg-white/5 backdrop-blur-sm rounded-xl p-5 border border-white/10"
+          class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl p-5 border border-(--ui-border)"
         >
           <div class="flex items-start justify-between">
             <div class="flex-1">
               <div class="flex items-center gap-3 mb-2">
-                <h3 class="text-white font-medium">{{ config.name }}</h3>
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300">
+                <h3 class="text-(--ui-text) font-medium">{{ config.name }}</h3>
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-(--ui-primary)/20 text-(--ui-primary)">
                   {{ formatTypes(config.types) }}
                 </span>
                 <span
                   v-if="config.isDefault"
-                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-300"
+                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-(--ui-success)/20 text-(--ui-success)"
                 >
                   默认
                 </span>
               </div>
-              <p class="text-white/50 text-sm mb-1">{{ config.baseUrl }}</p>
-              <p class="text-white/30 text-xs">API Key: {{ config.apiKey.slice(0, 8) }}...{{ config.apiKey.slice(-4) }}</p>
-              <p v-if="config.remark" class="text-white/40 text-xs mt-2 italic">{{ config.remark }}</p>
+              <p class="text-(--ui-text-dimmed) text-sm mb-1">{{ config.baseUrl }}</p>
+              <p class="text-(--ui-text-dimmed)/70 text-xs">API Key: {{ config.apiKey.slice(0, 8) }}...{{ config.apiKey.slice(-4) }}</p>
+              <p v-if="config.remark" class="text-(--ui-text-dimmed) text-xs mt-2 italic">{{ config.remark }}</p>
             </div>
 
             <div class="flex gap-2">
@@ -210,26 +210,26 @@ function formatTypes(types: ModelType[]) {
       <UModal v-model:open="showForm">
         <template #content>
           <div class="p-6">
-            <h2 class="text-xl font-bold text-white mb-6">
+            <h2 class="text-xl font-bold text-(--ui-text) mb-6">
               {{ editingConfig ? '编辑配置' : '添加配置' }}
             </h2>
 
             <form class="space-y-4" @submit.prevent="handleSubmit">
               <!-- 配置名称 -->
               <div>
-                <label class="block text-white/70 text-sm mb-2">配置名称</label>
+                <label class="block text-(--ui-text-muted) text-sm mb-2">配置名称</label>
                 <input
                   v-model="form.name"
                   type="text"
                   placeholder="例如：我的MJ账号"
-                  class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-purple-400"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
 
               <!-- 模型类型（多选） -->
               <div>
-                <label class="block text-white/70 text-sm mb-2">支持的模型类型（可多选）</label>
+                <label class="block text-(--ui-text-muted) text-sm mb-2">支持的模型类型（可多选）</label>
                 <div class="grid grid-cols-2 gap-3">
                   <button
                     v-for="opt in typeOptions"
@@ -238,8 +238,10 @@ function formatTypes(types: ModelType[]) {
                     :class="[
                       'p-3 rounded-lg border-2 transition-all text-center flex items-center justify-center gap-2',
                       form.types.includes(opt.value)
-                        ? 'border-purple-400 bg-purple-500/10 text-white'
-                        : 'border-white/10 text-white/60 hover:border-white/30'
+                        ? opt.value === 'midjourney'
+                          ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                          : 'border-blue-500 bg-blue-500/10 text-blue-400'
+                        : 'border-(--ui-border) text-(--ui-text-muted) hover:border-(--ui-border-accented)'
                     ]"
                     @click="toggleType(opt.value)"
                   >
@@ -251,36 +253,36 @@ function formatTypes(types: ModelType[]) {
 
               <!-- API地址 -->
               <div>
-                <label class="block text-white/70 text-sm mb-2">API地址</label>
+                <label class="block text-(--ui-text-muted) text-sm mb-2">API地址</label>
                 <input
                   v-model="form.baseUrl"
                   type="url"
                   placeholder="https://api.example.com"
-                  class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-purple-400"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
 
               <!-- API密钥 -->
               <div>
-                <label class="block text-white/70 text-sm mb-2">API密钥</label>
+                <label class="block text-(--ui-text-muted) text-sm mb-2">API密钥</label>
                 <input
                   v-model="form.apiKey"
                   type="password"
                   placeholder="sk-xxx..."
-                  class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-purple-400"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
 
               <!-- 备注 -->
               <div>
-                <label class="block text-white/70 text-sm mb-2">备注（可选）</label>
+                <label class="block text-(--ui-text-muted) text-sm mb-2">备注（可选）</label>
                 <textarea
                   v-model="form.remark"
                   placeholder="添加一些说明..."
                   rows="2"
-                  class="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-purple-400 resize-none"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) resize-none"
                 />
               </div>
 
@@ -289,9 +291,9 @@ function formatTypes(types: ModelType[]) {
                 <input
                   v-model="form.isDefault"
                   type="checkbox"
-                  class="w-5 h-5 rounded bg-white/5 border-white/20 text-purple-500 focus:ring-purple-400"
+                  class="w-5 h-5 rounded bg-(--ui-bg-muted) border-(--ui-border) text-(--ui-primary) focus:ring-(--ui-primary)"
                 />
-                <span class="text-white/70">设为默认配置</span>
+                <span class="text-(--ui-text-muted)">设为默认配置</span>
               </label>
 
               <!-- 提交按钮 -->
@@ -299,7 +301,7 @@ function formatTypes(types: ModelType[]) {
                 <UButton type="submit" class="flex-1">
                   {{ editingConfig ? '保存' : '创建' }}
                 </UButton>
-                <UButton type="button" variant="outline" color="neutral" class="flex-1 border-white/20 text-white/70 hover:bg-white/10" @click="showForm = false">
+                <UButton type="button" variant="outline" color="neutral" class="flex-1" @click="showForm = false">
                   取消
                 </UButton>
               </div>

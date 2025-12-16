@@ -7,6 +7,15 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', 'nuxt-auth-utils'],
   css: ['~/assets/css/main.css'],
 
+  app: {
+    head: {
+      title: 'MJ Studio',
+      meta: [
+        { name: 'description', content: 'Midjourney AI 绘图工作台' },
+      ],
+    },
+  },
+
   // 默认使用 dark 模式
   colorMode: {
     preference: 'dark',

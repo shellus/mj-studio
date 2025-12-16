@@ -119,18 +119,18 @@ function applyTemplate(template: string) {
 </script>
 
 <template>
-  <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
     <!-- 上游选择 -->
     <div class="mb-4">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-white/80 text-sm font-medium">选择上游</h3>
-        <NuxtLink to="/settings" class="text-purple-400 text-xs hover:text-purple-300">
+        <h3 class="text-(--ui-text-toned) text-sm font-medium">选择上游</h3>
+        <NuxtLink to="/settings" class="text-(--ui-primary) text-xs hover:opacity-80">
           管理配置
         </NuxtLink>
       </div>
 
-      <div v-if="modelConfigs.length === 0" class="p-4 rounded-lg bg-white/5 border border-white/10 text-center">
-        <p class="text-white/50 text-sm mb-3">还没有模型配置</p>
+      <div v-if="modelConfigs.length === 0" class="p-4 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-center">
+        <p class="text-(--ui-text-muted) text-sm mb-3">还没有模型配置</p>
         <NuxtLink to="/settings">
           <UButton size="sm">添加配置</UButton>
         </NuxtLink>
@@ -143,8 +143,8 @@ function applyTemplate(template: string) {
           :class="[
             'w-full p-3 rounded-xl border-2 transition-all text-left',
             selectedConfigId === config.id
-              ? 'border-purple-400 bg-purple-500/10'
-              : 'border-white/10 hover:border-white/30 bg-white/5'
+              ? 'border-(--ui-primary) bg-(--ui-primary)/10'
+              : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
           ]"
           @click="selectedConfigId = config.id"
         >
@@ -152,9 +152,9 @@ function applyTemplate(template: string) {
             <div class="flex items-center gap-2">
               <UIcon
                 name="i-heroicons-server"
-                :class="['w-4 h-4', selectedConfigId === config.id ? 'text-purple-400' : 'text-white/60']"
+                :class="['w-4 h-4', selectedConfigId === config.id ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
               />
-              <span :class="['font-medium text-sm', selectedConfigId === config.id ? 'text-white' : 'text-white/70']">
+              <span :class="['font-medium text-sm', selectedConfigId === config.id ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
                 {{ config.name }}
               </span>
             </div>
@@ -164,21 +164,21 @@ function applyTemplate(template: string) {
                 :key="t"
                 :class="[
                   'px-1.5 py-0.5 rounded text-xs',
-                  t === 'midjourney' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'
+                  t === 'midjourney' ? 'bg-(--ui-primary)/20 text-(--ui-primary)' : 'bg-(--ui-secondary)/20 text-(--ui-secondary)'
                 ]"
               >
                 {{ t === 'midjourney' ? 'MJ' : 'Gemini' }}
               </span>
             </div>
           </div>
-          <p v-if="config.remark" class="text-white/40 text-xs mt-1 pl-6">{{ config.remark }}</p>
+          <p v-if="config.remark" class="text-(--ui-text-dimmed) text-xs mt-1 pl-6">{{ config.remark }}</p>
         </button>
       </div>
     </div>
 
     <!-- 模型类型选择（仅当上游支持多个类型时显示） -->
     <div v-if="selectedConfig && selectedConfig.types.length > 1" class="mb-4">
-      <h3 class="text-white/80 text-sm font-medium mb-3">选择模型</h3>
+      <h3 class="text-(--ui-text-toned) text-sm font-medium mb-3">选择模型</h3>
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="t in selectedConfig.types"
@@ -186,16 +186,16 @@ function applyTemplate(template: string) {
           :class="[
             'p-2 rounded-lg border-2 transition-all text-center flex items-center justify-center gap-2',
             selectedModelType === t
-              ? 'border-purple-400 bg-purple-500/10'
-              : 'border-white/10 hover:border-white/30 bg-white/5'
+              ? 'border-(--ui-primary) bg-(--ui-primary)/10'
+              : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
           ]"
           @click="selectedModelType = t"
         >
           <UIcon
             :name="t === 'midjourney' ? 'i-heroicons-sparkles' : 'i-heroicons-cpu-chip'"
-            :class="['w-4 h-4', selectedModelType === t ? 'text-purple-400' : 'text-white/60']"
+            :class="['w-4 h-4', selectedModelType === t ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
           />
-          <span :class="['text-sm', selectedModelType === t ? 'text-white' : 'text-white/70']">
+          <span :class="['text-sm', selectedModelType === t ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
             {{ t === 'midjourney' ? 'Midjourney' : 'Gemini' }}
           </span>
         </button>
@@ -205,8 +205,8 @@ function applyTemplate(template: string) {
     <!-- 参考图上传区 (仅Midjourney支持) -->
     <div v-if="selectedModelType === 'midjourney'" class="mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-white/80 text-sm font-medium">参考图 (可选，最多3张)</h3>
-        <span class="text-white/40 text-xs">支持 JPG、PNG，单张最大10MB</span>
+        <h3 class="text-(--ui-text-toned) text-sm font-medium">参考图 (可选，最多3张)</h3>
+        <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，单张最大10MB</span>
       </div>
 
       <div class="flex gap-3 flex-wrap">
@@ -228,10 +228,10 @@ function applyTemplate(template: string) {
         <!-- 上传按钮 -->
         <label
           v-if="referenceImages.length < 3"
-          class="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 hover:border-purple-400 transition-colors flex flex-col items-center justify-center cursor-pointer"
+          class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
         >
-          <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-white/40 mb-1" />
-          <span class="text-white/40 text-xs">上传</span>
+          <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
+          <span class="text-(--ui-text-dimmed) text-xs">上传</span>
           <input
             type="file"
             accept="image/png,image/jpeg"
@@ -246,7 +246,7 @@ function applyTemplate(template: string) {
     <!-- 提示词输入 -->
     <div class="mb-4">
       <div class="mb-3">
-        <h3 class="text-white/80 text-sm font-medium mb-2">描述你想要的图片</h3>
+        <h3 class="text-(--ui-text-toned) text-sm font-medium mb-2">描述你想要的图片</h3>
         <div class="flex flex-wrap gap-1">
           <UButton
             v-for="tpl in templates"
@@ -266,9 +266,6 @@ function applyTemplate(template: string) {
         placeholder="例如：一只可爱的小猫咪坐在花园里，油画风格，高清，细节丰富"
         :rows="4"
         class="w-full"
-        :ui="{
-          base: 'bg-white/5 border-white/10 text-white placeholder-white/40',
-        }"
       />
     </div>
 

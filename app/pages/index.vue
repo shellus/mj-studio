@@ -62,24 +62,24 @@ onUnmounted(() => {
       <!-- 头部 -->
       <header class="mb-8 flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-white mb-2">
+          <h1 class="text-3xl font-bold text-(--ui-text) mb-2">
             <span class="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               MJ Studio
             </span>
           </h1>
-          <p class="text-white/60">Midjourney AI 绘图工作台</p>
+          <p class="text-(--ui-text-muted)">Midjourney AI 绘图工作台</p>
         </div>
 
         <!-- 用户信息 -->
         <div class="flex items-center gap-4">
           <!-- 颜色模式切换 -->
           <UColorModeButton />
-          <NuxtLink to="/settings" class="text-white/60 hover:text-white transition-colors">
+          <NuxtLink to="/settings" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors">
             <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
           </NuxtLink>
           <div class="text-right">
-            <p class="text-white text-sm">{{ user?.name || user?.email }}</p>
-            <p class="text-white/40 text-xs">{{ user?.email }}</p>
+            <p class="text-(--ui-text) text-sm">{{ user?.name || user?.email }}</p>
+            <p class="text-(--ui-text-dimmed) text-xs">{{ user?.email }}</p>
           </div>
           <UButton
             variant="ghost"
