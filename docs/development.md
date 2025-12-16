@@ -46,7 +46,7 @@
 |---------|-----------|---------|-----------|---------|
 | MJ-Proxy | `POST /mj/submit/imagine` | `POST /mj/submit/imagine` | Base64 | URL |
 | Gemini | `POST /v1beta/models/{model}:generateContent` | 同左 | Base64 (inlineData) | Base64 |
-| DALL-E | `POST /v1/images/generations` | `POST /v1/images/edits` | Base64 (FormData) | URL / Base64 |
+| DALL-E | `POST /v1/images/generations` | `POST /v1/images/generations` | Base64 (image字段) | URL / Base64 |
 | OpenAI Chat | `POST /v1/chat/completions` | 同左 | Base64 (image_url) | URL (从content解析) |
 
 ### MJ-Proxy 格式
@@ -67,8 +67,9 @@
 ### DALL-E 格式
 
 兼容 OpenAI Images API：
-- `POST /v1/images/generations` - 文生图，返回 `data[].url` 或 `data[].b64_json`
-- `POST /v1/images/edits` - 垫图，使用 `multipart/form-data` 上传参考图
+- `POST /v1/images/generations` - 文生图/垫图
+- 垫图时参考图通过 `image` 字段传递 (Base64)
+- 返回 `data[].url` 或 `data[].b64_json`
 
 ### OpenAI Chat 格式
 

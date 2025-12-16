@@ -33,6 +33,15 @@ const MODEL_TYPE_ICONS: Record<ModelType, string> = {
   'grok-image': 'i-heroicons-rocket-launch',
 }
 
+// 模型使用提示
+const MODEL_TYPE_HINTS: Partial<Record<ModelType, string>> = {
+  'dalle': 'DALL-E 3 API 不支持垫图功能',
+  'grok-image': '提示词需包含明确的生成指令，如"为我生成图片：<描述>"',
+}
+
+// 不支持垫图的模型
+const MODELS_WITHOUT_REF_IMAGE: ModelType[] = ['dalle']
+
 const props = defineProps<{
   modelConfigs: ModelConfig[]
 }>()
@@ -54,7 +63,7 @@ const selectedConfig = computed(() => {
 
 // 选中的模型类型配置（通过 modelName 查找）
 const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
-  if (!selectedConfig.value || !selectedModelName.value) return undefined
+  if (!selectedConfig.value || selectedModelName.value === null) return undefined
   return selectedConfig.value.modelTypeConfigs?.find(
     (mtc: ModelTypeConfig) => mtc.modelName === selectedModelName.value
   )
@@ -66,9 +75,18 @@ const availableModelTypes = computed((): ModelTypeConfig[] => {
   return selectedConfig.value.modelTypeConfigs
 })
 
-// 是否支持垫图（所有格式都支持）
+// 是否支持垫图（部分模型不支持）
 const supportsReferenceImages = computed(() => {
-  return !!selectedModelTypeConfig.value?.apiFormat
+  if (!selectedModelTypeConfig.value?.apiFormat) return false
+  // DALL-E 3 不支持垫图
+  if (MODELS_WITHOUT_REF_IMAGE.includes(selectedModelTypeConfig.value.modelType)) return false
+  return true
+})
+
+// 当前模型的使用提示
+const currentModelHint = computed(() => {
+  if (!selectedModelTypeConfig.value) return undefined
+  return MODEL_TYPE_HINTS[selectedModelTypeConfig.value.modelType]
 })
 
 // 当配置列表变化时，选择默认配置
@@ -132,7 +150,7 @@ async function handleSubmit() {
     return
   }
 
-  if (!selectedConfigId.value || !selectedModelName.value || !selectedModelTypeConfig.value) {
+  if (!selectedConfigId.value || selectedModelName.value === null || !selectedModelTypeConfig.value) {
     alert('请先选择模型配置')
     return
   }
@@ -234,6 +252,14 @@ function applyTemplate(template: string) {
       </div>
     </div>
 
+    <!-- 模型使用提示 -->
+    <div v-if="currentModelHint" class="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+      <div class="flex items-start gap-2">
+        <UIcon name="i-heroicons-light-bulb" class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+        <p class="text-sm text-amber-600 dark:text-amber-400">{{ currentModelHint }}</p>
+      </div>
+    </div>
+
     <!-- 参考图上传区 (仅MJ-Proxy格式支持) -->
     <div v-if="supportsReferenceImages" class="mb-6">
       <div class="flex items-center justify-between mb-3">
@@ -306,7 +332,7 @@ function applyTemplate(template: string) {
       block
       size="lg"
       :loading="isSubmitting"
-      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || !selectedModelName || modelConfigs.length === 0"
+      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || selectedModelName === null || modelConfigs.length === 0"
       class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
       @click="handleSubmit"
     >

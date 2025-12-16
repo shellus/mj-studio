@@ -78,7 +78,8 @@ MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面
 | **Midjourney** | MJ-Proxy | ✅ | ✅ | ✅ |
 | **Gemini** | Gemini API | ✅ | ✅ | - |
 | **Flux** | DALL-E API | ✅ | ✅ | - |
-| **DALL-E** | DALL-E API | ✅ | ✅ | - |
+| **DALL-E** | DALL-E API | ✅ | ❌ | - |
+| **豆包** | DALL-E API | ✅ | ✅ | - |
 | **GPT-4o Image** | OpenAI Chat | ✅ | ✅ | - |
 | **Grok Image** | OpenAI Chat | ✅ | ✅ | - |
 

@@ -195,9 +195,11 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       }
     } catch (error: any) {
       console.error('[OpenAI Chat] 垫图API错误:', error)
-      // 降级为普通文生图
-      console.log('[OpenAI Chat] 垫图失败，降级为普通文生图')
-      return generateImage(prompt, modelName)
+      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
+      return {
+        success: false,
+        error: errorMessage,
+      }
     }
   }
 

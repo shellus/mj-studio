@@ -1,20 +1,22 @@
-# Dependencies
+# 依赖
 node_modules/
 
-# Build output
+# 构建输出
 .nuxt/
 .output/
 dist/
 
-# Environment
+# 环境变量
 .env
 .env.*
 !.env.example
 
-# Database
+# 数据目录（数据库、用户数据）
 data/
 *.db
-*.sqlite
+
+# 用户上传的图片
+uploads/
 
 # IDE
 .idea/
@@ -22,23 +24,16 @@ data/
 *.swp
 *.swo
 
-# OS
+# 系统文件
 .DS_Store
 Thumbs.db
 
-# Logs
+# 日志
 *.log
-npm-debug.log*
-pnpm-debug.log*
 
-# Cache
+# 缓存
 .cache/
 node-compile-cache/
 
-# Test
-coverage/
-
-# Misc
-*.png
-*.jpg
-*.jpeg
+# 临时文件
+todo.md

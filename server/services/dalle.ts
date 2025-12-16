@@ -63,51 +63,34 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
   }
 
-  // 垫图（图片编辑）- 使用 multipart/form-data 格式
-  // POST /v1/images/edits
+  // 垫图 - 使用 /v1/images/generations 接口传递 image 参数
+  // 大多数中转站支持在 generations 接口中通过 image 参数传递参考图
   async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3'): Promise<GenerateResult> {
     if (images.length === 0) {
       return generateImage(prompt, modelName)
     }
 
     try {
-      console.log('[DALL-E] 垫图请求URL:', `${baseUrl}/v1/images/edits`)
+      console.log('[DALL-E] 垫图请求URL:', `${baseUrl}/v1/images/generations`)
       console.log('[DALL-E] 模型:', modelName)
+      console.log('[DALL-E] 参考图数量:', images.length)
 
-      // 取第一张参考图，转换 base64 为 Blob
+      // 取第一张参考图，提取 base64 数据
       const imageDataUrl = images[0]
-      const base64Match = imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/)
+      const base64Match = imageDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+      const imageBase64 = base64Match ? base64Match[1] : imageDataUrl
 
-      let imageBlob: Blob
-      let mimeType = 'image/png'
-
-      if (base64Match) {
-        mimeType = `image/${base64Match[1]}`
-        const base64Data = base64Match[2]
-        const binaryData = Buffer.from(base64Data, 'base64')
-        imageBlob = new Blob([binaryData], { type: mimeType })
-      } else {
-        // 假设是纯 base64
-        const binaryData = Buffer.from(imageDataUrl, 'base64')
-        imageBlob = new Blob([binaryData], { type: mimeType })
-      }
-
-      // 构建 FormData
-      const formData = new FormData()
-      const ext = mimeType.split('/')[1] || 'png'
-      formData.append('image', imageBlob, `image.${ext}`)
-      formData.append('prompt', prompt)
-      formData.append('model', modelName)
-      formData.append('n', '1')
-      formData.append('response_format', 'b64_json')
-
-      const response = await $fetch<DalleResponse>(`${baseUrl}/v1/images/edits`, {
+      const response = await $fetch<DalleResponse>(`${baseUrl}/v1/images/generations`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          // 不设置 Content-Type，让 fetch 自动设置 multipart/form-data boundary
+        headers,
+        body: {
+          model: modelName,
+          prompt,
+          image: imageBase64, // 参考图 base64
+          n: 1,
+          size: '1024x1024',
+          response_format: 'url',
         },
-        body: formData,
       })
 
       console.log('[DALL-E] 垫图响应:', JSON.stringify(response, null, 2).slice(0, 500))
@@ -127,10 +110,11 @@ export function createDalleService(baseUrl: string, apiKey: string) {
       }
     } catch (error: any) {
       console.error('[DALL-E] 垫图API错误:', error)
-      const errorMessage = error.data?.error?.message || error.message || '调用DALL-E编辑API失败'
-      // 如果垫图失败，降级为普通文生图
-      console.log('[DALL-E] 垫图失败，降级为普通文生图，错误:', errorMessage)
-      return generateImage(prompt, modelName)
+      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
+      return {
+        success: false,
+        error: errorMessage,
+      }
     }
   }
 

@@ -139,19 +139,50 @@ const duration = computed(() => {
 // 按钮列表（处理null）
 const buttons = computed(() => props.task.buttons ?? [])
 
-// 解析按钮类型
-function getButtonInfo(customId: string, label: string, emoji: string) {
-  if (label.startsWith('U')) {
-    return { type: 'upscale', variant: 'solid' as const, color: 'primary' as const }
+// 下拉菜单项（分组：放大、变体、重绘）
+const dropdownItems = computed(() => {
+  const items: any[][] = []
+
+  // 放大 U1-U4
+  const upscaleButtons = buttons.value.filter(btn => btn.label.startsWith('U'))
+  if (upscaleButtons.length > 0) {
+    items.push([
+      { label: '放大', type: 'label' },
+      ...upscaleButtons.map(btn => ({
+        label: btn.label,
+        icon: 'i-heroicons-arrows-pointing-out',
+        click: () => handleAction(btn.customId)
+      }))
+    ])
   }
-  if (label.startsWith('V')) {
-    return { type: 'variation', variant: 'outline' as const, color: 'secondary' as const }
+
+  // 变体 V1-V4
+  const variationButtons = buttons.value.filter(btn => btn.label.startsWith('V'))
+  if (variationButtons.length > 0) {
+    items.push([
+      { label: '变体', type: 'label' },
+      ...variationButtons.map(btn => ({
+        label: btn.label,
+        icon: 'i-heroicons-sparkles',
+        click: () => handleAction(btn.customId)
+      }))
+    ])
   }
-  if (emoji === '🔄') {
-    return { type: 'reroll', variant: 'ghost' as const, color: 'neutral' as const }
+
+  // 重绘
+  const rerollButton = buttons.value.find(btn => btn.emoji === '🔄')
+  if (rerollButton) {
+    items.push([
+      {
+        label: '重绘',
+        icon: 'i-heroicons-arrow-path',
+        click: () => handleAction(rerollButton.customId)
+      }
+    ])
   }
-  return { type: 'other', variant: 'ghost' as const, color: 'neutral' as const }
-}
+
+  return items
+})
 
 // 执行按钮动作
 async function handleAction(customId: string) {
@@ -275,6 +306,16 @@ function downloadImage() {
         >
           <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 text-white" />
         </button>
+        <!-- MJ操作按钮 -->
+        <UDropdownMenu v-if="modelInfo.type === 'midjourney' && buttons.length > 0" :items="dropdownItems">
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+            title="MJ操作"
+            :disabled="isActioning"
+          >
+            <UIcon name="i-heroicons-squares-plus" class="w-4 h-4 text-white" />
+          </button>
+        </UDropdownMenu>
         <!-- 重试按钮 -->
         <button
           v-if="task.status === 'failed'"
@@ -331,20 +372,6 @@ function downloadImage() {
         <span class="text-(--ui-text-dimmed)">提示词：</span>{{ task.prompt || '图片混合' }}
       </p>
 
-      <!-- 操作按钮 (仅MJ任务有) -->
-      <div v-if="modelInfo.type === 'midjourney' && buttons.length > 0" class="flex flex-wrap gap-2">
-        <UButton
-          v-for="btn in buttons.slice(0, 9)"
-          :key="btn.customId"
-          size="xs"
-          :variant="getButtonInfo(btn.customId, btn.label, btn.emoji).variant"
-          :color="getButtonInfo(btn.customId, btn.label, btn.emoji).color"
-          :disabled="isActioning"
-          @click="handleAction(btn.customId)"
-        >
-          {{ btn.emoji || btn.label }}
-        </UButton>
-      </div>
     </div>
 
     <!-- 删除确认 Modal -->
