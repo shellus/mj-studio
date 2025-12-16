@@ -39,6 +39,13 @@ async function copyTaskId() {
 // 图片模糊状态（防窥屏）- 从任务数据初始化
 const isBlurred = ref(props.task.isBlurred ?? true)
 
+// 监听外部状态变化（用于批量切换）
+watch(() => props.task.isBlurred, (newVal) => {
+  if (newVal !== undefined) {
+    isBlurred.value = newVal
+  }
+})
+
 // 切换模糊状态并同步到后端
 async function toggleBlur(blur: boolean) {
   isBlurred.value = blur
@@ -76,6 +83,7 @@ const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
   'gemini': { label: 'Gemini', color: 'bg-blue-500/80' },
   'flux': { label: 'Flux', color: 'bg-orange-500/80' },
   'dalle': { label: 'DALL-E', color: 'bg-green-500/80' },
+  'doubao': { label: '豆包', color: 'bg-cyan-500/80' },
   'gpt4o-image': { label: 'GPT-4o', color: 'bg-emerald-500/80' },
   'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
 }
@@ -222,7 +230,7 @@ function downloadImage() {
           />
           <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
           <!-- 失败时显示错误信息 -->
-          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed break-all">
+          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed line-clamp-4 px-2">
             {{ task.error }}
           </p>
         </div>
@@ -375,6 +383,10 @@ function downloadImage() {
             <div class="flex justify-between">
               <span class="text-(--ui-text-muted)">请求格式</span>
               <span class="text-(--ui-text)">{{ API_FORMAT_DISPLAY[task.apiFormat] || task.apiFormat }}</span>
+            </div>
+            <div v-if="task.modelName" class="flex justify-between">
+              <span class="text-(--ui-text-muted)">模型名称</span>
+              <span class="text-(--ui-text) font-mono text-xs">{{ task.modelName }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-(--ui-text-muted)">任务类型</span>

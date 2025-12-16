@@ -3,7 +3,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
@@ -19,6 +19,7 @@ const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
   'gemini': ['gemini', 'openai-chat'],
   'flux': ['dalle'],
   'dalle': ['dalle'],
+  'doubao': ['dalle'],
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
 }
@@ -29,6 +30,7 @@ const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'gemini': 'gemini-2.5-flash-image',
   'flux': 'flux-dev',
   'dalle': 'dall-e-3',
+  'doubao': 'doubao-seedream-3-0-t2i-250415',
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
 }
@@ -39,6 +41,7 @@ const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
   'gemini': 15,
   'flux': 20,
   'dalle': 15,
+  'doubao': 15,
   'gpt4o-image': 30,
   'grok-image': 30,
 }
@@ -49,6 +52,7 @@ const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'gemini': 'Gemini',
   'flux': 'Flux',
   'dalle': 'DALL-E',
+  'doubao': '豆包',
   'gpt4o-image': 'GPT-4o Image',
   'grok-image': 'Grok Image',
 }
@@ -78,7 +82,7 @@ const form = ref({
 })
 
 // 可选的模型类型列表
-const modelTypeOptions: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'gpt4o-image', 'grok-image']
+const modelTypeOptions: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image']
 
 // 获取可用的请求格式
 function getAvailableFormats(modelType: ModelType): ApiFormat[] {

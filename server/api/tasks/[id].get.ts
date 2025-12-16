@@ -31,15 +31,17 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
-  // 获取任务
-  let task = await taskService.getTask(taskId)
+  // 获取任务（包含模型配置）
+  let result = await taskService.getTaskWithConfig(taskId)
 
-  if (!task) {
+  if (!result) {
     throw createError({
       statusCode: 404,
       message: '任务不存在',
     })
   }
+
+  let { task, config } = result
 
   // 验证任务属于当前用户
   if (task.userId !== user.id) {
@@ -54,5 +56,8 @@ export default defineEventHandler(async (event) => {
     task = await taskService.syncTaskStatus(taskId) ?? task
   }
 
-  return task
+  return {
+    ...task,
+    modelConfig: config,
+  }
 })

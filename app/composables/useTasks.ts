@@ -1,6 +1,6 @@
 // 任务状态管理
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 // 模型类型配置

@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 验证模型类型
-  const validTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'gpt4o-image', 'grok-image']
+  const validTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image']
   if (!modelType || !validTypes.includes(modelType)) {
     throw createError({
       statusCode: 400,

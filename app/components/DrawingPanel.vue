@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
@@ -17,6 +17,7 @@ const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'gemini': 'Gemini',
   'flux': 'Flux',
   'dalle': 'DALL-E',
+  'doubao': '豆包',
   'gpt4o-image': 'GPT-4o Image',
   'grok-image': 'Grok Image',
 }
@@ -27,6 +28,7 @@ const MODEL_TYPE_ICONS: Record<ModelType, string> = {
   'gemini': 'i-heroicons-cpu-chip',
   'flux': 'i-heroicons-bolt',
   'dalle': 'i-heroicons-photo',
+  'doubao': 'i-heroicons-fire',
   'gpt4o-image': 'i-heroicons-chat-bubble-left-right',
   'grok-image': 'i-heroicons-rocket-launch',
 }
@@ -43,18 +45,18 @@ const prompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedConfigId = ref<number | null>(null)
-const selectedModelType = ref<ModelType | null>(null)
+const selectedModelName = ref<string | null>(null)  // 用 modelName 唯一标识选中的模型
 
 // 选中的模型配置
 const selectedConfig = computed(() => {
   return props.modelConfigs.find(c => c.id === selectedConfigId.value)
 })
 
-// 选中的模型类型配置
+// 选中的模型类型配置（通过 modelName 查找）
 const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
-  if (!selectedConfig.value || !selectedModelType.value) return undefined
+  if (!selectedConfig.value || !selectedModelName.value) return undefined
   return selectedConfig.value.modelTypeConfigs?.find(
-    (mtc: ModelTypeConfig) => mtc.modelType === selectedModelType.value
+    (mtc: ModelTypeConfig) => mtc.modelName === selectedModelName.value
   )
 })
 
@@ -74,21 +76,21 @@ watch(() => props.modelConfigs, (configs) => {
   if (configs.length > 0 && !selectedConfigId.value) {
     const defaultConfig = configs.find(c => c.isDefault) || configs[0]
     selectedConfigId.value = defaultConfig.id
-    // 默认选择第一个支持的模型类型
+    // 默认选择第一个支持的模型
     if (defaultConfig.modelTypeConfigs && defaultConfig.modelTypeConfigs.length > 0) {
-      selectedModelType.value = defaultConfig.modelTypeConfigs[0].modelType
+      selectedModelName.value = defaultConfig.modelTypeConfigs[0].modelName
     }
   }
 }, { immediate: true })
 
-// 当配置变化时，更新模型类型选择
+// 当配置变化时，更新模型选择
 watch(selectedConfigId, (newId) => {
   const config = props.modelConfigs.find(c => c.id === newId)
   if (config?.modelTypeConfigs && config.modelTypeConfigs.length > 0) {
-    // 如果当前选择的模型类型不在新配置支持的列表中，切换到第一个
-    const supportedTypes = config.modelTypeConfigs.map((mtc: ModelTypeConfig) => mtc.modelType)
-    if (!selectedModelType.value || !supportedTypes.includes(selectedModelType.value)) {
-      selectedModelType.value = config.modelTypeConfigs[0].modelType
+    // 如果当前选择的模型不在新配置支持的列表中，切换到第一个
+    const supportedNames = config.modelTypeConfigs.map((mtc: ModelTypeConfig) => mtc.modelName)
+    if (!selectedModelName.value || !supportedNames.includes(selectedModelName.value)) {
+      selectedModelName.value = config.modelTypeConfigs[0].modelName
     }
   }
 })
@@ -130,7 +132,7 @@ async function handleSubmit() {
     return
   }
 
-  if (!selectedConfigId.value || !selectedModelType.value || !selectedModelTypeConfig.value) {
+  if (!selectedConfigId.value || !selectedModelName.value || !selectedModelTypeConfig.value) {
     alert('请先选择模型配置')
     return
   }
@@ -148,7 +150,7 @@ async function handleSubmit() {
       prompt.value,
       referenceImages.value,
       selectedConfigId.value,
-      selectedModelType.value,
+      selectedModelTypeConfig.value.modelType,
       selectedModelTypeConfig.value.apiFormat,
       selectedModelTypeConfig.value.modelName
     )
@@ -194,43 +196,17 @@ function applyTemplate(template: string) {
         </NuxtLink>
       </div>
 
-      <div v-else class="space-y-2">
-        <button
-          v-for="config in modelConfigs"
-          :key="config.id"
-          :class="[
-            'w-full p-3 rounded-xl border-2 transition-all text-left',
-            selectedConfigId === config.id
-              ? 'border-(--ui-primary) bg-(--ui-primary)/10'
-              : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
-          ]"
-          @click="selectedConfigId = config.id"
+      <div v-else class="relative">
+        <UIcon name="i-heroicons-server" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--ui-text-dimmed) pointer-events-none" />
+        <select
+          v-model="selectedConfigId"
+          class="w-full pl-10 pr-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) focus:outline-none focus:border-(--ui-primary) appearance-none cursor-pointer"
         >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UIcon
-                name="i-heroicons-server"
-                :class="['w-4 h-4', selectedConfigId === config.id ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
-              />
-              <span :class="['font-medium text-sm', selectedConfigId === config.id ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
-                {{ config.name }}
-              </span>
-            </div>
-            <div class="flex gap-1">
-              <span
-                v-for="mtc in (config.modelTypeConfigs || [])"
-                :key="mtc.modelType"
-                :class="[
-                  'px-1.5 py-0.5 rounded text-xs',
-                  'bg-(--ui-primary)/20 text-(--ui-primary)'
-                ]"
-              >
-                {{ MODEL_TYPE_LABELS[mtc.modelType as ModelType] || mtc.modelType }}
-              </span>
-            </div>
-          </div>
-          <p v-if="config.remark" class="text-(--ui-text-dimmed) text-xs mt-1 pl-6">{{ config.remark }}</p>
-        </button>
+          <option v-for="config in modelConfigs" :key="config.id" :value="config.id">
+            {{ config.name }}
+          </option>
+        </select>
+        <UIcon name="i-heroicons-chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--ui-text-dimmed) pointer-events-none" />
       </div>
     </div>
 
@@ -240,20 +216,20 @@ function applyTemplate(template: string) {
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="mtc in availableModelTypes"
-          :key="mtc.modelType"
+          :key="mtc.modelName"
           :class="[
             'p-2 rounded-lg border-2 transition-all text-center flex items-center justify-center gap-2',
-            selectedModelType === mtc.modelType
+            selectedModelName === mtc.modelName
               ? 'border-(--ui-primary) bg-(--ui-primary)/10'
               : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
           ]"
-          @click="selectedModelType = mtc.modelType"
+          @click="selectedModelName = mtc.modelName"
         >
           <UIcon
             :name="MODEL_TYPE_ICONS[mtc.modelType] || 'i-heroicons-sparkles'"
-            :class="['w-4 h-4', selectedModelType === mtc.modelType ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
+            :class="['w-4 h-4', selectedModelName === mtc.modelName ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
           />
-          <span :class="['text-sm', selectedModelType === mtc.modelType ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
+          <span :class="['text-sm', selectedModelName === mtc.modelName ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
             {{ MODEL_TYPE_LABELS[mtc.modelType] || mtc.modelType }}
           </span>
         </button>
@@ -332,7 +308,7 @@ function applyTemplate(template: string) {
       block
       size="lg"
       :loading="isSubmitting"
-      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || !selectedModelType || modelConfigs.length === 0"
+      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || !selectedModelName || modelConfigs.length === 0"
       class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
       @click="handleSubmit"
     >

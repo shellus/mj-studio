@@ -13,7 +13,7 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
 // 支持的模型类型
-export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
 
 // 支持的请求格式
 export type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
@@ -32,6 +32,7 @@ export const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
   'gemini': ['gemini', 'openai-chat'],
   'flux': ['dalle'],
   'dalle': ['dalle'],
+  'doubao': ['dalle'],
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
 }
@@ -42,6 +43,7 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'gemini': 'gemini-2.5-flash-image',
   'flux': 'flux-dev',
   'dalle': 'dall-e-3',
+  'doubao': 'doubao-seedream-3-0-t2i-250415',
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
 }
@@ -52,6 +54,7 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
   'gemini': 15,
   'flux': 20,
   'dalle': 15,
+  'doubao': 15,
   'gpt4o-image': 30,
   'grok-image': 30,
 }
