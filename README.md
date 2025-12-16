@@ -8,25 +8,6 @@
 
 MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面使用多个 AI 图像生成服务。支持用户自定义上游 API 配置，适合个人使用或小团队部署。
 
-## 运行原理
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
-│   浏览器     │────▶│  Nuxt 服务   │────▶│  上游 API 服务       │
-│  (Vue SPA)  │◀────│  (Nitro)    │◀────│  (MJ/Gemini 中转站)  │
-└─────────────┘     └──────┬──────┘     └─────────────────────┘
-                          │
-                    ┌─────▼─────┐
-                    │  SQLite   │
-                    │  数据库    │
-                    └───────────┘
-```
-
-1. **前端**：Vue 3 SPA，提交绘图请求，轮询任务状态
-2. **后端**：Nitro 服务器，管理任务队列，代理上游 API 请求
-3. **数据库**：SQLite 存储用户、任务、模型配置
-4. **上游服务**：兼容 MJ-Proxy API 格式的中转站，或 Google Gemini API
-
 ## 核心概念
 
 ### 上游（Upstream）
@@ -35,7 +16,7 @@ MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面
 
 | 字段 | 数据库字段 | 说明 |
 |-----|-----------|------|
-| 名称 | `name` | 用户自定义的标识名，如"我的MJ"、"云雾API" |
+| 名称 | `name` | 用户自定义的标识名，如"特价中转站"、"Grok官方API" |
 | 请求地址 | `base_url` | API 的基础 URL，如 `https://api.example.com` |
 | API 密钥 | `api_key` | 用于鉴权的密钥 |
 
@@ -83,22 +64,14 @@ MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面
 
 ## 主要功能
 
-### 图像生成
 - **文生图**：输入提示词生成图片
-- **垫图**（MJ）：上传参考图 + 提示词生成
+- **垫图**：上传参考图 + 提示词生成
 - **图片混合**（MJ）：多张图片混合生成新图
+- **MJ 专属操作**：U1-U4 放大、V1-V4 变体、重绘
+- **任务管理**：实时状态轮询、失败重试、耗时统计
+- **用户系统**：邮箱密码登录/注册、独立配置管理
 
-### 任务管理
-- 任务状态实时轮询（等待中/提交中/生成中/完成/失败）
-- 失败任务一键重试
-- 显示创建时间和耗时
-
-### MJ 专属功能
-- U1-U4 放大按钮
-- V1-V4 变体按钮
-- 重绘按钮
-
-### 多模型支持
+## 多模型支持
 
 | 模型 | 请求格式 | 文生图 | 垫图 | V/U 操作 |
 |-----|---------|-------|-----|---------|
@@ -109,16 +82,19 @@ MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面
 | **GPT-4o Image** | OpenAI Chat | ✅ | ✅ | - |
 | **Grok Image** | OpenAI Chat | ✅ | ✅ | - |
 
-### 用户系统
-- 邮箱密码登录/注册
-- 用户级别的模型配置管理
-- 每个用户独立的任务列表
-
 ## 快速开始
 
 ### 环境要求
 - Node.js 20+
 - pnpm
+
+### 环境变量
+
+创建 `.env` 文件：
+
+```env
+NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
+```
 
 ### 安装运行
 
@@ -135,14 +111,6 @@ pnpm dev
 
 访问 http://localhost:3000
 
-### 环境变量
-
-创建 `.env` 文件：
-
-```env
-NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
-```
-
 ## 技术栈
 
 - **框架**：Nuxt 4 + Vue 3
@@ -150,70 +118,6 @@ NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
 - **数据库**：SQLite + Drizzle ORM
 - **认证**：nuxt-auth-utils (Session)
 
-## 目录结构
+## 文档
 
-```
-├── app/
-│   ├── pages/
-│   │   ├── index.vue           # 主页（绘图工作台）
-│   │   ├── login.vue           # 登录页
-│   │   ├── register.vue        # 注册页
-│   │   └── settings.vue        # 模型配置管理
-│   ├── components/
-│   │   ├── DrawingPanel.vue    # 绘图面板（提示词、参考图、模型选择）
-│   │   ├── TaskList.vue        # 任务列表
-│   │   └── TaskCard.vue        # 任务卡片（状态、操作按钮）
-│   ├── composables/
-│   │   ├── useTasks.ts         # 任务状态管理
-│   │   └── useModelConfigs.ts  # 模型配置管理
-│   └── middleware/
-│       └── auth.ts             # 认证中间件
-├── server/
-│   ├── api/
-│   │   ├── auth/               # 认证 API
-│   │   ├── tasks/              # 任务 API
-│   │   └── model-configs/      # 模型配置 API
-│   ├── database/
-│   │   ├── index.ts            # 数据库连接
-│   │   └── schema.ts           # 表结构定义
-│   └── services/
-│       ├── task.ts             # 任务服务（调度）
-│       ├── mj.ts               # MJ-Proxy 格式
-│       ├── gemini.ts           # Gemini 格式
-│       ├── dalle.ts            # DALL-E 格式
-│       ├── openaiChat.ts       # OpenAI Chat 格式
-│       ├── types.ts            # 统一类型定义
-│       └── modelConfig.ts      # 模型配置服务
-├── drizzle.config.ts           # Drizzle 配置
-└── nuxt.config.ts              # Nuxt 配置
-```
-
-## API 兼容性
-
-### MJ-Proxy 格式
-兼容 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy) API：
-- `POST /mj/submit/imagine` - 文生图
-- `POST /mj/submit/blend` - 图片混合
-- `POST /mj/submit/action` - 按钮操作
-- `GET /mj/task/{id}/fetch` - 查询任务
-
-### Gemini 格式
-使用 Google Generative Language API：
-- `POST /v1beta/models/{model}:generateContent`
-
-### DALL-E 格式
-兼容 OpenAI Images API：
-- `POST /v1/images/generations` - 文生图
-- `POST /v1/images/edits` - 垫图编辑
-
-### OpenAI Chat 格式
-兼容 OpenAI Chat Completions API（支持图像生成的模型）：
-- `POST /v1/chat/completions` - 文生图/垫图
-
-## 参考链接
-
-- [Nuxt 4 文档](https://nuxt.com/docs)
-- [Nuxt UI 3 文档](https://ui.nuxt.com/)
-- [Drizzle ORM 文档](https://orm.drizzle.team/)
-- [midjourney-proxy API](https://github.com/novicezk/midjourney-proxy)
-- [Gemini API 图像生成](https://ai.google.dev/gemini-api/docs/image-generation)
+- [开发文档](docs/development.md) - 目录结构、核心概念、API 格式说明

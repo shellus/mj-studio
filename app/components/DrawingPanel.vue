@@ -66,9 +66,9 @@ const availableModelTypes = computed((): ModelTypeConfig[] => {
   return selectedConfig.value.modelTypeConfigs
 })
 
-// 是否支持垫图（MJ-Proxy格式支持）
+// 是否支持垫图（所有格式都支持）
 const supportsReferenceImages = computed(() => {
-  return selectedModelTypeConfig.value?.apiFormat === 'mj-proxy'
+  return !!selectedModelTypeConfig.value?.apiFormat
 })
 
 // 当配置列表变化时，选择默认配置
@@ -154,8 +154,6 @@ async function handleSubmit() {
       selectedModelTypeConfig.value.apiFormat,
       selectedModelTypeConfig.value.modelName
     )
-    // 提交后清空参考图，但保留提示词
-    referenceImages.value = []
   } finally {
     isSubmitting.value = false
   }
