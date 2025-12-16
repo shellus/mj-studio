@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (modelTypeConfigs !== undefined) {
-    const validModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image']
+    const validModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
     const validApiFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
 
     if (!Array.isArray(modelTypeConfigs) || modelTypeConfigs.length === 0) {

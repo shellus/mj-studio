@@ -3,7 +3,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
@@ -22,6 +22,7 @@ const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
   'doubao': ['dalle'],
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
+  'qwen-image': ['openai-chat'],
 }
 
 // 默认模型名称
@@ -33,6 +34,7 @@ const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'doubao': 'doubao-seedream-3-0-t2i-250415',
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
+  'qwen-image': 'qwen-image',
 }
 
 // 默认预计时间（秒）
@@ -44,6 +46,7 @@ const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
   'doubao': 15,
   'gpt4o-image': 30,
   'grok-image': 30,
+  'qwen-image': 30,
 }
 
 // 模型类型显示名称
@@ -55,6 +58,7 @@ const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'doubao': '豆包',
   'gpt4o-image': 'GPT-4o Image',
   'grok-image': 'Grok Image',
+  'qwen-image': '通义万相',
 }
 
 // 请求格式显示名称
@@ -82,7 +86,7 @@ const form = ref({
 })
 
 // 可选的模型类型列表
-const modelTypeOptions: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image']
+const modelTypeOptions: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
 
 // 获取可用的请求格式
 function getAvailableFormats(modelType: ModelType): ApiFormat[] {

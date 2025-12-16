@@ -86,6 +86,7 @@ const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
   'doubao': { label: '豆包', color: 'bg-cyan-500/80' },
   'gpt4o-image': { label: 'GPT-4o', color: 'bg-emerald-500/80' },
   'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
+  'qwen-image': { label: '通义', color: 'bg-violet-500/80' },
 }
 
 // 请求格式显示配置

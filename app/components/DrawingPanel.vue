@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
@@ -20,6 +20,7 @@ const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'doubao': '豆包',
   'gpt4o-image': 'GPT-4o Image',
   'grok-image': 'Grok Image',
+  'qwen-image': '通义万相',
 }
 
 // 模型类型图标
@@ -31,6 +32,7 @@ const MODEL_TYPE_ICONS: Record<ModelType, string> = {
   'doubao': 'i-heroicons-fire',
   'gpt4o-image': 'i-heroicons-chat-bubble-left-right',
   'grok-image': 'i-heroicons-rocket-launch',
+  'qwen-image': 'i-heroicons-cloud',
 }
 
 // 模型使用提示
@@ -163,10 +165,12 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
+    // 如果模型不支持垫图，不传递图片数据
+    const imagesToSubmit = supportsReferenceImages.value ? referenceImages.value : []
     emit(
       'submit',
       prompt.value,
-      referenceImages.value,
+      imagesToSubmit,
       selectedConfigId.value,
       selectedModelTypeConfig.value.modelType,
       selectedModelTypeConfig.value.apiFormat,

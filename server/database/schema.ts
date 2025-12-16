@@ -13,7 +13,7 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
 // 支持的模型类型
-export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image'
+export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 
 // 支持的请求格式
 export type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
@@ -35,6 +35,7 @@ export const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
   'doubao': ['dalle'],
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
+  'qwen-image': ['openai-chat'],
 }
 
 // 默认模型名称
@@ -46,6 +47,7 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'doubao': 'doubao-seedream-3-0-t2i-250415',
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
+  'qwen-image': 'qwen-image',
 }
 
 // 默认预计时间（秒）
@@ -57,6 +59,7 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
   'doubao': 15,
   'gpt4o-image': 30,
   'grok-image': 30,
+  'qwen-image': 30,
 }
 
 // 模型配置表（用户级别）

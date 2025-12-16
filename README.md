@@ -2,7 +2,7 @@
 
 多模型 AI 绘图工作台，支持 Midjourney、Gemini、Flux、DALL-E、GPT-4o、Grok 等图像生成模型。
 
-![预览](preview.png)
+![预览](preview.jpeg)
 
 ## 简介
 
