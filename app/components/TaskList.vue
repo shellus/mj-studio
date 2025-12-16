@@ -1,8 +1,11 @@
 <script setup lang="ts">
-const { tasks, isLoading, executeAction, removeTask, retryTask } = useTasks()
+const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, loadTasks } = useTasks()
 
-// 当前页面是否全部显示（非模糊状态）
-const allRevealed = ref(false)
+// 批量操作loading状态
+const blurLoading = ref(false)
+
+// 计算总页数
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
 async function handleAction(taskId: number, customId: string) {
   const task = tasks.value.find((t) => t.id === taskId)
@@ -23,30 +26,41 @@ async function handleRetry(taskId: number) {
   }
 }
 
-// 切换所有任务的模糊状态
-async function toggleAllBlur() {
-  const newBlurState = allRevealed.value // 当前是显示状态，切换为模糊
-  allRevealed.value = !allRevealed.value
+async function handleDelete(taskId: number) {
+  try {
+    await deleteTask(taskId)
+  } catch (error: any) {
+    alert(error.data?.message || error.message || '删除失败')
+  }
+}
 
-  // 找出所有有图片的任务
-  const tasksWithImage = tasks.value.filter(t => t.imageUrl)
+// 模糊全部
+async function blurAll() {
+  blurLoading.value = true
+  try {
+    await batchBlur(true)
+  } catch (error: any) {
+    alert(error.data?.message || error.message || '操作失败')
+  } finally {
+    blurLoading.value = false
+  }
+}
 
-  // 批量更新
-  await Promise.all(
-    tasksWithImage.map(task =>
-      $fetch(`/api/tasks/${task.id}/blur`, {
-        method: 'PATCH',
-        body: { isBlurred: newBlurState },
-      }).catch(() => {}) // 忽略单个失败
-    )
-  )
+// 取消模糊
+async function unblurAll() {
+  blurLoading.value = true
+  try {
+    await batchBlur(false)
+  } catch (error: any) {
+    alert(error.data?.message || error.message || '操作失败')
+  } finally {
+    blurLoading.value = false
+  }
+}
 
-  // 更新本地状态
-  tasks.value.forEach(task => {
-    if (task.imageUrl) {
-      task.isBlurred = newBlurState
-    }
-  })
+// 切换页面
+function handlePageChange() {
+  loadTasks()
 }
 </script>
 
@@ -55,19 +69,38 @@ async function toggleAllBlur() {
     <div class="flex items-center justify-between">
       <h2 class="text-(--ui-text) text-lg font-medium">生成任务</h2>
       <div class="flex items-center gap-3">
-        <!-- 全局显示/隐藏切换 -->
-        <button
-          v-if="tasks.some(t => t.imageUrl)"
-          class="p-1.5 rounded-lg hover:bg-(--ui-bg-accented) transition-colors"
-          :title="allRevealed ? '隐藏所有图片' : '显示所有图片'"
-          @click="toggleAllBlur"
-        >
-          <UIcon
-            :name="allRevealed ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
-            class="w-5 h-5 text-(--ui-text-dimmed)"
-          />
-        </button>
-        <span class="text-(--ui-text-dimmed) text-sm">{{ tasks.length }} 个任务</span>
+        <!-- 模糊全部/取消模糊 -->
+        <div v-if="tasks.some(t => t.imageUrl)" class="flex items-center gap-1">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :loading="blurLoading"
+            :disabled="blurLoading"
+            @click="blurAll"
+          >
+            <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 mr-1" />
+            模糊全部
+          </UButton>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :loading="blurLoading"
+            :disabled="blurLoading"
+            @click="unblurAll"
+          >
+            <UIcon name="i-heroicons-eye" class="w-4 h-4 mr-1" />
+            显示全部
+          </UButton>
+        </div>
+        <!-- 回收站 -->
+        <NuxtLink to="/trash">
+          <UButton size="xs" variant="ghost" color="neutral">
+            回收站
+          </UButton>
+        </NuxtLink>
+        <span class="text-(--ui-text-dimmed) text-sm">共 {{ total }} 个任务</span>
       </div>
     </div>
 
@@ -83,15 +116,27 @@ async function toggleAllBlur() {
       <p class="text-(--ui-text-dimmed)/70 text-sm mt-1">输入提示词开始创作</p>
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <TaskCard
-        v-for="task in tasks"
-        :key="task.id"
-        :task="task"
-        @action="handleAction(task.id, $event)"
-        @remove="removeTask(task.id)"
-        @retry="handleRetry(task.id)"
-      />
-    </div>
+    <template v-else>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <TaskCard
+          v-for="task in tasks"
+          :key="task.id"
+          :task="task"
+          @action="handleAction(task.id, $event)"
+          @remove="handleDelete(task.id)"
+          @retry="handleRetry(task.id)"
+        />
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="totalPages > 1" class="flex justify-center mt-6">
+        <UPagination
+          v-model:page="currentPage"
+          :total="total"
+          :items-per-page="pageSize"
+          @update:page="handlePageChange"
+        />
+      </div>
+    </template>
   </div>
 </template>

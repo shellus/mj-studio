@@ -76,7 +76,7 @@ onUnmounted(() => {
         <div class="flex items-center gap-4">
           <!-- 颜色模式切换 -->
           <UColorModeButton />
-          <NuxtLink to="/settings" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors">
+          <NuxtLink to="/settings" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="设置">
             <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
           </NuxtLink>
           <div class="text-right">

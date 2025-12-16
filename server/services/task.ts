@@ -1,7 +1,7 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
 import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type ModelType, type ApiFormat, type ModelTypeConfig } from '../database/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, isNull, isNotNull, and, inArray, sql } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
@@ -71,12 +71,28 @@ export function useTaskService() {
     return { task, config }
   }
 
-  // 获取用户任务列表（包含模型配置信息）
-  async function listTasks(userId: number, limit = 50): Promise<Array<Task & { modelConfig?: ModelConfig }>> {
+  // 获取用户任务列表（包含模型配置信息，支持分页）
+  async function listTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
+    tasks: Array<Task & { modelConfig?: ModelConfig }>
+    total: number
+    page: number
+    pageSize: number
+  }> {
+    const page = options.page ?? 1
+    const pageSize = options.pageSize ?? 20
+
+    // 查询总数（不包含已删除）
+    const [countResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+    const total = countResult?.count ?? 0
+
+    // 查询分页数据（不包含已删除）
     const taskList = await db.query.tasks.findMany({
-      where: eq(tasks.userId, userId),
+      where: and(eq(tasks.userId, userId), isNull(tasks.deletedAt)),
       orderBy: [desc(tasks.createdAt)],
-      limit,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
     })
 
     // 获取所有相关的模型配置
@@ -89,10 +105,98 @@ export function useTaskService() {
       if (config) configMap.set(id, config)
     }
 
-    return taskList.map(task => ({
-      ...task,
-      modelConfig: configMap.get(task.modelConfigId),
-    }))
+    return {
+      tasks: taskList.map(task => ({
+        ...task,
+        modelConfig: configMap.get(task.modelConfigId),
+      })),
+      total,
+      page,
+      pageSize,
+    }
+  }
+
+  // 软删除任务
+  async function deleteTask(id: number, userId: number): Promise<boolean> {
+    const [updated] = await db.update(tasks)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+      .returning()
+    return !!updated
+  }
+
+  // 获取回收站任务列表（支持分页）
+  async function listTrashTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
+    tasks: Array<Task & { modelConfig?: ModelConfig }>
+    total: number
+    page: number
+    pageSize: number
+  }> {
+    const page = options.page ?? 1
+    const pageSize = options.pageSize ?? 20
+
+    // 查询回收站总数
+    const [countResult] = await db.select({ count: sql<number>`count(*)` })
+      .from(tasks)
+      .where(and(eq(tasks.userId, userId), isNotNull(tasks.deletedAt)))
+    const total = countResult?.count ?? 0
+
+    // 查询分页数据（已删除）
+    const taskList = await db.query.tasks.findMany({
+      where: and(eq(tasks.userId, userId), isNotNull(tasks.deletedAt)),
+      orderBy: [desc(tasks.deletedAt)],
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    })
+
+    // 获取所有相关的模型配置
+    const configIds = [...new Set(taskList.map(t => t.modelConfigId))]
+    const configMap = new Map<number, ModelConfig>()
+    for (const id of configIds) {
+      const config = await db.query.modelConfigs.findFirst({
+        where: eq(modelConfigs.id, id),
+      })
+      if (config) configMap.set(id, config)
+    }
+
+    return {
+      tasks: taskList.map(task => ({
+        ...task,
+        modelConfig: configMap.get(task.modelConfigId),
+      })),
+      total,
+      page,
+      pageSize,
+    }
+  }
+
+  // 恢复任务
+  async function restoreTask(id: number, userId: number): Promise<boolean> {
+    const [updated] = await db.update(tasks)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNotNull(tasks.deletedAt)))
+      .returning()
+    return !!updated
+  }
+
+  // 清空回收站（物理删除）
+  async function emptyTrash(userId: number): Promise<number> {
+    const deleted = await db.delete(tasks)
+      .where(and(eq(tasks.userId, userId), isNotNull(tasks.deletedAt)))
+      .returning()
+    return deleted.length
+  }
+
+  // 批量更新模糊状态
+  async function batchBlur(userId: number, isBlurred: boolean, taskIds?: number[]): Promise<void> {
+    let condition = and(eq(tasks.userId, userId), isNull(tasks.deletedAt))
+    if (taskIds && taskIds.length > 0) {
+      condition = and(condition, inArray(tasks.id, taskIds))
+    }
+
+    await db.update(tasks)
+      .set({ isBlurred, updatedAt: new Date() })
+      .where(condition!)
   }
 
   // 提交任务（根据apiFormat选择服务）
@@ -413,6 +517,11 @@ export function useTaskService() {
     getTask,
     getTaskWithConfig,
     listTasks,
+    deleteTask,
+    listTrashTasks,
+    restoreTask,
+    emptyTrash,
+    batchBlur,
     submitTask,
     syncTaskStatus,
     executeAction,

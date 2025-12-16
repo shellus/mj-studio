@@ -1,8 +1,7 @@
-// GET /api/tasks - 获取用户任务列表（支持分页）
-import { useTaskService } from '../../services/task'
+// GET /api/tasks/trash - 获取回收站任务列表（支持分页）
+import { useTaskService } from '../../../services/task'
 
 export default defineEventHandler(async (event) => {
-  // 需要登录
   const { user } = await requireUserSession(event)
 
   const query = getQuery(event)
@@ -11,8 +10,7 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
-  // 获取当前用户的任务（分页）
-  const result = await taskService.listTasks(user.id, { page, pageSize })
+  const result = await taskService.listTrashTasks(user.id, { page, pageSize })
 
   return result
 })

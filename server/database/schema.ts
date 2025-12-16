@@ -104,6 +104,7 @@ export const tasks = sqliteTable('tasks', {
   }>>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除：null=正常，有值=已删除
 })
 
 export type Task = typeof tasks.$inferSelect

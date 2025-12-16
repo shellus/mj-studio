@@ -234,10 +234,10 @@ function applyTemplate(template: string) {
           v-for="mtc in availableModelTypes"
           :key="mtc.modelName"
           :class="[
-            'p-2 rounded-lg border-2 transition-all text-center flex items-center justify-center gap-2',
+            'p-2 rounded-lg border transition-all text-center flex items-center justify-center gap-2',
             selectedModelName === mtc.modelName
               ? 'border-(--ui-primary) bg-(--ui-primary)/10'
-              : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
+              : 'border-(--ui-border-accented) hover:border-(--ui-text-dimmed)'
           ]"
           @click="selectedModelName = mtc.modelName"
         >

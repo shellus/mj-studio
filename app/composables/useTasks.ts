@@ -50,6 +50,15 @@ export interface Task {
   }> | null
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
+}
+
+// 分页响应类型
+interface PaginatedResponse<T> {
+  tasks: T[]
+  total: number
+  page: number
+  pageSize: number
 }
 
 export function useTasks() {
@@ -57,15 +66,30 @@ export function useTasks() {
   const pollingIntervals = new Map<number, ReturnType<typeof setInterval>>()
   const isLoading = useState('tasks-loading', () => false)
 
-  // 加载任务列表
-  async function loadTasks() {
+  // 分页状态
+  const currentPage = useState('tasks-page', () => 1)
+  const pageSize = useState('tasks-pageSize', () => 20)
+  const total = useState('tasks-total', () => 0)
+
+  // 加载任务列表（支持分页）
+  async function loadTasks(page?: number) {
     isLoading.value = true
+    if (page !== undefined) {
+      currentPage.value = page
+    }
+
     try {
-      const result = await $fetch<Task[]>('/api/tasks')
-      tasks.value = result
+      const result = await $fetch<PaginatedResponse<Task>>('/api/tasks', {
+        query: {
+          page: currentPage.value,
+          pageSize: pageSize.value,
+        },
+      })
+      tasks.value = result.tasks
+      total.value = result.total
 
       // 为处理中的任务启动轮询
-      for (const task of result) {
+      for (const task of result.tasks) {
         if (['pending', 'submitting', 'processing'].includes(task.status)) {
           startPolling(task.id)
         }
@@ -158,10 +182,30 @@ export function useTasks() {
     }
   }
 
-  // 删除任务（仅从前端列表移除）
-  function removeTask(taskId: number) {
+  // 删除任务（调用后端API软删除）
+  async function deleteTask(taskId: number) {
     stopPolling(taskId)
+    await $fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
     tasks.value = tasks.value.filter((t) => t.id !== taskId)
+    // 更新总数
+    total.value = Math.max(0, total.value - 1)
+  }
+
+  // 批量更新模糊状态（操作所有任务，不仅是当前页）
+  async function batchBlur(isBlurred: boolean, taskIds?: number[]) {
+    await $fetch('/api/tasks/blur-batch', {
+      method: 'PATCH',
+      body: { isBlurred, taskIds },
+    })
+    // 更新本地当前页的状态
+    if (taskIds) {
+      tasks.value = tasks.value.map((t) =>
+        taskIds.includes(t.id) ? { ...t, isBlurred } : t
+      )
+    } else {
+      // 批量操作所有任务时，更新当前页显示的任务
+      tasks.value = tasks.value.map((t) => ({ ...t, isBlurred }))
+    }
   }
 
   // 重试失败的任务
@@ -195,10 +239,14 @@ export function useTasks() {
   return {
     tasks,
     isLoading,
+    currentPage,
+    pageSize,
+    total,
     loadTasks,
     addTask,
     executeAction,
-    removeTask,
+    deleteTask,
+    batchBlur,
     retryTask,
     cleanup,
     startPolling,
