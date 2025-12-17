@@ -36,11 +36,12 @@ export interface Task {
   prompt: string | null
   images: string[]
   type: string
-  status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed'
+  status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'
   upstreamTaskId: string | null
   progress: string | null
   imageUrl: string | null
   error: string | null
+  isBlurred: boolean
   buttons: Array<{
     customId: string
     emoji: string

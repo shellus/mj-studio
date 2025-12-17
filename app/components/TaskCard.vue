@@ -11,6 +11,7 @@ const emit = defineEmits<{
   remove: []
   retry: []
   cancel: []
+  blur: [isBlurred: boolean]
 }>()
 
 const isActioning = ref(false)
@@ -50,6 +51,7 @@ watch(() => props.task.isBlurred, (newVal) => {
 // 切换模糊状态并同步到后端
 async function toggleBlur(blur: boolean) {
   isBlurred.value = blur
+  emit('blur', blur)
   try {
     await $fetch(`/api/tasks/${props.task.id}/blur`, {
       method: 'PATCH',
@@ -213,12 +215,9 @@ function confirmDelete() {
 // 查看大图
 const showImagePreview = ref(false)
 
+// 点击图片切换模糊状态
 function handleImageClick() {
-  if (isBlurred.value) {
-    toggleBlur(false)
-  } else {
-    showImagePreview.value = true
-  }
+  toggleBlur(!isBlurred.value)
 }
 
 // 查看参考图
@@ -309,17 +308,6 @@ async function showErrorDetail() {
         </div>
       </div>
 
-      <!-- 点击提示（模糊状态） -->
-      <div
-        v-if="task.imageUrl && isBlurred"
-        class="absolute inset-0 flex items-center justify-center pointer-events-none"
-      >
-        <div class="bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white/80 text-sm">
-          <UIcon name="i-heroicons-eye" class="w-4 h-4 inline mr-1" />
-          点击查看
-        </div>
-      </div>
-
       <!-- 取消按钮（进行中状态，底部居中显示） -->
       <div
         v-if="['pending', 'submitting', 'processing'].includes(task.status)"
@@ -353,14 +341,14 @@ async function showErrorDetail() {
         >
           <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 text-white" />
         </button>
-        <!-- 恢复模糊按钮 -->
+        <!-- 放大查看按钮 -->
         <button
-          v-if="task.imageUrl && !isBlurred"
+          v-if="task.imageUrl"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-          title="隐藏图片"
-          @click="toggleBlur(true)"
+          title="放大查看"
+          @click="showImagePreview = true"
         >
-          <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 text-white" />
+          <UIcon name="i-heroicons-magnifying-glass-plus" class="w-4 h-4 text-white" />
         </button>
         <!-- MJ操作按钮 -->
         <UDropdownMenu v-if="modelInfo.type === 'midjourney' && buttons.length > 0" :items="dropdownItems">

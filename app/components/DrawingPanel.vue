@@ -35,10 +35,24 @@ const MODEL_TYPE_ICONS: Record<ModelType, string> = {
   'qwen-image': 'i-heroicons-cloud',
 }
 
-// 模型使用提示
-const MODEL_TYPE_HINTS: Partial<Record<ModelType, string>> = {
-  'dalle': 'DALL-E 3 API 不支持垫图功能',
-  'grok-image': '提示词需包含明确的生成指令，如"为我生成图片：<描述>"',
+// 请求格式显示名称
+const API_FORMAT_LABELS: Record<ApiFormat, string> = {
+  'mj-proxy': 'MJ-Proxy',
+  'gemini': 'Gemini API',
+  'dalle': 'DALL-E API',
+  'openai-chat': 'OpenAI Chat',
+}
+
+// 模型使用提示（type: warning 为警告样式，info 为普通信息样式）
+const MODEL_TYPE_HINTS: Record<ModelType, { text: string; type: 'warning' | 'info' }> = {
+  'midjourney': { text: '支持 U/V 操作、图片混合、垫图等完整功能', type: 'info' },
+  'gemini': { text: '支持多轮对话式图像编辑，垫图效果较好', type: 'info' },
+  'flux': { text: '仅 flux-kontext-{max, pro} 支持垫图', type: 'warning' },
+  'dalle': { text: 'DALL-E 3 API 不支持垫图功能', type: 'warning' },
+  'doubao': { text: '字节跳动图像生成模型，中文理解能力强', type: 'info' },
+  'gpt4o-image': { text: '基于 GPT-4o 的图像生成，支持复杂指令', type: 'info' },
+  'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
+  'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
 }
 
 // 不支持垫图的模型
@@ -180,22 +194,6 @@ async function handleSubmit() {
     isSubmitting.value = false
   }
 }
-
-// 提示词模板
-const templates = [
-  { label: '写实风格', value: 'realistic, 8k, detailed, professional photography' },
-  { label: '动漫风格', value: 'anime style, studio ghibli, vibrant colors' },
-  { label: '油画风格', value: 'oil painting, impressionism, artistic' },
-  { label: '赛博朋克', value: 'cyberpunk, neon lights, futuristic, dark' },
-]
-
-function applyTemplate(template: string) {
-  if (prompt.value) {
-    prompt.value += ', ' + template
-  } else {
-    prompt.value = template
-  }
-}
 </script>
 
 <template>
@@ -256,11 +254,32 @@ function applyTemplate(template: string) {
       </div>
     </div>
 
+    <!-- 当前模型信息（请求格式、模型名称） -->
+    <div v-if="selectedModelTypeConfig" class="mb-4 text-xs text-(--ui-text-dimmed)">
+      <span>{{ API_FORMAT_LABELS[selectedModelTypeConfig.apiFormat] || selectedModelTypeConfig.apiFormat }}</span>
+      <span class="mx-1.5">·</span>
+      <span class="font-mono">{{ selectedModelTypeConfig.modelName }}</span>
+    </div>
+
     <!-- 模型使用提示 -->
-    <div v-if="currentModelHint" class="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+    <div
+      v-if="currentModelHint"
+      class="mb-4 p-3 rounded-lg border"
+      :class="currentModelHint.type === 'warning'
+        ? 'bg-amber-500/10 border-amber-500/30'
+        : 'bg-(--ui-primary)/10 border-(--ui-primary)/30'"
+    >
       <div class="flex items-start gap-2">
-        <UIcon name="i-heroicons-light-bulb" class="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-        <p class="text-sm text-amber-600 dark:text-amber-400">{{ currentModelHint }}</p>
+        <UIcon
+          :name="currentModelHint.type === 'warning' ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-light-bulb'"
+          :class="['w-4 h-4 mt-0.5 shrink-0', currentModelHint.type === 'warning' ? 'text-amber-500' : 'text-(--ui-primary)']"
+        />
+        <p
+          class="text-sm"
+          :class="currentModelHint.type === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-(--ui-primary)'"
+        >
+          {{ currentModelHint.text }}
+        </p>
       </div>
     </div>
 
@@ -290,7 +309,7 @@ function applyTemplate(template: string) {
         <!-- 上传按钮 -->
         <label
           v-if="referenceImages.length < 3"
-          class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
+          class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
         >
           <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
           <span class="text-(--ui-text-dimmed) text-xs">上传</span>
@@ -307,26 +326,12 @@ function applyTemplate(template: string) {
 
     <!-- 提示词输入 -->
     <div class="mb-4">
-      <div class="mb-3">
-        <h3 class="text-(--ui-text-toned) text-sm font-medium mb-2">描述你想要的图片</h3>
-        <div class="flex flex-wrap gap-1">
-          <UButton
-            v-for="tpl in templates"
-            :key="tpl.label"
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            @click="applyTemplate(tpl.value)"
-          >
-            {{ tpl.label }}
-          </UButton>
-        </div>
-      </div>
+      <h3 class="text-(--ui-text-toned) text-sm font-medium mb-3">描述你想要的图片</h3>
 
       <UTextarea
         v-model="prompt"
         placeholder="例如：一只可爱的小猫咪坐在花园里，油画风格，高清，细节丰富"
-        :rows="4"
+        :rows="8"
         class="w-full"
       />
     </div>

@@ -42,6 +42,14 @@ async function handleDelete(taskId: number) {
   }
 }
 
+// 处理单个任务模糊状态变化（同步到本地状态）
+function handleBlur(taskId: number, isBlurred: boolean) {
+  const index = tasks.value.findIndex((t) => t.id === taskId)
+  if (index >= 0) {
+    tasks.value[index] = { ...tasks.value[index], isBlurred }
+  }
+}
+
 // 模糊全部
 async function blurAll() {
   blurLoading.value = true
@@ -134,6 +142,7 @@ function handlePageChange() {
           @remove="handleDelete(task.id)"
           @retry="handleRetry(task.id)"
           @cancel="handleCancel(task.id)"
+          @blur="handleBlur(task.id, $event)"
         />
       </div>
 
