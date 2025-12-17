@@ -1,0 +1,50 @@
+# Dependencies
+node_modules
+
+# Build output
+.output
+.nuxt
+dist
+
+# Development
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Misc
+*.md
+*.log
+.DS_Store
+Thumbs.db
+
+# Runtime data
+data/
+uploads/
+logs/
+*.db
+*.db-journal
+
+# Docker
+Dockerfile
+docker-compose*.yaml
+docker-compose*.yml
+
+# Test
+tests/
+vitest.config.ts
+
+# Cache
+node-compile-cache/
+
+# Assets not needed for build
+preview.jpg

@@ -1,0 +1,14 @@
+services:
+  mj-studio:
+    build: .
+    image: shellus/mj-studio:latest
+    container_name: mj-studio
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}

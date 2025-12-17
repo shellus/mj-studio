@@ -13,7 +13,6 @@ dist/
 
 # 数据目录（数据库、用户数据）
 data/
-*.db
 
 # 用户上传的图片
 uploads/
@@ -37,3 +36,6 @@ node-compile-cache/
 
 # 临时文件
 todo.md
+
+# docker 文件
+docker-compose.override.yml

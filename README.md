@@ -50,32 +50,26 @@
 
 ## 快速开始
 
-### 环境要求
-- Node.js 20+
-- pnpm
-
-### 3 步启动
+### Docker 部署（推荐）
 
 ```bash
-# 1. 安装依赖
-pnpm install
+# 创建 .env 文件
+echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 16)" > .env
 
-# 2. 初始化数据库
-pnpm db:push
+# 启动服务
+docker-compose up -d
+```
 
-# 3. 启动服务
-pnpm dev
+### 源码运行
+
+环境要求：Node.js 20+、pnpm
+
+```bash
+echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 16)" > .env
+pnpm install && pnpm dev
 ```
 
 访问 http://localhost:3000 ，注册账户后在「设置」页面添加 API 配置即可开始使用。
-
-### 环境变量
-
-创建 `.env` 文件：
-
-```env
-NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
-```
 
 ## 核心概念
 
