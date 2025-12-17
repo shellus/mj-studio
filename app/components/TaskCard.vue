@@ -117,6 +117,46 @@ const modelInfo = computed(() => {
 // 是否显示加载动画
 const isLoading = computed(() => ['pending', 'submitting', 'processing'].includes(props.task.status))
 
+// 获取当前任务的预计时间（秒）
+const estimatedTime = computed(() => {
+  const modelConfig = props.task.modelConfig
+  if (!modelConfig?.modelTypeConfigs) return 60 // 默认60秒
+  const mtc = modelConfig.modelTypeConfigs.find(
+    (c: { modelName: string }) => c.modelName === props.task.modelName
+  )
+  return mtc?.estimatedTime ?? 60
+})
+
+// 进度条：当前时间（定时更新）
+const now = ref(Date.now())
+let progressTimer: ReturnType<typeof setInterval> | null = null
+
+// 启动/停止进度条计时器
+watch(isLoading, (loading) => {
+  if (loading) {
+    now.value = Date.now()
+    progressTimer = setInterval(() => {
+      now.value = Date.now()
+    }, 500)
+  } else if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (progressTimer) clearInterval(progressTimer)
+})
+
+// 进度百分比（额外增加10%时长缓冲）
+const progressPercent = computed(() => {
+  if (!isLoading.value) return 0
+  const start = new Date(props.task.createdAt).getTime()
+  const elapsed = (now.value - start) / 1000
+  const bufferedTime = estimatedTime.value * 1.1
+  return Math.min((elapsed / bufferedTime) * 100, 100)
+})
+
 // 格式化时间
 function formatTime(dateStr: string) {
   const date = new Date(dateStr)
@@ -405,6 +445,21 @@ async function showErrorDetail() {
         <UIcon name="i-heroicons-photo" class="w-3.5 h-3.5" />
         <span>参考图 {{ task.images.length }}</span>
       </button>
+
+      <!-- 进度条（进行中状态显示） -->
+      <div
+        v-if="isLoading"
+        class="absolute bottom-0 left-0 right-0 h-[3px] bg-black/20 overflow-hidden"
+      >
+        <div
+          class="h-full transition-all duration-500 ease-out animate-shimmer"
+          :style="{
+            width: `${progressPercent}%`,
+            backgroundImage: 'linear-gradient(90deg, #8b5cf6, #ec4899, #06b6d4, #8b5cf6)',
+            backgroundSize: '200% 100%',
+          }"
+        />
+      </div>
     </div>
 
     <!-- 信息区 -->
