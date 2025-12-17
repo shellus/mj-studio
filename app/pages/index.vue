@@ -69,7 +69,7 @@ onUnmounted(() => {
               MJ Studio
             </span>
           </h1>
-          <p class="text-(--ui-text-muted)">Midjourney AI 绘图工作台</p>
+          <p class="text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
         </div>
 
         <!-- 用户信息 -->

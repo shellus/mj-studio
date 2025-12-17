@@ -9,9 +9,9 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'MJ Studio',
+      title: 'MJ Studio - 多模型 AI 绘图工作台',
       meta: [
-        { name: 'description', content: 'Midjourney AI 绘图工作台' },
+        { name: 'description', content: '多模型 AI 绘图工作台' },
       ],
     },
   },

@@ -67,7 +67,7 @@ function toggleMode() {
               MJ Studio
             </span>
           </h1>
-          <p class="text-(--ui-text-muted)">Midjourney AI 绘图工作台</p>
+          <p class="text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
         </div>
 
         <!-- 表单卡片 -->
@@ -84,7 +84,7 @@ function toggleMode() {
                 v-model="form.name"
                 type="text"
                 placeholder="输入昵称（可选）"
-                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
+                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
               />
             </div>
 
@@ -95,7 +95,7 @@ function toggleMode() {
                 v-model="form.email"
                 type="email"
                 placeholder="输入邮箱"
-                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
+                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
               />
             </div>
 
@@ -106,7 +106,7 @@ function toggleMode() {
                 v-model="form.password"
                 type="password"
                 placeholder="输入密码"
-                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
+                class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) focus:ring-1 focus:ring-(--ui-primary) transition-colors"
               />
             </div>
 

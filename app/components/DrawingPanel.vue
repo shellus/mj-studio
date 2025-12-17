@@ -218,7 +218,7 @@ async function handleSubmit() {
         <UIcon name="i-heroicons-server" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--ui-text-dimmed) pointer-events-none" />
         <select
           v-model="selectedConfigId"
-          class="w-full pl-10 pr-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) focus:outline-none focus:border-(--ui-primary) appearance-none cursor-pointer"
+          class="w-full pl-10 pr-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) focus:outline-none focus:border-(--ui-primary) appearance-none cursor-pointer"
         >
           <option v-for="config in modelConfigs" :key="config.id" :value="config.id">
             {{ config.name }}

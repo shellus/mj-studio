@@ -348,7 +348,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                   v-model="form.name"
                   type="text"
                   placeholder="例如：我的MJ账号"
-                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
@@ -360,7 +360,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                   v-model="form.baseUrl"
                   type="url"
                   placeholder="https://api.example.com"
-                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
@@ -372,7 +372,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                   v-model="form.apiKey"
                   type="password"
                   placeholder="sk-xxx..."
-                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary)"
                   required
                 />
               </div>
@@ -399,7 +399,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                         <label class="block text-(--ui-text-dimmed) text-xs mb-1">模型类型</label>
                         <select
                           v-model="mtc.modelType"
-                          class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border) text-(--ui-text) text-sm"
+                          class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border-accented) text-(--ui-text) text-sm"
                           @change="onModelTypeChange(index)"
                         >
                           <option v-for="type in modelTypeOptions" :key="type" :value="type">
@@ -413,7 +413,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                         <label class="block text-(--ui-text-dimmed) text-xs mb-1">请求格式</label>
                         <select
                           v-model="mtc.apiFormat"
-                          class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border) text-(--ui-text) text-sm"
+                          class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border-accented) text-(--ui-text) text-sm"
                         >
                           <option v-for="fmt in getAvailableFormats(mtc.modelType)" :key="fmt" :value="fmt">
                             {{ API_FORMAT_LABELS[fmt] }}
@@ -438,7 +438,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                         v-model="mtc.modelName"
                         type="text"
                         :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType] || '可选'"
-                        class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) text-sm"
+                        class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) text-sm"
                       />
                     </div>
 
@@ -449,7 +449,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                         v-model.number="mtc.estimatedTime"
                         type="number"
                         min="1"
-                        class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border) text-(--ui-text) text-sm"
+                        class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border-accented) text-(--ui-text) text-sm"
                       />
                     </div>
                   </div>
@@ -467,7 +467,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                   v-model="form.remark"
                   placeholder="添加一些说明..."
                   rows="2"
-                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) resize-none"
+                  class="w-full px-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) placeholder-(--ui-text-dimmed) focus:outline-none focus:border-(--ui-primary) resize-none"
                 />
               </div>
 
@@ -476,7 +476,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                 <input
                   v-model="form.isDefault"
                   type="checkbox"
-                  class="w-5 h-5 rounded bg-(--ui-bg-muted) border-(--ui-border) text-(--ui-primary) focus:ring-(--ui-primary)"
+                  class="w-5 h-5 rounded bg-(--ui-bg-muted) border-(--ui-border-accented) text-(--ui-primary) focus:ring-(--ui-primary)"
                 />
                 <span class="text-(--ui-text-muted)">设为默认配置</span>
               </label>
