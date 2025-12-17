@@ -86,6 +86,13 @@ onUnmounted(() => {
 
         <!-- 用户信息 -->
         <div class="flex items-center gap-4">
+          <!-- 对话入口 -->
+          <NuxtLink to="/chat">
+            <UButton variant="ghost" size="sm">
+              <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4 mr-1" />
+              对话
+            </UButton>
+          </NuxtLink>
           <!-- 颜色模式切换 -->
           <UColorModeButton />
           <NuxtLink to="/settings" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="设置">

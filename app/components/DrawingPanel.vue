@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
 
+type ModelCategory = 'image' | 'chat'
 type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
+  category?: ModelCategory
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
-  estimatedTime: number
+  estimatedTime?: number
 }
 
 // 模型类型显示名称
@@ -85,10 +87,13 @@ const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
   )
 })
 
-// 当前配置支持的模型类型列表
+// 当前配置支持的模型类型列表（仅绘图模型）
 const availableModelTypes = computed((): ModelTypeConfig[] => {
   if (!selectedConfig.value?.modelTypeConfigs) return []
-  return selectedConfig.value.modelTypeConfigs
+  // 过滤掉对话模型，只显示绘图模型
+  return selectedConfig.value.modelTypeConfigs.filter(
+    (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
+  )
 })
 
 // 是否支持垫图（部分模型不支持）
@@ -110,9 +115,14 @@ watch(() => props.modelConfigs, (configs) => {
   if (configs.length > 0 && !selectedConfigId.value) {
     const defaultConfig = configs.find(c => c.isDefault) || configs[0]
     selectedConfigId.value = defaultConfig.id
-    // 默认选择第一个支持的模型
+    // 默认选择第一个绘图模型
     if (defaultConfig.modelTypeConfigs && defaultConfig.modelTypeConfigs.length > 0) {
-      selectedModelName.value = defaultConfig.modelTypeConfigs[0].modelName
+      const firstImageModel = defaultConfig.modelTypeConfigs.find(
+        (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
+      )
+      if (firstImageModel) {
+        selectedModelName.value = firstImageModel.modelName
+      }
     }
   }
 }, { immediate: true })
@@ -121,10 +131,13 @@ watch(() => props.modelConfigs, (configs) => {
 watch(selectedConfigId, (newId) => {
   const config = props.modelConfigs.find(c => c.id === newId)
   if (config?.modelTypeConfigs && config.modelTypeConfigs.length > 0) {
-    // 如果当前选择的模型不在新配置支持的列表中，切换到第一个
-    const supportedNames = config.modelTypeConfigs.map((mtc: ModelTypeConfig) => mtc.modelName)
+    // 只考虑绘图模型
+    const imageModels = config.modelTypeConfigs.filter(
+      (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
+    )
+    const supportedNames = imageModels.map((mtc: ModelTypeConfig) => mtc.modelName)
     if (!selectedModelName.value || !supportedNames.includes(selectedModelName.value)) {
-      selectedModelName.value = config.modelTypeConfigs[0].modelName
+      selectedModelName.value = imageModels[0]?.modelName || null
     }
   }
 })

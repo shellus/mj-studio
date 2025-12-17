@@ -1,6 +1,6 @@
 // PUT /api/model-configs/[id] - 更新模型配置
 import { useModelConfigService } from '../../services/modelConfig'
-import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
+import type { ModelType, ChatModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -29,7 +29,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (modelTypeConfigs !== undefined) {
-    const validModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
+    const validImageModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
+    const validChatModelTypes: ChatModelType[] = ['gpt', 'claude', 'gemini-chat', 'deepseek', 'qwen-chat']
+    const validModelTypes = [...validImageModelTypes, ...validChatModelTypes]
     const validApiFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
 
     if (!Array.isArray(modelTypeConfigs) || modelTypeConfigs.length === 0) {

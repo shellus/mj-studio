@@ -3,18 +3,23 @@ definePageMeta({
   middleware: 'auth',
 })
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
+type ModelCategory = 'image' | 'chat'
+type ImageModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
+type ChatModelType = 'gpt' | 'claude' | 'gemini-chat' | 'deepseek' | 'qwen-chat'
+type ModelType = ImageModelType | ChatModelType
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 interface ModelTypeConfig {
+  category?: ModelCategory
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
-  estimatedTime: number
+  estimatedTime?: number
 }
 
 // 模型类型与请求格式的对应关系
 const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
+  // 绘图模型
   'midjourney': ['mj-proxy'],
   'gemini': ['gemini', 'openai-chat'],
   'flux': ['dalle'],
@@ -23,10 +28,36 @@ const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
   'qwen-image': ['openai-chat'],
+  // 对话模型
+  'gpt': ['openai-chat'],
+  'claude': ['openai-chat'],
+  'gemini-chat': ['openai-chat'],
+  'deepseek': ['openai-chat'],
+  'qwen-chat': ['openai-chat'],
+}
+
+// 模型类型对应的分类
+const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
+  // 绘图模型
+  'midjourney': 'image',
+  'gemini': 'image',
+  'flux': 'image',
+  'dalle': 'image',
+  'doubao': 'image',
+  'gpt4o-image': 'image',
+  'grok-image': 'image',
+  'qwen-image': 'image',
+  // 对话模型
+  'gpt': 'chat',
+  'claude': 'chat',
+  'gemini-chat': 'chat',
+  'deepseek': 'chat',
+  'qwen-chat': 'chat',
 }
 
 // 默认模型名称
 const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
+  // 绘图模型
   'midjourney': '',
   'gemini': 'gemini-2.5-flash-image',
   'flux': 'flux-dev',
@@ -35,10 +66,16 @@ const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
   'qwen-image': 'qwen-image',
+  // 对话模型
+  'gpt': 'gpt-4o',
+  'claude': 'claude-sonnet-4-20250514',
+  'gemini-chat': 'gemini-2.5-flash',
+  'deepseek': 'deepseek-chat',
+  'qwen-chat': 'qwen-max',
 }
 
-// 默认预计时间（秒）
-const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
+// 默认预计时间（秒）- 对话模型不需要此字段
+const DEFAULT_ESTIMATED_TIMES: Partial<Record<ModelType, number>> = {
   'midjourney': 60,
   'gemini': 15,
   'flux': 20,
@@ -51,14 +88,27 @@ const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
 
 // 模型类型显示名称
 const MODEL_TYPE_LABELS: Record<ModelType, string> = {
+  // 绘图模型
   'midjourney': 'Midjourney',
-  'gemini': 'Gemini',
+  'gemini': 'Gemini 绘图',
   'flux': 'Flux',
   'dalle': 'DALL-E',
   'doubao': '豆包',
-  'gpt4o-image': 'GPT-4o Image',
-  'grok-image': 'Grok Image',
+  'gpt4o-image': 'GPT-4o 绘图',
+  'grok-image': 'Grok 绘图',
   'qwen-image': '通义万相',
+  // 对话模型
+  'gpt': 'GPT',
+  'claude': 'Claude',
+  'gemini-chat': 'Gemini 对话',
+  'deepseek': 'DeepSeek',
+  'qwen-chat': '通义千问',
+}
+
+// 分类显示名称
+const CATEGORY_LABELS: Record<ModelCategory, string> = {
+  'image': '绘图',
+  'chat': '对话',
 }
 
 // 请求格式显示名称
@@ -85,8 +135,10 @@ const form = ref({
   isDefault: false,
 })
 
-// 可选的模型类型列表
-const modelTypeOptions: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
+// 可选的模型类型列表（按分类）
+const imageModelTypeOptions: ImageModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
+const chatModelTypeOptions: ChatModelType[] = ['gpt', 'claude', 'gemini-chat', 'deepseek', 'qwen-chat']
+const modelTypeOptions: ModelType[] = [...imageModelTypeOptions, ...chatModelTypeOptions]
 
 // 获取可用的请求格式
 function getAvailableFormats(modelType: ModelType): ApiFormat[] {
@@ -105,7 +157,9 @@ function addModelTypeConfig() {
   }
 
   const defaultFormat = MODEL_FORMAT_MAP[availableType][0]
+  const category = MODEL_CATEGORY_MAP[availableType]
   form.value.modelTypeConfigs.push({
+    category,
     modelType: availableType,
     apiFormat: defaultFormat,
     modelName: DEFAULT_MODEL_NAMES[availableType],
@@ -128,9 +182,18 @@ function onModelTypeChange(index: number) {
     config.apiFormat = availableFormats[0]
   }
 
-  // 更新默认模型名称和预计时间
+  // 更新分类
+  config.category = MODEL_CATEGORY_MAP[config.modelType]
+
+  // 更新默认模型名称
   config.modelName = DEFAULT_MODEL_NAMES[config.modelType]
-  config.estimatedTime = DEFAULT_ESTIMATED_TIMES[config.modelType]
+
+  // 更新预计时间（仅绘图模型）
+  if (config.category === 'image') {
+    config.estimatedTime = DEFAULT_ESTIMATED_TIMES[config.modelType]
+  } else {
+    config.estimatedTime = undefined
+  }
 }
 
 onMounted(() => {
@@ -144,6 +207,7 @@ function openCreateForm() {
     baseUrl: '',
     apiKey: '',
     modelTypeConfigs: [{
+      category: 'image',
       modelType: 'midjourney',
       apiFormat: 'mj-proxy',
       modelName: '',
@@ -239,6 +303,11 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
   if (!modelTypeConfigs || modelTypeConfigs.length === 0) return '-'
   return modelTypeConfigs.map(c => MODEL_TYPE_LABELS[c.modelType]).join(' / ')
 }
+
+// 按分类获取模型类型列表
+function getModelTypesByCategory(category: ModelCategory): ModelType[] {
+  return category === 'image' ? imageModelTypeOptions : chatModelTypeOptions
+}
 </script>
 
 <template>
@@ -301,9 +370,16 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
               <div v-if="config.modelTypeConfigs && config.modelTypeConfigs.length > 0" class="mt-3 flex flex-wrap gap-2">
                 <div
                   v-for="mtc in config.modelTypeConfigs"
-                  :key="mtc.modelType"
-                  class="text-xs px-2 py-1 rounded bg-(--ui-bg-muted) text-(--ui-text-muted)"
+                  :key="mtc.modelName"
+                  :class="[
+                    'text-xs px-2 py-1 rounded',
+                    mtc.category === 'chat'
+                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                      : 'bg-(--ui-bg-muted) text-(--ui-text-muted)'
+                  ]"
                 >
+                  <span v-if="mtc.category === 'chat'" class="mr-1">💬</span>
+                  <span v-else class="mr-1">🎨</span>
                   {{ MODEL_TYPE_LABELS[mtc.modelType] }}
                   <span class="text-(--ui-text-dimmed)">({{ API_FORMAT_LABELS[mtc.apiFormat] }})</span>
                   <span v-if="mtc.modelName" class="text-(--ui-text-dimmed)">: {{ mtc.modelName }}</span>
@@ -393,6 +469,45 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
+                    <!-- 分类选择 -->
+                    <div class="flex items-center gap-4 mb-3 pb-3 border-b border-(--ui-border)">
+                      <span class="text-(--ui-text-dimmed) text-xs">分类</span>
+                      <div class="flex gap-2">
+                        <button
+                          type="button"
+                          :class="[
+                            'px-3 py-1 rounded-full text-xs transition-colors',
+                            (mtc.category || 'image') === 'image'
+                              ? 'bg-(--ui-primary) text-white'
+                              : 'bg-(--ui-bg) text-(--ui-text-muted) hover:bg-(--ui-bg-elevated)'
+                          ]"
+                          @click="mtc.category = 'image'; mtc.modelType = imageModelTypeOptions[0]; onModelTypeChange(index)"
+                        >
+                          绘图
+                        </button>
+                        <button
+                          type="button"
+                          :class="[
+                            'px-3 py-1 rounded-full text-xs transition-colors',
+                            mtc.category === 'chat'
+                              ? 'bg-(--ui-primary) text-white'
+                              : 'bg-(--ui-bg) text-(--ui-text-muted) hover:bg-(--ui-bg-elevated)'
+                          ]"
+                          @click="mtc.category = 'chat'; mtc.modelType = chatModelTypeOptions[0]; onModelTypeChange(index)"
+                        >
+                          对话
+                        </button>
+                      </div>
+                      <!-- 删除按钮 -->
+                      <button
+                        type="button"
+                        class="ml-auto p-1 text-(--ui-text-dimmed) hover:text-(--ui-error)"
+                        @click="removeModelTypeConfig(index)"
+                      >
+                        <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+                      </button>
+                    </div>
+
                     <div class="flex items-start gap-3">
                       <!-- 模型类型 -->
                       <div class="flex-1">
@@ -402,7 +517,7 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                           class="w-full px-3 py-2 rounded bg-(--ui-bg) border border-(--ui-border-accented) text-(--ui-text) text-sm"
                           @change="onModelTypeChange(index)"
                         >
-                          <option v-for="type in modelTypeOptions" :key="type" :value="type">
+                          <option v-for="type in getModelTypesByCategory(mtc.category || 'image')" :key="type" :value="type">
                             {{ MODEL_TYPE_LABELS[type] }}
                           </option>
                         </select>
@@ -420,15 +535,6 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                           </option>
                         </select>
                       </div>
-
-                      <!-- 删除按钮 -->
-                      <button
-                        type="button"
-                        class="mt-5 p-1 text-(--ui-text-dimmed) hover:text-(--ui-error)"
-                        @click="removeModelTypeConfig(index)"
-                      >
-                        <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
-                      </button>
                     </div>
 
                     <!-- 模型名称 -->
@@ -442,8 +548,8 @@ function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
                       />
                     </div>
 
-                    <!-- 预计时间 -->
-                    <div class="mt-2">
+                    <!-- 预计时间（仅绘图模型显示） -->
+                    <div v-if="(mtc.category || 'image') === 'image'" class="mt-2">
                       <label class="block text-(--ui-text-dimmed) text-xs mb-1">预计生成时间（秒）</label>
                       <input
                         v-model.number="mtc.estimatedTime"

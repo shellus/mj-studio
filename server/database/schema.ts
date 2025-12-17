@@ -12,18 +12,25 @@ export const users = sqliteTable('users', {
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
-// 支持的模型类型
+// 模型分类
+export type ModelCategory = 'image' | 'chat'
+
+// 支持的绘图模型类型
 export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
+
+// 支持的对话模型类型
+export type ChatModelType = 'gpt' | 'claude' | 'gemini-chat' | 'deepseek' | 'qwen-chat'
 
 // 支持的请求格式
 export type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
 // 模型类型配置
 export interface ModelTypeConfig {
-  modelType: ModelType
+  category?: ModelCategory   // 模型分类，默认 'image' 兼容旧数据
+  modelType: ModelType | ChatModelType
   apiFormat: ApiFormat
-  modelName: string        // 实际请求时使用的模型名称
-  estimatedTime: number    // 预计生成时间（秒）
+  modelName: string          // 实际请求时使用的模型名称
+  estimatedTime?: number     // 预计生成时间（秒），仅绘图需要
 }
 
 // 模型类型与请求格式的对应关系
@@ -112,3 +119,52 @@ export const tasks = sqliteTable('tasks', {
 
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
+
+// ==================== 对话功能相关表 ====================
+
+// 消息角色
+export type MessageRole = 'user' | 'assistant'
+
+// 助手表
+export const assistants = sqliteTable('assistants', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  avatar: text('avatar'), // 头像图片路径
+  systemPrompt: text('system_prompt'),
+  modelConfigId: integer('model_config_id'), // 当前使用的上游ID
+  modelName: text('model_name'), // 当前使用的模型名
+  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type Assistant = typeof assistants.$inferSelect
+export type NewAssistant = typeof assistants.$inferInsert
+
+// 对话表
+export const conversations = sqliteTable('conversations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  assistantId: integer('assistant_id').notNull(),
+  title: text('title').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+
+// 消息表
+export const messages = sqliteTable('messages', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  conversationId: integer('conversation_id').notNull(),
+  role: text('role').$type<MessageRole>().notNull(),
+  content: text('content').notNull(),
+  modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
+  modelName: text('model_name'), // 使用的模型名，仅assistant消息
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type Message = typeof messages.$inferSelect
+export type NewMessage = typeof messages.$inferInsert
