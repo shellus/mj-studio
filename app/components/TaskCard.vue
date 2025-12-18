@@ -482,77 +482,66 @@ async function showErrorDetail() {
     </div>
 
     <!-- 删除确认 Modal -->
-    <UModal v-model:open="showDeleteConfirm">
-      <template #content>
-        <div class="p-6 text-center">
-          <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 text-(--ui-warning) mx-auto mb-4" />
-          <h3 class="text-lg font-medium text-(--ui-text) mb-2">确认删除</h3>
-          <p class="text-(--ui-text-muted) text-sm mb-6">确定要删除这个任务吗？此操作不可撤销。</p>
-          <div class="flex justify-center gap-3">
-            <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
-            <UButton color="error" @click="confirmDelete">删除</UButton>
-          </div>
+    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这个任务吗？此操作不可撤销。">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
+          <UButton color="error" @click="confirmDelete">删除</UButton>
         </div>
       </template>
     </UModal>
 
     <!-- 任务详情 Modal -->
-    <UModal v-model:open="showTaskDetail">
-      <template #content>
-        <div class="p-6">
-          <h3 class="text-lg font-medium text-(--ui-text) mb-4">任务详情</h3>
-          <div class="space-y-3 text-sm">
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">任务ID</span>
-              <span class="font-mono text-(--ui-text)">{{ taskSqid }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">上游</span>
-              <span class="text-(--ui-text)">{{ task.modelConfig?.name || '未知' }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">模型类型</span>
-              <span class="text-(--ui-text)">{{ modelInfo.label }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">请求格式</span>
-              <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[task.apiFormat] || task.apiFormat }}</span>
-            </div>
-            <div v-if="task.modelName" class="flex justify-between">
-              <span class="text-(--ui-text-muted)">模型名称</span>
-              <span class="text-(--ui-text) font-mono text-xs">{{ task.modelName }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">任务类型</span>
-              <span class="text-(--ui-text)">{{ task.type === 'blend' ? '图片混合' : '文生图' }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">状态</span>
-              <span :class="statusInfo.color">{{ statusInfo.text }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-(--ui-text-muted)">创建时间</span>
-              <span class="text-(--ui-text)">{{ new Date(task.createdAt).toLocaleString('zh-CN') }}</span>
-            </div>
-            <div v-if="duration" class="flex justify-between">
-              <span class="text-(--ui-text-muted)">耗时</span>
-              <span class="text-(--ui-text)">{{ duration }}</span>
-            </div>
-            <div v-if="task.upstreamTaskId" class="flex justify-between">
-              <span class="text-(--ui-text-muted)">上游任务ID</span>
-              <span class="font-mono text-xs text-(--ui-text)">{{ task.upstreamTaskId }}</span>
-            </div>
-            <div v-if="task.prompt">
-              <span class="text-(--ui-text-muted) block mb-1">提示词</span>
-              <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.prompt }}</p>
-            </div>
-            <div v-if="task.error">
-              <span class="text-(--ui-text-muted) block mb-1">错误信息</span>
-              <p class="text-(--ui-error) bg-(--ui-error)/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
-            </div>
+    <UModal v-model:open="showTaskDetail" title="任务详情">
+      <template #body>
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">任务ID</span>
+            <span class="font-mono text-(--ui-text)">{{ taskSqid }}</span>
           </div>
-          <div class="mt-6 flex justify-end">
-            <UButton variant="outline" color="neutral" @click="showTaskDetail = false">关闭</UButton>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">上游</span>
+            <span class="text-(--ui-text)">{{ task.modelConfig?.name || '未知' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">模型类型</span>
+            <span class="text-(--ui-text)">{{ modelInfo.label }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">请求格式</span>
+            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[task.apiFormat] || task.apiFormat }}</span>
+          </div>
+          <div v-if="task.modelName" class="flex justify-between">
+            <span class="text-(--ui-text-muted)">模型名称</span>
+            <span class="text-(--ui-text) font-mono text-xs">{{ task.modelName }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">任务类型</span>
+            <span class="text-(--ui-text)">{{ task.type === 'blend' ? '图片混合' : '文生图' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">状态</span>
+            <span :class="statusInfo.color">{{ statusInfo.text }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">创建时间</span>
+            <span class="text-(--ui-text)">{{ new Date(task.createdAt).toLocaleString('zh-CN') }}</span>
+          </div>
+          <div v-if="duration" class="flex justify-between">
+            <span class="text-(--ui-text-muted)">耗时</span>
+            <span class="text-(--ui-text)">{{ duration }}</span>
+          </div>
+          <div v-if="task.upstreamTaskId" class="flex justify-between">
+            <span class="text-(--ui-text-muted)">上游任务ID</span>
+            <span class="font-mono text-xs text-(--ui-text)">{{ task.upstreamTaskId }}</span>
+          </div>
+          <div v-if="task.prompt">
+            <span class="text-(--ui-text-muted) block mb-1">提示词</span>
+            <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.prompt }}</p>
+          </div>
+          <div v-if="task.error">
+            <span class="text-(--ui-text-muted) block mb-1">错误信息</span>
+            <p class="text-(--ui-error) bg-(--ui-error)/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
           </div>
         </div>
       </template>
@@ -588,32 +577,21 @@ async function showErrorDetail() {
     </UModal>
 
     <!-- 参考图预览 Modal -->
-    <UModal v-model:open="showRefImages" :ui="{ content: 'sm:max-w-3xl' }">
-      <template #content>
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-medium text-(--ui-text)">参考图</h3>
-            <button
-              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-(--ui-bg-accented) transition-colors"
-              @click="showRefImages = false"
-            >
-              <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-(--ui-text-muted)" />
-            </button>
-          </div>
-          <div class="grid gap-4" :class="task.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
-            <div
-              v-for="(img, index) in task.images"
-              :key="index"
-              class="relative bg-(--ui-bg-muted) rounded-lg overflow-hidden"
-            >
-              <img
-                :src="img"
-                :alt="`参考图 ${index + 1}`"
-                class="w-full h-auto max-h-[60vh] object-contain"
-              />
-              <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs text-white">
-                {{ index + 1 }} / {{ task.images.length }}
-              </div>
+    <UModal v-model:open="showRefImages" title="参考图" :ui="{ content: 'sm:max-w-3xl' }">
+      <template #body>
+        <div class="grid gap-4" :class="task.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+          <div
+            v-for="(img, index) in task.images"
+            :key="index"
+            class="relative bg-(--ui-bg-muted) rounded-lg overflow-hidden"
+          >
+            <img
+              :src="img"
+              :alt="`参考图 ${index + 1}`"
+              class="w-full h-auto max-h-[60vh] object-contain"
+            />
+            <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs text-white">
+              {{ index + 1 }} / {{ task.images.length }}
             </div>
           </div>
         </div>
@@ -621,70 +599,54 @@ async function showErrorDetail() {
     </UModal>
 
     <!-- 错误详情 Modal -->
-    <UModal v-model:open="showErrorDetailModal" :ui="{ content: 'sm:max-w-2xl' }">
-      <template #content>
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-medium text-(--ui-text)">错误详情</h3>
-            <button
-              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-(--ui-bg-accented) transition-colors"
-              @click="showErrorDetailModal = false"
-            >
-              <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-(--ui-text-muted)" />
-            </button>
-          </div>
+    <UModal v-model:open="showErrorDetailModal" title="错误详情" :ui="{ content: 'sm:max-w-2xl' }">
+      <template #body>
+        <!-- 加载中 -->
+        <div v-if="loadingErrorLogs" class="text-center py-8">
+          <BarsLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
+          <p class="text-(--ui-text-muted) text-sm">加载中...</p>
+        </div>
 
-          <!-- 加载中 -->
-          <div v-if="loadingErrorLogs" class="text-center py-8">
-            <BarsLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
-            <p class="text-(--ui-text-muted) text-sm">加载中...</p>
-          </div>
-
-          <!-- 日志内容 -->
-          <div v-else-if="errorLogs" class="space-y-4">
-            <!-- 请求信息 -->
-            <div v-if="errorLogs.request">
-              <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">请求</h4>
-              <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
-                <div class="flex items-center gap-2 text-sm">
-                  <span class="font-mono text-(--ui-info)">{{ errorLogs.request.method }}</span>
-                  <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.request.url }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 响应信息 -->
-            <div v-if="errorLogs.response">
-              <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">响应</h4>
-              <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-3">
-                <!-- 状态码 -->
-                <div class="flex items-center gap-2 text-sm">
-                  <span class="text-(--ui-text-muted)">状态码</span>
-                  <span
-                    class="font-mono font-medium"
-                    :class="errorLogs.response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
-                  >
-                    {{ errorLogs.response.status }} {{ errorLogs.response.statusText }}
-                  </span>
-                </div>
-                <!-- 响应体 -->
-                <div>
-                  <span class="text-(--ui-text-muted) text-sm block mb-1">响应内容</span>
-                  <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-64 text-(--ui-text)">{{ JSON.stringify(errorLogs.response.data, null, 2) }}</pre>
-                </div>
+        <!-- 日志内容 -->
+        <div v-else-if="errorLogs" class="space-y-4">
+          <!-- 请求信息 -->
+          <div v-if="errorLogs.request">
+            <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">请求</h4>
+            <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="font-mono text-(--ui-info)">{{ errorLogs.request.method }}</span>
+                <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.request.url }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 无日志 -->
-          <div v-else class="text-center py-8">
-            <UIcon name="i-heroicons-document-magnifying-glass" class="w-12 h-12 mx-auto mb-2 text-(--ui-text-dimmed)" />
-            <p class="text-(--ui-text-muted) text-sm">无日志记录</p>
+          <!-- 响应信息 -->
+          <div v-if="errorLogs.response">
+            <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">响应</h4>
+            <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-3">
+              <!-- 状态码 -->
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-(--ui-text-muted)">状态码</span>
+                <span
+                  class="font-mono font-medium"
+                  :class="errorLogs.response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
+                >
+                  {{ errorLogs.response.status }} {{ errorLogs.response.statusText }}
+                </span>
+              </div>
+              <!-- 响应体 -->
+              <div>
+                <span class="text-(--ui-text-muted) text-sm block mb-1">响应内容</span>
+                <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-64 text-(--ui-text)">{{ JSON.stringify(errorLogs.response.data, null, 2) }}</pre>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div class="mt-6 flex justify-end">
-            <UButton variant="outline" color="neutral" @click="showErrorDetailModal = false">关闭</UButton>
-          </div>
+        <!-- 无日志 -->
+        <div v-else class="text-center py-8">
+          <UIcon name="i-heroicons-document-magnifying-glass" class="w-12 h-12 mx-auto mb-2 text-(--ui-text-dimmed)" />
+          <p class="text-(--ui-text-muted) text-sm">无日志记录</p>
         </div>
       </template>
     </UModal>

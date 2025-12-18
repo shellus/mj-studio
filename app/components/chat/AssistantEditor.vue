@@ -129,12 +129,9 @@ function handleClose() {
 <template>
   <UModal
     :open="open"
+    :title="assistant ? '编辑助手' : '新建助手'"
     @update:open="emit('update:open', $event)"
   >
-    <template #header>
-      <h3 class="font-medium">{{ assistant ? '编辑助手' : '新建助手' }}</h3>
-    </template>
-
     <template #body>
       <div class="space-y-4">
         <!-- 头像 -->

@@ -302,13 +302,9 @@ function getModelTypesByCategory(category: ModelCategory): ModelType[] {
       </div>
 
       <!-- 创建/编辑表单 Modal -->
-      <UModal v-model:open="showForm">
-        <template #content>
-          <div class="p-6 max-h-[80vh] overflow-y-auto">
-            <h2 class="text-xl font-bold text-(--ui-text) mb-6">
-              {{ editingConfig ? '编辑配置' : '添加配置' }}
-            </h2>
-
+      <UModal v-model:open="showForm" :title="editingConfig ? '编辑配置' : '添加配置'">
+        <template #body>
+          <div class="max-h-[70vh] overflow-y-auto">
             <form class="space-y-4" @submit.prevent="handleSubmit">
               <!-- 配置名称 -->
               <div>

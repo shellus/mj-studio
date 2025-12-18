@@ -160,29 +160,11 @@ function formatDeletedTime(deletedAt: string | null) {
     </template>
 
     <!-- 清空确认对话框 -->
-    <UModal v-model:open="emptyConfirm">
-      <template #content>
-        <div class="p-6">
-          <h3 class="text-(--ui-text) text-lg font-medium mb-2">清空回收站</h3>
-          <p class="text-(--ui-text-muted) mb-6">
-            此操作将永久删除回收站中的所有任务，无法恢复。确定要继续吗？
-          </p>
-          <div class="flex justify-end gap-3">
-            <UButton
-              variant="ghost"
-              color="neutral"
-              @click="emptyConfirm = false"
-            >
-              取消
-            </UButton>
-            <UButton
-              color="error"
-              :loading="emptyLoading"
-              @click="handleEmptyTrash"
-            >
-              确认清空
-            </UButton>
-          </div>
+    <UModal v-model:open="emptyConfirm" title="清空回收站" description="此操作将永久删除回收站中的所有任务，无法恢复。确定要继续吗？">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton variant="ghost" color="neutral" @click="emptyConfirm = false">取消</UButton>
+          <UButton color="error" :loading="emptyLoading" @click="handleEmptyTrash">确认清空</UButton>
         </div>
       </template>
     </UModal>
