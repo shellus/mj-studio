@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
         content.trim()
       )
 
-      const fullContent = await writeStreamToResponse(event, generator)
+      const fullContent = await writeStreamToResponse(event, generator, conversationId, user.id)
 
       // 保存助手消息
       if (fullContent) {

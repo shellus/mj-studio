@@ -482,11 +482,11 @@ async function showErrorDetail() {
     </div>
 
     <!-- 删除确认 Modal -->
-    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这个任务吗？此操作不可撤销。">
+    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这个任务吗？此操作不可撤销。" :close="false">
       <template #footer>
         <div class="flex justify-end gap-3">
-          <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
           <UButton color="error" @click="confirmDelete">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
         </div>
       </template>
     </UModal>

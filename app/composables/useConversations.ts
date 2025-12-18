@@ -26,6 +26,53 @@ export function useConversations() {
   const isStreaming = useState('chat-streaming', () => false)
   const streamingContent = useState('chat-streaming-content', () => '')
 
+  // 打字机效果相关状态
+  let contentBuffer = '' // 待渲染的内容缓冲
+  let displayedContent = '' // 已显示的内容
+  let typingTimer: ReturnType<typeof setTimeout> | null = null
+  const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
+
+  // 打字机效果：逐字渲染缓冲区内容
+  function startTyping() {
+    if (typingTimer) return // 已经在运行
+
+    function tick() {
+      if (displayedContent.length < contentBuffer.length) {
+        // 每次渲染多个字符以加快速度
+        const charsToAdd = Math.min(3, contentBuffer.length - displayedContent.length)
+        displayedContent = contentBuffer.slice(0, displayedContent.length + charsToAdd)
+        streamingContent.value = displayedContent
+
+        // 更新消息列表中的内容
+        const lastMessage = messages.value[messages.value.length - 1]
+        if (lastMessage?.role === 'assistant') {
+          lastMessage.content = displayedContent
+        }
+
+        typingTimer = setTimeout(tick, TYPING_SPEED)
+      } else {
+        typingTimer = null
+      }
+    }
+
+    tick()
+  }
+
+  // 停止打字机效果，立即显示所有内容
+  function flushTyping() {
+    if (typingTimer) {
+      clearTimeout(typingTimer)
+      typingTimer = null
+    }
+    displayedContent = contentBuffer
+    streamingContent.value = displayedContent
+
+    const lastMessage = messages.value[messages.value.length - 1]
+    if (lastMessage?.role === 'assistant') {
+      lastMessage.content = displayedContent
+    }
+  }
+
   // 当前选中的对话
   const currentConversation = computed(() => {
     if (currentConversationId.value) {
@@ -58,6 +105,31 @@ export function useConversations() {
     try {
       const result = await $fetch<{ conversation: Conversation, messages: Message[] }>(`/api/conversations/${id}`)
       messages.value = result.messages
+
+      // 检查是否有进行中的流式内容
+      const streamingData = await $fetch<{ streaming: boolean, content: string }>(`/api/conversations/${id}/streaming`)
+      if (streamingData.streaming && streamingData.content) {
+        // 恢复流式状态
+        isStreaming.value = true
+        contentBuffer = streamingData.content
+        displayedContent = ''
+        streamingContent.value = ''
+
+        // 添加临时的助手消息占位
+        const tempAssistantMessage: Message = {
+          id: Date.now(),
+          conversationId: id,
+          role: 'assistant',
+          content: '',
+          modelConfigId: null,
+          modelName: null,
+          createdAt: new Date().toISOString(),
+        }
+        messages.value.push(tempAssistantMessage)
+
+        // 开始打字机效果
+        startTyping()
+      }
     } catch (error) {
       console.error('加载对话详情失败:', error)
       messages.value = []
@@ -107,6 +179,8 @@ export function useConversations() {
   async function sendMessage(conversationId: number, content: string) {
     isStreaming.value = true
     streamingContent.value = ''
+    contentBuffer = ''
+    displayedContent = ''
 
     // 先添加用户消息到本地
     const tempUserMessage: Message = {
@@ -149,8 +223,9 @@ export function useConversations() {
 
       const decoder = new TextDecoder()
       let buffer = ''
+      let streamDone = false
 
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read()
         if (done) break
 
@@ -170,13 +245,15 @@ export function useConversations() {
             if (parsed.error) {
               throw new Error(parsed.error)
             }
+            // 处理完成信号
+            if (parsed.done) {
+              streamDone = true
+              break
+            }
             if (parsed.content) {
-              streamingContent.value += parsed.content
-              // 更新临时助手消息
-              const lastMessage = messages.value[messages.value.length - 1]
-              if (lastMessage.role === 'assistant') {
-                lastMessage.content = streamingContent.value
-              }
+              // 追加到缓冲区，打字机效果会逐字渲染
+              contentBuffer += parsed.content
+              startTyping()
             }
           } catch (e) {
             // 忽略解析错误
@@ -194,12 +271,18 @@ export function useConversations() {
         }
       }
     } catch (error: any) {
+      // 停止打字机效果
+      flushTyping()
       // 移除临时助手消息
       messages.value.pop()
       throw error
     } finally {
+      // 确保所有内容都显示完毕
+      flushTyping()
       isStreaming.value = false
       streamingContent.value = ''
+      contentBuffer = ''
+      displayedContent = ''
     }
   }
 
@@ -213,11 +296,14 @@ export function useConversations() {
 
   // 清理状态
   function cleanup() {
+    flushTyping()
     conversations.value = []
     messages.value = []
     currentConversationId.value = null
     isStreaming.value = false
     streamingContent.value = ''
+    contentBuffer = ''
+    displayedContent = ''
   }
 
   return {

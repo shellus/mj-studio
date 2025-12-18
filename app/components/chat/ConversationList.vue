@@ -10,6 +10,7 @@ const emit = defineEmits<{
   select: [id: number]
   create: []
   delete: [id: number]
+  rename: [id: number, title: string]
 }>()
 
 // 格式化时间
@@ -34,19 +35,63 @@ function formatTime(dateStr: string) {
 
 // 删除确认
 const deleteConfirmId = ref<number | null>(null)
+const showDeleteConfirm = ref(false)
 
 function handleDelete(id: number) {
-  if (deleteConfirmId.value === id) {
-    emit('delete', id)
-    deleteConfirmId.value = null
-  } else {
-    deleteConfirmId.value = id
-    // 3秒后重置
-    setTimeout(() => {
-      if (deleteConfirmId.value === id) {
-        deleteConfirmId.value = null
-      }
-    }, 3000)
+  deleteConfirmId.value = id
+  showDeleteConfirm.value = true
+}
+
+function confirmDelete() {
+  if (deleteConfirmId.value) {
+    emit('delete', deleteConfirmId.value)
+  }
+  showDeleteConfirm.value = false
+  deleteConfirmId.value = null
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false
+  deleteConfirmId.value = null
+}
+
+// 重命名状态
+const editingId = ref<number | null>(null)
+const editingTitle = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
+
+// 开始编辑
+function startEdit(conv: Conversation) {
+  editingId.value = conv.id
+  editingTitle.value = conv.title
+  // 聚焦输入框
+  nextTick(() => {
+    inputRef.value?.focus()
+    inputRef.value?.select()
+  })
+}
+
+// 保存编辑
+function saveEdit() {
+  if (editingId.value && editingTitle.value.trim()) {
+    emit('rename', editingId.value, editingTitle.value.trim())
+  }
+  cancelEdit()
+}
+
+// 取消编辑
+function cancelEdit() {
+  editingId.value = null
+  editingTitle.value = ''
+}
+
+// 处理键盘事件
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    saveEdit()
+  } else if (e.key === 'Escape') {
+    cancelEdit()
   }
 }
 </script>
@@ -73,12 +118,12 @@ function handleDelete(id: number) {
       </div>
 
       <!-- 对话项 -->
-      <button
+      <div
         v-for="conv in conversations"
         :key="conv.id"
-        class="w-full p-3 text-left hover:bg-(--ui-bg) transition-colors group"
+        class="w-full p-3 text-left hover:bg-(--ui-bg) transition-colors group cursor-pointer"
         :class="conv.id === currentConversationId ? 'bg-(--ui-bg)' : ''"
-        @click="emit('select', conv.id)"
+        @click="editingId !== conv.id && emit('select', conv.id)"
       >
         <div class="flex items-start gap-2">
           <!-- 选中指示器 -->
@@ -89,23 +134,72 @@ function handleDelete(id: number) {
 
           <!-- 内容 -->
           <div class="flex-1 min-w-0">
-            <div class="text-sm truncate">{{ conv.title }}</div>
-            <div class="text-xs text-(--ui-text-dimmed) mt-0.5">
-              {{ formatTime(conv.updatedAt) }}
+            <!-- 编辑模式 -->
+            <div v-if="editingId === conv.id" class="flex items-center gap-1">
+              <input
+                ref="inputRef"
+                v-model="editingTitle"
+                class="min-w-0 flex-1 text-sm px-2 py-1 rounded bg-(--ui-bg-elevated) border border-(--ui-border) focus:outline-none focus:border-(--ui-primary)"
+                @keydown="handleKeydown"
+                @click.stop
+              />
+              <!-- 确认按钮 -->
+              <button
+                class="flex-shrink-0 p-1 rounded hover:bg-(--ui-success)/20 text-(--ui-success)"
+                title="确认"
+                @click.stop="saveEdit"
+              >
+                <UIcon name="i-heroicons-check" class="w-4 h-4" />
+              </button>
+              <!-- 取消按钮 -->
+              <button
+                class="flex-shrink-0 p-1 rounded hover:bg-(--ui-error)/20 text-(--ui-error)"
+                title="取消"
+                @click.stop="cancelEdit"
+              >
+                <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
+              </button>
             </div>
+            <!-- 显示模式 -->
+            <template v-else>
+              <div class="text-sm truncate">{{ conv.title }}</div>
+              <div class="text-xs text-(--ui-text-dimmed) mt-0.5">
+                {{ formatTime(conv.updatedAt) }}
+              </div>
+            </template>
           </div>
 
-          <!-- 删除按钮 -->
-          <button
-            class="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-            :class="deleteConfirmId === conv.id ? 'bg-(--ui-error) text-white opacity-100' : 'hover:bg-(--ui-bg-elevated)'"
-            :title="deleteConfirmId === conv.id ? '再次点击确认删除' : '删除'"
-            @click.stop="handleDelete(conv.id)"
-          >
-            <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
-          </button>
+          <!-- 操作按钮（非编辑模式时显示）-->
+          <div v-if="editingId !== conv.id" class="flex items-center gap-0.5">
+            <!-- 重命名按钮 -->
+            <button
+              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-bg-elevated)"
+              title="重命名"
+              @click.stop="startEdit(conv)"
+            >
+              <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
+            </button>
+            <!-- 删除按钮 -->
+            <button
+              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-error)/20 hover:text-(--ui-error)"
+              title="删除"
+              @click.stop="handleDelete(conv.id)"
+            >
+              <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </button>
+      </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这个对话吗？此操作不可撤销。" :close="false">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="error" @click="confirmDelete">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="cancelDelete">取消</UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

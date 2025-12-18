@@ -10,6 +10,7 @@ export interface Assistant {
   modelName: string | null
   isDefault: boolean
   createdAt: string
+  conversationCount: number
 }
 
 export function useAssistants() {
@@ -71,7 +72,8 @@ export function useAssistants() {
       })
     }
 
-    assistants.value.unshift(assistant)
+    // 新创建的助手对话数量为0
+    assistants.value.unshift({ ...assistant, conversationCount: 0 })
     return assistant
   }
 
@@ -119,6 +121,22 @@ export function useAssistants() {
     }
   }
 
+  // 增加助手的对话数量
+  function incrementConversationCount(assistantId: number) {
+    const assistant = assistants.value.find(a => a.id === assistantId)
+    if (assistant) {
+      assistant.conversationCount++
+    }
+  }
+
+  // 减少助手的对话数量
+  function decrementConversationCount(assistantId: number) {
+    const assistant = assistants.value.find(a => a.id === assistantId)
+    if (assistant && assistant.conversationCount > 0) {
+      assistant.conversationCount--
+    }
+  }
+
   return {
     assistants,
     isLoading,
@@ -129,5 +147,7 @@ export function useAssistants() {
     createAssistant,
     updateAssistant,
     deleteAssistant,
+    incrementConversationCount,
+    decrementConversationCount,
   }
 }

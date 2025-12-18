@@ -1,15 +1,38 @@
 // 助手服务层
 import { db } from '../database'
-import { assistants, type Assistant, type NewAssistant } from '../database/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { assistants, conversations, type Assistant, type NewAssistant } from '../database/schema'
+import { eq, and, desc, sql } from 'drizzle-orm'
+
+// 助手列表返回类型（包含对话数量）
+export type AssistantWithCount = Assistant & { conversationCount: number }
 
 export function useAssistantService() {
-  // 获取用户的所有助手
-  async function listByUser(userId: number): Promise<Assistant[]> {
-    return db.query.assistants.findMany({
-      where: eq(assistants.userId, userId),
-      orderBy: [desc(assistants.createdAt)],
-    })
+  // 获取用户的所有助手（包含对话数量）
+  async function listByUser(userId: number): Promise<AssistantWithCount[]> {
+    const result = await db
+      .select({
+        id: assistants.id,
+        userId: assistants.userId,
+        name: assistants.name,
+        description: assistants.description,
+        avatar: assistants.avatar,
+        systemPrompt: assistants.systemPrompt,
+        modelConfigId: assistants.modelConfigId,
+        modelName: assistants.modelName,
+        isDefault: assistants.isDefault,
+        createdAt: assistants.createdAt,
+        conversationCount: sql<number>`count(${conversations.id})`.as('conversationCount'),
+      })
+      .from(assistants)
+      .leftJoin(conversations, eq(conversations.assistantId, assistants.id))
+      .where(eq(assistants.userId, userId))
+      .groupBy(assistants.id)
+      .orderBy(desc(assistants.createdAt))
+
+    return result.map(row => ({
+      ...row,
+      conversationCount: Number(row.conversationCount),
+    }))
   }
 
   // 获取单个助手

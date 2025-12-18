@@ -7,6 +7,11 @@ const { user, clear } = useUserSession()
 const toast = useToast()
 const router = useRouter()
 
+// 响应式布局
+const isMobile = useIsMobile()
+const showLeftDrawer = ref(false)
+const showRightDrawer = ref(false)
+
 // 助手状态
 const {
   assistants,
@@ -18,6 +23,8 @@ const {
   createAssistant,
   updateAssistant,
   deleteAssistant,
+  incrementConversationCount,
+  decrementConversationCount,
 } = useAssistants()
 
 // 对话状态
@@ -26,12 +33,15 @@ const {
   messages,
   isLoading: isLoadingConversations,
   currentConversationId,
+  currentConversation,
   isStreaming,
   loadConversations,
   selectConversation,
   createConversation,
   deleteConversation,
+  updateConversationTitle,
   sendMessage,
+  deleteMessage,
   cleanup,
 } = useConversations()
 
@@ -60,6 +70,7 @@ watch(currentAssistantId, async (id) => {
 // 选择助手
 async function handleSelectAssistant(id: number) {
   selectAssistant(id)
+  showLeftDrawer.value = false
 }
 
 // 打开创建助手弹窗
@@ -97,6 +108,8 @@ async function handleCreateConversation() {
 
   try {
     await createConversation(currentAssistantId.value)
+    // 更新对话数量
+    incrementConversationCount(currentAssistantId.value)
   } catch (error: any) {
     toast.add({ title: error.message || '创建对话失败', color: 'error' })
   }
@@ -105,13 +118,42 @@ async function handleCreateConversation() {
 // 选择对话
 async function handleSelectConversation(id: number) {
   await selectConversation(id)
+  showRightDrawer.value = false
 }
 
 // 删除对话
 async function handleDeleteConversation(id: number) {
+  // 先获取对话的 assistantId
+  const conversation = conversations.value.find(c => c.id === id)
+  const assistantId = conversation?.assistantId
+
   try {
     await deleteConversation(id)
     toast.add({ title: '对话已删除', color: 'success' })
+    // 更新对话数量
+    if (assistantId) {
+      decrementConversationCount(assistantId)
+    }
+  } catch (error: any) {
+    toast.add({ title: error.message || '删除失败', color: 'error' })
+  }
+}
+
+// 重命名对话
+async function handleRenameConversation(id: number, title: string) {
+  try {
+    await updateConversationTitle(id, title)
+    toast.add({ title: '对话已重命名', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '重命名失败', color: 'error' })
+  }
+}
+
+// 删除消息
+async function handleDeleteMessage(id: number) {
+  try {
+    await deleteMessage(id)
+    toast.add({ title: '消息已删除', color: 'success' })
   } catch (error: any) {
     toast.add({ title: error.message || '删除失败', color: 'error' })
   }
@@ -125,6 +167,8 @@ async function handleSendMessage(content: string) {
     try {
       const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
       conversationId = conversation.id
+      // 更新对话数量
+      incrementConversationCount(currentAssistantId.value)
     } catch (error: any) {
       toast.add({ title: error.message || '创建对话失败', color: 'error' })
       return
@@ -168,9 +212,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-(--ui-bg) flex flex-col">
-    <!-- 顶部导航 -->
-    <header class="border-b border-(--ui-border) bg-(--ui-bg-elevated)">
+  <div class="h-screen bg-(--ui-bg) flex flex-col overflow-hidden">
+    <!-- 桌面端顶部导航 -->
+    <header v-if="!isMobile" class="border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
       <div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
         <!-- Logo -->
         <NuxtLink to="/" class="flex items-center gap-2">
@@ -210,10 +254,23 @@ onUnmounted(() => {
       </div>
     </header>
 
+    <!-- 移动端顶部栏 -->
+    <header v-if="isMobile" class="h-14 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
+      <UButton variant="ghost" size="sm" @click="showLeftDrawer = true">
+        <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+      </UButton>
+      <span class="flex-1 text-center truncate font-medium">
+        {{ currentConversation?.title || currentAssistant?.name || '选择助手' }}
+      </span>
+      <UButton variant="ghost" size="sm" @click="showRightDrawer = true">
+        <UIcon name="i-heroicons-chat-bubble-left-right" class="w-5 h-5" />
+      </UButton>
+    </header>
+
     <!-- 主体内容 -->
-    <div class="flex-1 flex overflow-hidden">
-      <!-- 左侧：助手列表 -->
-      <div class="w-[240px] flex-shrink-0">
+    <div class="flex-1 flex overflow-hidden min-h-0">
+      <!-- 左侧：助手列表（桌面端显示） -->
+      <div v-if="!isMobile" class="w-[240px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border)">
         <ChatAssistantList
           :assistants="assistants"
           :current-assistant-id="currentAssistantId"
@@ -222,13 +279,19 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- 中间：消息区域 -->
-      <div class="flex-1 flex flex-col min-w-0 border-r border-(--ui-border)">
+      <!-- 中间：消息区域（始终显示） -->
+      <div class="flex-1 flex flex-col min-w-0 min-h-0">
+        <!-- 桌面端对话标题栏 -->
+        <div v-if="!isMobile && currentConversation" class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
+          <span class="font-medium truncate">{{ currentConversation.title }}</span>
+        </div>
+
         <!-- 消息列表 -->
         <ChatMessageList
           :messages="messages"
           :is-streaming="isStreaming"
-          class="flex-1"
+          class="flex-1 min-h-0"
+          @delete="handleDeleteMessage"
         />
 
         <!-- 输入框 -->
@@ -236,14 +299,14 @@ onUnmounted(() => {
           :model-configs="modelConfigs"
           :current-config-id="currentAssistant?.modelConfigId || null"
           :current-model-name="currentAssistant?.modelName || null"
-          :disabled="isStreaming || !currentAssistant"
+          :disabled="!currentAssistant"
           @send="handleSendMessage"
           @update-model="handleUpdateModel"
         />
       </div>
 
-      <!-- 右侧：助手信息 + 对话列表 -->
-      <div class="w-[220px] flex-shrink-0 flex flex-col bg-(--ui-bg-elevated)">
+      <!-- 右侧：助手信息 + 对话列表（桌面端显示） -->
+      <div v-if="!isMobile" class="w-[260px] flex-shrink-0 flex flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border)">
         <!-- 助手信息 -->
         <ChatAssistantInfo
           :assistant="currentAssistant"
@@ -254,13 +317,66 @@ onUnmounted(() => {
         <ChatConversationList
           :conversations="conversations"
           :current-conversation-id="currentConversationId"
-          class="flex-1"
+          class="flex-1 min-h-0"
           @select="handleSelectConversation"
           @create="handleCreateConversation"
           @delete="handleDeleteConversation"
+          @rename="handleRenameConversation"
         />
       </div>
     </div>
+
+    <!-- 移动端左侧抽屉（助手列表） -->
+    <UDrawer v-model:open="showLeftDrawer" direction="left" title="助手列表">
+      <template #body>
+        <ChatAssistantList
+          :assistants="assistants"
+          :current-assistant-id="currentAssistantId"
+          class="h-full"
+          @select="handleSelectAssistant"
+          @create="handleCreateAssistant"
+        />
+      </template>
+      <template #footer>
+        <div class="flex gap-2 p-4 border-t border-(--ui-border)">
+          <NuxtLink to="/" class="flex-1">
+            <UButton variant="outline" block>
+              <UIcon name="i-heroicons-paint-brush" class="w-4 h-4 mr-1" />
+              绘图
+            </UButton>
+          </NuxtLink>
+          <NuxtLink to="/settings">
+            <UButton variant="ghost" size="sm">
+              <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
+            </UButton>
+          </NuxtLink>
+          <UColorModeButton />
+        </div>
+      </template>
+    </UDrawer>
+
+    <!-- 移动端右侧抽屉（助手信息 + 对话列表） -->
+    <UDrawer v-model:open="showRightDrawer" direction="right" title="对话">
+      <template #body>
+        <div class="flex flex-col h-full">
+          <!-- 助手信息 -->
+          <ChatAssistantInfo
+            :assistant="currentAssistant"
+            @edit="handleEditAssistant"
+          />
+          <!-- 对话列表 -->
+          <ChatConversationList
+            :conversations="conversations"
+            :current-conversation-id="currentConversationId"
+            class="flex-1 min-h-0"
+            @select="handleSelectConversation"
+            @create="handleCreateConversation"
+            @delete="handleDeleteConversation"
+            @rename="handleRenameConversation"
+          />
+        </div>
+      </template>
+    </UDrawer>
 
     <!-- 助手编辑弹窗 -->
     <ChatAssistantEditor

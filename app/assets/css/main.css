@@ -14,3 +14,39 @@
 .animate-shimmer {
   animation: shimmer 2s linear infinite;
 }
+
+/* Shiki 代码高亮主题切换 */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.markdown-content > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > *:last-child {
+  margin-bottom: 0;
+}
+
+/* 代码块容器 */
+.markdown-content pre {
+  margin: 0;
+}
+
+.markdown-content .shiki {
+  border-radius: 0.5rem;
+}

@@ -136,7 +136,7 @@ function handleClose() {
       <div class="space-y-4">
         <!-- 头像 -->
         <div>
-          <label class="block text-sm font-medium mb-2">助手头像</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">助手头像</label>
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center overflow-hidden border border-(--ui-border)">
               <img
@@ -175,7 +175,7 @@ function handleClose() {
 
         <!-- 名称 -->
         <div>
-          <label class="block text-sm font-medium mb-2">助手名称 *</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">助手名称 *</label>
           <UInput
             v-model="formData.name"
             placeholder="如：代码助手"
@@ -184,7 +184,7 @@ function handleClose() {
 
         <!-- 简介 -->
         <div>
-          <label class="block text-sm font-medium mb-2">助手简介</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">助手简介</label>
           <UInput
             v-model="formData.description"
             placeholder="简短描述助手的功能"
@@ -193,7 +193,7 @@ function handleClose() {
 
         <!-- 系统提示词 -->
         <div>
-          <label class="block text-sm font-medium mb-2">系统提示词</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">系统提示词</label>
           <UTextarea
             v-model="formData.systemPrompt"
             :rows="4"
@@ -203,7 +203,7 @@ function handleClose() {
 
         <!-- 上游选择 -->
         <div>
-          <label class="block text-sm font-medium mb-2">上游</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">上游</label>
           <USelectMenu
             :model-value="formData.modelConfigId"
             :items="modelConfigs.filter(c => (c.modelTypeConfigs || []).some(m => m.category === 'chat' || (!m.category && m.apiFormat === 'openai-chat' && !isImageModel(m.modelType)))).map(c => ({
@@ -218,7 +218,7 @@ function handleClose() {
 
         <!-- 模型选择 -->
         <div>
-          <label class="block text-sm font-medium mb-2">模型</label>
+          <label class="block text-(--ui-text-muted) text-sm mb-2">模型</label>
           <USelectMenu
             v-model="formData.modelName"
             :items="availableModels.map(m => ({
@@ -232,14 +232,10 @@ function handleClose() {
         </div>
 
         <!-- 设为默认 -->
-        <div class="flex items-center gap-2">
-          <input
-            v-model="formData.isDefault"
-            type="checkbox"
-            class="rounded"
-          />
-          <label class="text-sm">设为默认助手</label>
-        </div>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <UCheckbox v-model="formData.isDefault" />
+          <span class="text-(--ui-text-muted) text-sm">设为默认助手</span>
+        </label>
       </div>
     </template>
 

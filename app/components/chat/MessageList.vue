@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import type { Message } from '~/composables/useConversations'
+import { renderMarkdown } from '~/composables/useMarkdown'
 
 const props = defineProps<{
   messages: Message[]
   isStreaming: boolean
 }>()
 
+const emit = defineEmits<{
+  delete: [id: number]
+}>()
+
 const messagesContainer = ref<HTMLElement>()
+
+// 渲染后的消息内容缓存
+const renderedMessages = ref<Map<number, string>>(new Map())
+const renderingIds = ref<Set<number>>(new Set())
 
 // 自动滚动到底部
 function scrollToBottom() {
@@ -17,9 +26,89 @@ function scrollToBottom() {
   })
 }
 
+// 渲染单条消息的 Markdown
+async function renderMessage(message: Message) {
+  // 用户消息不渲染 Markdown
+  if (message.role === 'user') return
+
+  // 正在渲染中的跳过
+  if (renderingIds.value.has(message.id)) return
+
+  // 已有缓存且内容未变化则跳过
+  const cached = renderedMessages.value.get(message.id)
+  if (cached !== undefined) {
+    // 检查内容是否变化（流式更新时）
+    const currentContent = message.content
+    // 使用简单的长度检查来判断是否需要重新渲染
+    if (!props.isStreaming) return
+  }
+
+  renderingIds.value.add(message.id)
+  try {
+    const html = await renderMarkdown(message.content)
+    renderedMessages.value.set(message.id, html)
+  } finally {
+    renderingIds.value.delete(message.id)
+  }
+}
+
+// 获取渲染后的内容
+function getRenderedContent(message: Message): string {
+  if (message.role === 'user') {
+    return message.content
+  }
+  return renderedMessages.value.get(message.id) || message.content
+}
+
+// 检查是否需要显示原始内容（正在流式输出或渲染中）
+function shouldShowRaw(message: Message): boolean {
+  if (message.role === 'user') return true
+  // 流式输出的最后一条消息显示原始内容
+  if (props.isStreaming && message === props.messages[props.messages.length - 1]) {
+    return true
+  }
+  // 还没有渲染完成时显示原始内容
+  if (!renderedMessages.value.has(message.id)) {
+    return true
+  }
+  return false
+}
+
 // 监听消息变化，自动滚动
 watch(() => props.messages.length, scrollToBottom)
 watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
+
+// 监听消息变化，渲染 Markdown
+watch(
+  () => props.messages,
+  async (messages) => {
+    for (const msg of messages) {
+      if (msg.role === 'assistant') {
+        // 流式输出时不渲染最后一条消息
+        if (props.isStreaming && msg === messages[messages.length - 1]) {
+          continue
+        }
+        await renderMessage(msg)
+      }
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+// 流式输出结束后渲染最后一条消息
+watch(
+  () => props.isStreaming,
+  async (streaming, prevStreaming) => {
+    if (prevStreaming && !streaming) {
+      // 流式输出刚结束
+      const lastMsg = props.messages[props.messages.length - 1]
+      if (lastMsg?.role === 'assistant') {
+        renderedMessages.value.delete(lastMsg.id) // 清除旧缓存
+        await renderMessage(lastMsg)
+      }
+    }
+  }
+)
 
 // 格式化时间
 function formatTime(dateStr: string) {
@@ -45,6 +134,25 @@ async function copyMessage(content: string) {
     await navigator.clipboard.writeText(content)
   } catch (e) {
     console.error('复制失败:', e)
+  }
+}
+
+// 删除确认状态
+const deleteConfirmId = ref<number | null>(null)
+
+// 处理删除
+function handleDelete(id: number) {
+  if (deleteConfirmId.value === id) {
+    emit('delete', id)
+    deleteConfirmId.value = null
+  } else {
+    deleteConfirmId.value = id
+    // 3秒后重置
+    setTimeout(() => {
+      if (deleteConfirmId.value === id) {
+        deleteConfirmId.value = null
+      }
+    }, 3000)
   }
 }
 </script>
@@ -92,13 +200,22 @@ async function copyMessage(content: string) {
             ? 'bg-(--ui-primary) text-white rounded-tr-sm'
             : 'bg-(--ui-bg-elevated) rounded-tl-sm'"
         >
-          <!-- 消息文本 -->
-          <div class="whitespace-pre-wrap break-words text-sm">
+          <!-- 用户消息：纯文本 -->
+          <div v-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
             {{ message.content }}
-            <span
-              v-if="isStreaming && message.role === 'assistant' && message === messages[messages.length - 1]"
-              class="inline-block w-2 h-4 bg-current animate-pulse ml-0.5"
-            />
+          </div>
+          <!-- 助手消息：Markdown 渲染 -->
+          <div v-else class="text-sm">
+            <!-- 流式输出中显示原始文本 + 光标 -->
+            <template v-if="shouldShowRaw(message)">
+              <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
+              <span
+                v-if="isStreaming && message === messages[messages.length - 1]"
+                class="inline-block w-2 h-4 bg-current animate-pulse ml-0.5"
+              />
+            </template>
+            <!-- 渲染后的 Markdown -->
+            <div v-else v-html="getRenderedContent(message)" class="markdown-content" />
           </div>
         </div>
 
@@ -117,6 +234,16 @@ async function copyMessage(content: string) {
             @click="copyMessage(message.content)"
           >
             <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
+          </button>
+          <!-- 删除按钮（流式输出时隐藏） -->
+          <button
+            v-if="!isStreaming"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
+            :class="deleteConfirmId === message.id ? 'bg-(--ui-error) text-white opacity-100' : 'hover:bg-(--ui-bg-elevated)'"
+            :title="deleteConfirmId === message.id ? '再次点击确认删除' : '删除'"
+            @click="handleDelete(message.id)"
+          >
+            <UIcon name="i-heroicons-trash" class="w-3 h-3" />
           </button>
         </div>
       </div>

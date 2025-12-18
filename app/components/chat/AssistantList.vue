@@ -59,8 +59,8 @@ const emit = defineEmits<{
                 class="w-3 h-3 text-yellow-500"
               />
             </div>
-            <div class="text-xs text-(--ui-text-muted) truncate">
-              {{ assistant.description || '暂无简介' }}
+            <div class="text-xs text-(--ui-text-muted)">
+              {{ assistant.conversationCount }} 个对话
             </div>
           </div>
         </div>
