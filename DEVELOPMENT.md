@@ -137,3 +137,158 @@ pending → submitting → processing → success
 - [Drizzle ORM 文档](https://orm.drizzle.team/)
 - [midjourney-proxy API](https://github.com/novicezk/midjourney-proxy)
 - [Gemini API 图像生成](https://ai.google.dev/gemini-api/docs/image-generation)
+
+## UI 组件规范
+
+本项目使用 **Nuxt UI 3**，遵循以下规范以保持一致性，避免过度自定义样式。
+
+### 表单组件
+
+**必须使用 `UForm` + `UFormField` 组合**，而非手动写 `<label>` 标签：
+
+```vue
+<!-- ✅ 正确 -->
+<UForm :state="formData" :validate="validate" @submit="onSubmit">
+  <UFormField label="用户名" name="username" required>
+    <UInput v-model="formData.username" placeholder="请输入" />
+  </UFormField>
+
+  <UFormField label="描述" name="description">
+    <UTextarea v-model="formData.description" :rows="4" />
+  </UFormField>
+
+  <UButton type="submit">保存</UButton>
+</UForm>
+
+<!-- ❌ 错误：手动写 label -->
+<label class="block text-sm mb-2">用户名</label>
+<UInput v-model="formData.username" />
+```
+
+**表单验证**使用 `validate` 函数：
+
+```typescript
+import type { FormSubmitEvent, FormError } from '@nuxt/ui'
+
+function validate(state: typeof formData): FormError[] {
+  const errors: FormError[] = []
+  if (!state.username?.trim()) {
+    errors.push({ name: 'username', message: '请输入用户名' })
+  }
+  return errors
+}
+
+function onSubmit(event: FormSubmitEvent<typeof formData>) {
+  // event.data 包含验证通过的表单数据
+}
+```
+
+### 模态框
+
+使用 `UModal` 组件，通过 `:ui` 属性调整宽度：
+
+```vue
+<UModal
+  v-model:open="showModal"
+  title="标题"
+  description="可选描述"
+  :ui="{ content: 'sm:max-w-xl' }"
+>
+  <template #body>
+    <!-- 内容 -->
+  </template>
+
+  <template #footer>
+    <UButton variant="ghost" @click="showModal = false">取消</UButton>
+    <UButton color="primary" @click="handleSave">保存</UButton>
+  </template>
+</UModal>
+```
+
+常用宽度：`sm:max-w-lg`（默认）、`sm:max-w-xl`、`sm:max-w-2xl`、`sm:max-w-4xl`
+
+### 下拉菜单
+
+选择列表使用 `UDropdownMenu`，支持分组：
+
+```vue
+<UDropdownMenu :items="menuItems">
+  <UButton variant="outline">
+    {{ displayText }}
+    <UIcon name="i-heroicons-chevron-down" />
+  </UButton>
+</UDropdownMenu>
+
+<script setup>
+const menuItems = computed(() => [
+  [
+    { label: '分组标题', type: 'label' },
+    { label: '选项1', onSelect: () => handleSelect(1) },
+    { label: '选项2', onSelect: () => handleSelect(2) },
+  ],
+  [
+    { label: '另一分组', type: 'label' },
+    { label: '选项3', onSelect: () => handleSelect(3) },
+  ],
+])
+</script>
+```
+
+### Toast 通知
+
+使用 `useToast()` 替代 `alert()`：
+
+```typescript
+const toast = useToast()
+
+// 成功
+toast.add({ title: '保存成功', color: 'success' })
+
+// 错误
+toast.add({ title: '操作失败', description: '详细信息', color: 'error' })
+
+// 警告
+toast.add({ title: '请注意', color: 'warning' })
+```
+
+### 按钮
+
+```vue
+<!-- 主要操作 -->
+<UButton color="primary">保存</UButton>
+
+<!-- 次要操作 -->
+<UButton variant="outline" color="neutral">编辑</UButton>
+
+<!-- 文字按钮 -->
+<UButton variant="ghost">取消</UButton>
+
+<!-- 危险操作 -->
+<UButton color="error">删除</UButton>
+
+<!-- 带图标 -->
+<UButton>
+  <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+  添加
+</UButton>
+```
+
+### 样式原则
+
+1. **优先使用组件 props**：如 `color`、`variant`、`size`，而非自定义 class
+2. **使用 CSS 变量**：如 `text-(--ui-text-muted)`、`bg-(--ui-bg-elevated)`
+3. **避免硬编码颜色**：使用主题变量确保深色模式兼容
+4. **间距使用 Tailwind**：`space-y-4`、`gap-2`、`p-4` 等
+5. **响应式优先**：移动端优先，必要时使用 `sm:`、`md:` 前缀
+
+### 图标
+
+使用 Heroicons，通过 `UIcon` 组件：
+
+```vue
+<UIcon name="i-heroicons-plus" class="w-4 h-4" />
+<UIcon name="i-heroicons-trash" class="w-5 h-5" />
+<UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
+```
+
+常用图标：`plus`、`trash`、`pencil`、`x-mark`、`chevron-down`、`cpu-chip`、`user-circle`、`cloud-arrow-up`

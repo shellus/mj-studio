@@ -42,6 +42,8 @@ const {
   deleteMessage,
   replayMessage,
   cleanup,
+  addManualMessage,
+  stopStreaming,
 } = useConversations()
 
 // 模型配置
@@ -148,6 +150,24 @@ async function handleRenameConversation(id: number, title: string) {
   }
 }
 
+// AI智能生成对话标题
+async function handleGenerateTitle(id: number) {
+  try {
+    toast.add({ title: '正在生成标题...', color: 'info' })
+    const result = await $fetch<{ title: string }>(`/api/conversations/${id}/generate-title`, {
+      method: 'POST',
+    })
+    // 更新本地状态
+    const conversation = conversations.value.find(c => c.id === id)
+    if (conversation) {
+      conversation.title = result.title
+    }
+    toast.add({ title: '标题已更新', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '生成标题失败', color: 'error' })
+  }
+}
+
 // 删除消息
 async function handleDeleteMessage(id: number) {
   try {
@@ -189,6 +209,62 @@ async function handleSendMessage(content: string) {
     await sendMessage(conversationId, content, currentAssistant.value?.modelName)
   } catch (error: any) {
     toast.add({ title: error.message || '发送失败', color: 'error' })
+  }
+}
+
+// 手动添加消息（不触发AI回复）
+async function handleAddMessage(content: string, role: 'user' | 'assistant') {
+  // 如果没有当前对话，先创建一个
+  let conversationId = currentConversationId.value
+  if (!conversationId && currentAssistantId.value) {
+    try {
+      const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
+      conversationId = conversation.id
+      incrementConversationCount(currentAssistantId.value)
+    } catch (error: any) {
+      toast.add({ title: error.message || '创建对话失败', color: 'error' })
+      return
+    }
+  }
+
+  if (!conversationId) return
+
+  try {
+    await addManualMessage(conversationId, content, role)
+    toast.add({ title: `已添加${role === 'user' ? '用户' : 'AI'}消息`, color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '添加失败', color: 'error' })
+  }
+}
+
+// 停止AI输出
+function handleStop() {
+  stopStreaming()
+  toast.add({ title: '已停止生成', color: 'info' })
+}
+
+// 压缩对话
+async function handleCompress() {
+  if (!currentConversationId.value) return
+
+  try {
+    toast.add({ title: '正在压缩对话...', color: 'info' })
+    const result = await $fetch<{
+      success: boolean
+      stats: { messagesCompressed: number, compressionRatio: string }
+    }>(`/api/conversations/${currentConversationId.value}/compress`, {
+      method: 'POST',
+    })
+
+    // 重新加载消息
+    await selectConversation(currentConversationId.value)
+
+    toast.add({
+      title: `已压缩 ${result.stats.messagesCompressed} 条消息，压缩率 ${result.stats.compressionRatio}`,
+      color: 'success',
+    })
+  } catch (error: any) {
+    toast.add({ title: error.message || '压缩失败', color: 'error' })
   }
 }
 
@@ -263,7 +339,12 @@ onUnmounted(() => {
           :current-config-id="currentAssistant?.modelConfigId || null"
           :current-model-name="currentAssistant?.modelName || null"
           :disabled="!currentAssistant"
+          :is-streaming="isStreaming"
+          :messages="messages"
           @send="handleSendMessage"
+          @add-message="handleAddMessage"
+          @stop="handleStop"
+          @compress="handleCompress"
           @update-model="handleUpdateModel"
         />
       </div>
@@ -285,6 +366,7 @@ onUnmounted(() => {
           @create="handleCreateConversation"
           @delete="handleDeleteConversation"
           @rename="handleRenameConversation"
+          @generate-title="handleGenerateTitle"
         />
       </div>
     </div>
@@ -320,6 +402,7 @@ onUnmounted(() => {
             @create="handleCreateConversation"
             @delete="handleDeleteConversation"
             @rename="handleRenameConversation"
+            @generate-title="handleGenerateTitle"
           />
         </div>
       </template>

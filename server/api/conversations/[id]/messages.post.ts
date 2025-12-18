@@ -69,6 +69,15 @@ export default defineEventHandler(async (event) => {
     await conversationService.updateTitle(conversationId, user.id, title)
   }
 
+  // 过滤历史消息：从最后一个 summary 消息开始（包含 summary）
+  let historyMessages = result.messages
+  for (let i = result.messages.length - 1; i >= 0; i--) {
+    if (result.messages[i].mark === 'summary') {
+      historyMessages = result.messages.slice(i)
+      break
+    }
+  }
+
   // 创建聊天服务
   const chatService = createChatService(modelConfig)
 
@@ -82,7 +91,7 @@ export default defineEventHandler(async (event) => {
       const generator = chatService.chatStream(
         assistant.modelName,
         assistant.systemPrompt,
-        result.messages,
+        historyMessages,
         content.trim()
       )
 
@@ -109,7 +118,7 @@ export default defineEventHandler(async (event) => {
         content: errorMessage,
         modelConfigId: assistant.modelConfigId,
         modelName: assistant.modelName,
-        isError: true,
+        mark: 'error',
       })
       // 发送错误到前端
       const errorData = JSON.stringify({ error: errorMessage, done: true })
@@ -121,7 +130,7 @@ export default defineEventHandler(async (event) => {
     const response = await chatService.chat(
       assistant.modelName,
       assistant.systemPrompt,
-      result.messages,
+      historyMessages,
       content.trim()
     )
 

@@ -14,18 +14,48 @@ const emit = defineEmits<{
 
 const messagesContainer = ref<HTMLElement>()
 
+// 用户是否在底部（或接近底部）
+const isAtBottom = ref(true)
+const BOTTOM_THRESHOLD = 50 // 距离底部 50px 内视为在底部
+
+// 检查是否在底部
+function checkIfAtBottom() {
+  if (!messagesContainer.value) return true
+  const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value
+  return scrollHeight - scrollTop - clientHeight <= BOTTOM_THRESHOLD
+}
+
+// 滚动事件处理
+function handleScroll() {
+  isAtBottom.value = checkIfAtBottom()
+}
+
 // 渲染后的消息内容缓存
 const renderedMessages = ref<Map<number, string>>(new Map())
 const renderingIds = ref<Set<number>>(new Set())
 
-// 自动滚动到底部
+// 自动滚动到底部（仅当用户在底部时）
 function scrollToBottom() {
+  if (!isAtBottom.value) return
   nextTick(() => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
   })
 }
+
+// 强制滚动到底部（新消息发送时使用）
+function forceScrollToBottom() {
+  isAtBottom.value = true
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    }
+  })
+}
+
+// 暴露给父组件
+defineExpose({ scrollToBottom: forceScrollToBottom })
 
 // 渲染单条消息的 Markdown
 async function renderMessage(message: Message) {
@@ -76,7 +106,9 @@ function shouldShowRaw(message: Message): boolean {
 }
 
 // 监听消息变化，自动滚动
-watch(() => props.messages.length, scrollToBottom)
+// 新消息添加时强制滚动到底部（让用户看到新消息）
+watch(() => props.messages.length, forceScrollToBottom)
+// 流式输出时，只有用户在底部才跟随滚动
 watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
 
 // 监听消息变化，渲染 Markdown
@@ -168,6 +200,7 @@ function cancelDelete() {
   <div
     ref="messagesContainer"
     class="flex-1 overflow-y-auto p-4 space-y-4"
+    @scroll="handleScroll"
   >
     <!-- 空状态 -->
     <div v-if="messages.length === 0" class="h-full flex items-center justify-center">
@@ -178,12 +211,24 @@ function cancelDelete() {
     </div>
 
     <!-- 消息列表 -->
-    <div
-      v-for="message in messages"
-      :key="message.id"
-      class="flex gap-3"
-      :class="message.role === 'user' ? 'flex-row-reverse' : ''"
-    >
+    <template v-for="(message, index) in messages" :key="message.id">
+      <!-- Summary 消息前的分界线 -->
+      <div
+        v-if="message.mark === 'summary'"
+        class="flex items-center gap-4 py-4"
+      >
+        <div class="flex-1 h-px bg-(--ui-border)" />
+        <span class="text-xs text-(--ui-text-muted) flex items-center gap-1">
+          <UIcon name="i-heroicons-archive-box" class="w-3 h-3" />
+          以上内容已压缩
+        </span>
+        <div class="flex-1 h-px bg-(--ui-border)" />
+      </div>
+
+      <div
+        class="flex gap-3"
+        :class="message.role === 'user' ? 'flex-row-reverse' : ''"
+      >
       <!-- 头像 -->
       <div
         class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
@@ -206,9 +251,11 @@ function cancelDelete() {
           :class="[
             message.role === 'user'
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
-              : message.isError
+              : message.mark === 'error'
                 ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
-                : 'bg-(--ui-bg-elevated) rounded-tl-sm'
+                : message.mark === 'summary'
+                  ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
+                  : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
         >
           <!-- 用户消息：纯文本 -->
@@ -216,9 +263,17 @@ function cancelDelete() {
             {{ message.content }}
           </div>
           <!-- 错误消息 -->
-          <div v-else-if="message.isError" class="text-sm flex items-start gap-2">
+          <div v-else-if="message.mark === 'error'" class="text-sm flex items-start gap-2">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
+          </div>
+          <!-- 摘要消息 -->
+          <div v-else-if="message.mark === 'summary'" class="text-sm">
+            <div class="flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
+              <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
+              <span class="font-medium">对话摘要</span>
+            </div>
+            <div class="whitespace-pre-wrap break-words">{{ message.content }}</div>
           </div>
           <!-- 助手消息：Markdown 渲染 -->
           <div v-else class="text-sm">
@@ -272,6 +327,7 @@ function cancelDelete() {
         </div>
       </div>
     </div>
+    </template>
 
     <!-- 删除确认框 -->
     <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这条消息吗？" :close="false">

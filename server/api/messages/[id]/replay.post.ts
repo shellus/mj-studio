@@ -129,7 +129,7 @@ export default defineEventHandler(async (event) => {
       content: errorMessage,
       modelConfigId: assistant.modelConfigId,
       modelName: assistant.modelName,
-      isError: true,
+      mark: 'error',
     })
     // 发送错误到前端
     const errorData = JSON.stringify({ error: errorMessage, done: true })

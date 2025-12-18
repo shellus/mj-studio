@@ -11,6 +11,7 @@ const emit = defineEmits<{
   create: []
   delete: [id: number]
   rename: [id: number, title: string]
+  generateTitle: [id: number]
 }>()
 
 // 格式化时间
@@ -171,6 +172,14 @@ function handleKeydown(e: KeyboardEvent) {
 
           <!-- 操作按钮（非编辑模式时显示）-->
           <div v-if="editingId !== conv.id" class="flex items-center gap-0.5">
+            <!-- 智能重命名按钮 -->
+            <button
+              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-bg-elevated)"
+              title="AI智能重命名"
+              @click.stop="emit('generateTitle', conv.id)"
+            >
+              <UIcon name="i-heroicons-sparkles" class="w-3.5 h-3.5" />
+            </button>
             <!-- 重命名按钮 -->
             <button
               class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-bg-elevated)"

@@ -1,6 +1,6 @@
 // 对话服务层
 import { db } from '../database'
-import { conversations, messages, type Conversation, type Message } from '../database/schema'
+import { conversations, messages, type Conversation, type Message, type MessageMark } from '../database/schema'
 import { eq, and, desc } from 'drizzle-orm'
 
 export function useConversationService() {
@@ -94,7 +94,7 @@ export function useConversationService() {
     content: string
     modelConfigId?: number
     modelName?: string
-    isError?: boolean
+    mark?: MessageMark
   }): Promise<Message> {
     const [message] = await db.insert(messages).values({
       conversationId: data.conversationId,
@@ -102,7 +102,7 @@ export function useConversationService() {
       content: data.content,
       modelConfigId: data.modelConfigId ?? null,
       modelName: data.modelName ?? null,
-      isError: data.isError ?? false,
+      mark: data.mark ?? null,
     }).returning()
 
     // 更新对话时间

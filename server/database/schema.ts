@@ -10,10 +10,11 @@ export type {
   ApiFormat,
   TaskStatus,
   MessageRole,
+  MessageMark,
   ModelTypeConfig,
 } from '../../app/shared/types'
 
-import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole } from '../../app/shared/types'
+import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -118,7 +119,7 @@ export const messages = sqliteTable('messages', {
   content: text('content').notNull(),
   modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
   modelName: text('model_name'), // 使用的模型名，仅assistant消息
-  isError: integer('is_error', { mode: 'boolean' }).default(false), // 是否为错误消息
+  mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误消息，summary=压缩摘要
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

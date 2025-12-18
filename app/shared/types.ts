@@ -97,6 +97,13 @@ export type TaskStatus =
  */
 export type MessageRole = 'user' | 'assistant'
 
+/**
+ * 消息标记
+ * - 用于标识特殊类型的消息
+ * - 使用场景：错误消息、压缩摘要消息的识别
+ */
+export type MessageMark = 'error' | 'summary'
+
 // ==================== 模型类型配置接口 ====================
 
 /**

@@ -1,4 +1,6 @@
 // 对话状态管理
+import type { MessageMark } from '~/shared/types'
+
 export interface Message {
   id: number
   conversationId: number
@@ -7,7 +9,7 @@ export interface Message {
   modelConfigId: number | null
   modelName: string | null
   createdAt: string
-  isError?: boolean
+  mark?: MessageMark | null
 }
 
 export interface Conversation {
@@ -32,6 +34,9 @@ export function useConversations() {
   let displayedContent = '' // 已显示的内容
   let typingTimer: ReturnType<typeof setTimeout> | null = null
   const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
+
+  // 用于停止流式输出的 AbortController
+  let currentAbortController: AbortController | null = null
 
   // 打字机效果：逐字渲染缓冲区内容
   function startTyping() {
@@ -70,7 +75,7 @@ export function useConversations() {
 
     const lastMessage = messages.value[messages.value.length - 1]
     // 错误消息不覆盖
-    if (lastMessage?.role === 'assistant' && !lastMessage.isError) {
+    if (lastMessage?.role === 'assistant' && lastMessage.mark !== 'error') {
       lastMessage.content = displayedContent
     }
   }
@@ -184,6 +189,10 @@ export function useConversations() {
     contentBuffer = ''
     displayedContent = ''
 
+    // 创建 AbortController 用于停止
+    const abortController = new AbortController()
+    currentAbortController = abortController
+
     // 先添加用户消息到本地
     const tempUserMessage: Message = {
       id: Date.now(),
@@ -205,7 +214,7 @@ export function useConversations() {
       modelConfigId: null,
       modelName: modelName || null,
       createdAt: new Date().toISOString(),
-      isError: false,
+      mark: null,
     }
     messages.value.push(tempAssistantMessage)
 
@@ -214,6 +223,7 @@ export function useConversations() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, stream: true }),
+        signal: abortController.signal,
       })
 
       if (!response.ok) {
@@ -278,6 +288,12 @@ export function useConversations() {
         }
       }
     } catch (error: any) {
+      // 如果是用户主动停止，不显示错误
+      if (error.name === 'AbortError') {
+        // 保留已输出的内容
+        flushTyping()
+        return
+      }
       // 停止打字机效果
       flushTyping()
       // 将错误显示在助手消息中
@@ -288,7 +304,7 @@ export function useConversations() {
         messages.value[lastIndex] = {
           ...lastMessage,
           content: error.message || '发送失败',
-          isError: true,
+          mark: 'error',
         }
       }
       // 不抛出错误，让错误显示在对话中
@@ -299,6 +315,7 @@ export function useConversations() {
       streamingContent.value = ''
       contentBuffer = ''
       displayedContent = ''
+      currentAbortController = null
     }
   }
 
@@ -331,7 +348,7 @@ export function useConversations() {
       modelConfigId: null,
       modelName: null,
       createdAt: new Date().toISOString(),
-      isError: false,
+      mark: null,
     }
     messages.value.push(tempAssistantMessage)
 
@@ -400,7 +417,7 @@ export function useConversations() {
       const lastMsg = messages.value[messages.value.length - 1]
       if (lastMsg && lastMsg.role === 'assistant') {
         lastMsg.content = error.message || '重放失败'
-        lastMsg.isError = true
+        lastMsg.mark = 'error'
       }
       flushTyping()
     } finally {
@@ -423,6 +440,34 @@ export function useConversations() {
     displayedContent = ''
   }
 
+  // 手动添加消息（不触发AI回复）
+  async function addManualMessage(conversationId: number, content: string, role: 'user' | 'assistant') {
+    const message = await $fetch<Message>(`/api/conversations/${conversationId}/messages-manual`, {
+      method: 'POST',
+      body: { content, role },
+    })
+    messages.value.push(message)
+
+    // 更新对话列表中的更新时间
+    const conversation = conversations.value.find(c => c.id === conversationId)
+    if (conversation) {
+      conversation.updatedAt = new Date().toISOString()
+    }
+
+    return message
+  }
+
+  // 停止流式输出
+  function stopStreaming() {
+    if (currentAbortController) {
+      currentAbortController.abort()
+      currentAbortController = null
+    }
+    // 立即结束打字机效果，保留已输出的内容
+    flushTyping()
+    isStreaming.value = false
+  }
+
   return {
     conversations,
     messages,
@@ -440,5 +485,7 @@ export function useConversations() {
     deleteMessage,
     replayMessage,
     cleanup,
+    addManualMessage,
+    stopStreaming,
   }
 }
