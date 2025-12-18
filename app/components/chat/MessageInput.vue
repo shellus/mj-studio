@@ -17,6 +17,7 @@ const emit = defineEmits<{
   updateModel: [configId: number, modelName: string]
   stop: []
   compress: []
+  scrollToCompress: []
 }>()
 
 const router = useRouter()
@@ -24,23 +25,27 @@ const content = ref('')
 const textareaRef = ref<HTMLTextAreaElement>()
 const showCompressHint = ref(false)
 
-// 计算对话大小（从最后一个 summary 消息开始）
+// 计算对话大小（模拟发送给 AI 的上下文）
+// 从最后一个 compress-response 开始，排除 compress-request
 const conversationStats = computed(() => {
   if (!props.messages?.length) {
-    return { size: 0, messageCount: 0, hasSummary: false }
+    return { size: 0, messageCount: 0, hasCompressed: false }
   }
 
-  // 找到最后一个 summary 消息的位置
+  // 找到最后一个 compress-response 消息的位置
   let startIndex = 0
   for (let i = props.messages.length - 1; i >= 0; i--) {
-    if (props.messages[i].mark === 'summary') {
+    if (props.messages[i].mark === 'compress-response') {
       startIndex = i
       break
     }
   }
 
-  // 计算从 summary 消息（包含）开始的内容大小
-  const relevantMessages = props.messages.slice(startIndex)
+  // 从 compress-response 开始，排除 compress-request
+  const relevantMessages = props.messages
+    .slice(startIndex)
+    .filter(msg => msg.mark !== 'compress-request')
+
   const size = relevantMessages.reduce((sum, msg) => {
     return sum + new TextEncoder().encode(msg.content).length
   }, 0)
@@ -48,7 +53,7 @@ const conversationStats = computed(() => {
   return {
     size,
     messageCount: relevantMessages.length,
-    hasSummary: startIndex > 0,
+    hasCompressed: startIndex > 0,
   }
 })
 
@@ -251,9 +256,13 @@ function handleInput() {
     <div v-if="messages?.length" class="flex items-center gap-3 mb-2 text-xs text-(--ui-text-muted)">
       <span>{{ conversationStats.messageCount }} 条消息</span>
       <span>{{ sizeDisplay }}</span>
-      <span v-if="conversationStats.hasSummary" class="text-amber-600 dark:text-amber-400">
+      <button
+        v-if="conversationStats.hasCompressed"
+        class="text-amber-600 dark:text-amber-400 hover:underline"
+        @click="emit('scrollToCompress')"
+      >
         (已压缩)
-      </span>
+      </button>
       <button
         v-if="conversationStats.messageCount >= 3"
         class="text-(--ui-primary) hover:underline flex items-center gap-1"

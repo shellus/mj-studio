@@ -34,9 +34,18 @@ export function useConversations() {
   let displayedContent = '' // 已显示的内容
   let typingTimer: ReturnType<typeof setTimeout> | null = null
   const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
+  let streamingMessageIndex = -1 // 正在流式输出的消息索引（-1 表示最后一条）
 
   // 用于停止流式输出的 AbortController
   let currentAbortController: AbortController | null = null
+
+  // 获取正在流式输出的消息
+  function getStreamingMessage() {
+    if (streamingMessageIndex >= 0 && streamingMessageIndex < messages.value.length) {
+      return messages.value[streamingMessageIndex]
+    }
+    return messages.value[messages.value.length - 1]
+  }
 
   // 打字机效果：逐字渲染缓冲区内容
   function startTyping() {
@@ -50,9 +59,9 @@ export function useConversations() {
         streamingContent.value = displayedContent
 
         // 更新消息列表中的内容
-        const lastMessage = messages.value[messages.value.length - 1]
-        if (lastMessage?.role === 'assistant') {
-          lastMessage.content = displayedContent
+        const targetMessage = getStreamingMessage()
+        if (targetMessage?.role === 'assistant') {
+          targetMessage.content = displayedContent
         }
 
         typingTimer = setTimeout(tick, TYPING_SPEED)
@@ -73,10 +82,10 @@ export function useConversations() {
     displayedContent = contentBuffer
     streamingContent.value = displayedContent
 
-    const lastMessage = messages.value[messages.value.length - 1]
+    const targetMessage = getStreamingMessage()
     // 错误消息不覆盖
-    if (lastMessage?.role === 'assistant' && lastMessage.mark !== 'error') {
-      lastMessage.content = displayedContent
+    if (targetMessage?.role === 'assistant' && targetMessage.mark !== 'error') {
+      targetMessage.content = displayedContent
     }
   }
 
@@ -468,6 +477,148 @@ export function useConversations() {
     isStreaming.value = false
   }
 
+  // 压缩对话
+  async function compressConversation(conversationId: number, modelName?: string | null, onStart?: () => void) {
+    // 1. 调用压缩 API 创建压缩请求消息
+    const result = await $fetch<{
+      success: boolean
+      compressRequest: Message
+      stats: { messagesToCompressCount: number; keepMessagesCount: number }
+    }>(`/api/conversations/${conversationId}/compress`, {
+      method: 'POST',
+    })
+
+    // 2. 刷新消息列表（显示压缩请求和重排后的消息）
+    const data = await $fetch<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${conversationId}`)
+    messages.value = data.messages
+
+    // 触发开始回调（此时压缩请求已在列表中）
+    onStart?.()
+
+    // 3. 发送压缩请求触发 AI 生成摘要
+    isStreaming.value = true
+    streamingContent.value = ''
+    contentBuffer = ''
+    displayedContent = ''
+
+    // 创建 AbortController 用于停止
+    const abortController = new AbortController()
+    currentAbortController = abortController
+
+    // 找到压缩请求消息的位置，在其后插入临时的压缩响应
+    const compressRequestIndex = messages.value.findIndex(m => m.mark === 'compress-request')
+    const tempAssistantMessage: Message = {
+      id: Date.now(),
+      conversationId,
+      role: 'assistant',
+      content: '',
+      modelConfigId: null,
+      modelName: modelName || null,
+      createdAt: new Date().toISOString(),
+      mark: 'compress-response',
+    }
+    // 插入到压缩请求之后，并记录索引
+    if (compressRequestIndex >= 0) {
+      messages.value.splice(compressRequestIndex + 1, 0, tempAssistantMessage)
+      streamingMessageIndex = compressRequestIndex + 1
+    } else {
+      messages.value.push(tempAssistantMessage)
+      streamingMessageIndex = messages.value.length - 1
+    }
+
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: result.compressRequest.content,
+          stream: true,
+          isCompressRequest: true,
+        }),
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || '压缩失败')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('无法读取响应')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let streamDone = false
+
+      while (!streamDone) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data:')) continue
+
+          const data = trimmed.slice(5).trim()
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+            if (parsed.done) {
+              streamDone = true
+              break
+            }
+            if (parsed.content) {
+              contentBuffer += parsed.content
+              startTyping()
+            }
+          } catch (e: any) {
+            if (e.message && !e.message.includes('JSON')) {
+              throw e
+            }
+          }
+        }
+      }
+
+      // 刷新消息列表获取最终状态
+      flushTyping()
+      const finalData = await $fetch<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${conversationId}`)
+      messages.value = finalData.messages
+
+      return result.stats
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        flushTyping()
+        return
+      }
+      flushTyping()
+      // 更新正在流式输出的消息为错误状态
+      const targetMessage = getStreamingMessage()
+      if (targetMessage?.role === 'assistant') {
+        const targetIndex = streamingMessageIndex >= 0 ? streamingMessageIndex : messages.value.length - 1
+        messages.value[targetIndex] = {
+          ...targetMessage,
+          content: error.message || '压缩失败',
+          mark: 'error',
+        }
+      }
+      throw error
+    } finally {
+      flushTyping()
+      isStreaming.value = false
+      streamingContent.value = ''
+      contentBuffer = ''
+      displayedContent = ''
+      currentAbortController = null
+      streamingMessageIndex = -1
+    }
+  }
+
   return {
     conversations,
     messages,
@@ -487,5 +638,6 @@ export function useConversations() {
     cleanup,
     addManualMessage,
     stopStreaming,
+    compressConversation,
   }
 }

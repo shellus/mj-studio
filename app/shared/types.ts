@@ -100,9 +100,9 @@ export type MessageRole = 'user' | 'assistant'
 /**
  * 消息标记
  * - 用于标识特殊类型的消息
- * - 使用场景：错误消息、压缩摘要消息的识别
+ * - 使用场景：错误消息、压缩消息的识别
  */
-export type MessageMark = 'error' | 'summary'
+export type MessageMark = 'error' | 'compress-request' | 'compress-response'
 
 // ==================== 模型类型配置接口 ====================
 

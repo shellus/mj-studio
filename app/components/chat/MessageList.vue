@@ -54,8 +54,22 @@ function forceScrollToBottom() {
   })
 }
 
+// 滚动到压缩请求位置
+function scrollToCompressRequest() {
+  const compressRequestIndex = props.messages.findIndex(m => m.mark === 'compress-request')
+  if (compressRequestIndex < 0 || !messagesContainer.value) return
+
+  // 找到对应的 DOM 元素并滚动
+  nextTick(() => {
+    const messageElements = messagesContainer.value?.querySelectorAll('[data-message-id]')
+    if (messageElements && messageElements[compressRequestIndex]) {
+      messageElements[compressRequestIndex].scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
 // 暴露给父组件
-defineExpose({ scrollToBottom: forceScrollToBottom })
+defineExpose({ scrollToBottom: forceScrollToBottom, scrollToCompressRequest })
 
 // 渲染单条消息的 Markdown
 async function renderMessage(message: Message) {
@@ -212,9 +226,9 @@ function cancelDelete() {
 
     <!-- 消息列表 -->
     <template v-for="(message, index) in messages" :key="message.id">
-      <!-- Summary 消息前的分界线 -->
+      <!-- 压缩请求前的分界线 -->
       <div
-        v-if="message.mark === 'summary'"
+        v-if="message.mark === 'compress-request'"
         class="flex items-center gap-4 py-4"
       >
         <div class="flex-1 h-px bg-(--ui-border)" />
@@ -228,16 +242,24 @@ function cancelDelete() {
       <div
         class="flex gap-3"
         :class="message.role === 'user' ? 'flex-row-reverse' : ''"
+        :data-message-id="message.id"
       >
       <!-- 头像 -->
       <div
         class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        :class="message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'"
+        :class="[
+          message.mark === 'compress-request' ? 'bg-blue-500' :
+          message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'
+        ]"
       >
         <UIcon
-          :name="message.role === 'user' ? 'i-heroicons-user' : 'i-heroicons-sparkles'"
+          :name="message.mark === 'compress-request' ? 'i-heroicons-archive-box-arrow-down' :
+                 message.role === 'user' ? 'i-heroicons-user' : 'i-heroicons-sparkles'"
           class="w-4 h-4"
-          :class="message.role === 'user' ? 'text-white' : 'text-(--ui-primary)'"
+          :class="[
+            message.mark === 'compress-request' ? 'text-white' :
+            message.role === 'user' ? 'text-white' : 'text-(--ui-primary)'
+          ]"
         />
       </div>
 
@@ -249,31 +271,40 @@ function cancelDelete() {
         <div
           class="inline-block px-4 py-2 rounded-2xl"
           :class="[
-            message.role === 'user'
+            message.role === 'user' && message.mark !== 'compress-request'
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
               : message.mark === 'error'
                 ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
-                : message.mark === 'summary'
-                  ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
-                  : 'bg-(--ui-bg-elevated) rounded-tl-sm'
+                : message.mark === 'compress-request'
+                  ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
+                  : message.mark === 'compress-response'
+                    ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
+                    : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
         >
+          <!-- 压缩请求消息 -->
+          <div v-if="message.mark === 'compress-request'" class="text-sm">
+            <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+              <UIcon name="i-heroicons-archive-box-arrow-down" class="w-4 h-4" />
+              <span class="font-medium">压缩请求</span>
+            </div>
+          </div>
+          <!-- 压缩响应消息（可折叠） -->
+          <div v-else-if="message.mark === 'compress-response'" class="text-sm">
+            <div class="flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
+              <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
+              <span class="font-medium">对话摘要</span>
+            </div>
+            <div class="whitespace-pre-wrap break-words">{{ message.content }}</div>
+          </div>
           <!-- 用户消息：纯文本 -->
-          <div v-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
+          <div v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
             {{ message.content }}
           </div>
           <!-- 错误消息 -->
           <div v-else-if="message.mark === 'error'" class="text-sm flex items-start gap-2">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
-          </div>
-          <!-- 摘要消息 -->
-          <div v-else-if="message.mark === 'summary'" class="text-sm">
-            <div class="flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
-              <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
-              <span class="font-medium">对话摘要</span>
-            </div>
-            <div class="whitespace-pre-wrap break-words">{{ message.content }}</div>
           </div>
           <!-- 助手消息：Markdown 渲染 -->
           <div v-else class="text-sm">

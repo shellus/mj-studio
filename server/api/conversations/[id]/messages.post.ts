@@ -3,6 +3,7 @@ import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { createChatService, writeStreamToResponse } from '../../../services/chat'
+import type { MessageMark } from '../../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { content, stream = true } = body
+  const { content, stream = true, isCompressRequest = false } = body
 
   if (!content?.trim()) {
     throw createError({ statusCode: 400, message: '消息内容不能为空' })
@@ -56,26 +57,63 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
   }
 
-  // 保存用户消息
-  const userMessage = await conversationService.addMessage({
-    conversationId,
-    role: 'user',
-    content: content.trim(),
-  })
+  // 压缩请求特殊处理：不保存用户消息（已在 compress.post.ts 中保存）
+  let userMessage = null
+  let responseMark: MessageMark | undefined = undefined
+  let responseSortId: number | undefined = undefined
 
-  // 如果是首条消息，更新对话标题
-  if (result.messages.length === 0) {
-    const title = conversationService.generateTitle(content.trim())
-    await conversationService.updateTitle(conversationId, user.id, title)
+  if (isCompressRequest) {
+    // 找到压缩请求消息，获取其 sortId
+    const compressRequestMsg = result.messages.find(m => m.mark === 'compress-request' && m.content === content.trim())
+    if (compressRequestMsg) {
+      responseSortId = (compressRequestMsg.sortId || compressRequestMsg.id) + 1
+      responseMark = 'compress-response'
+    }
+  } else {
+    // 普通消息：保存用户消息
+    userMessage = await conversationService.addMessage({
+      conversationId,
+      role: 'user',
+      content: content.trim(),
+    })
+
+    // 如果是首条消息，更新对话标题
+    if (result.messages.length === 0) {
+      const title = conversationService.generateTitle(content.trim())
+      await conversationService.updateTitle(conversationId, user.id, title)
+    }
   }
 
-  // 过滤历史消息：从最后一个 summary 消息开始（包含 summary）
+  // 构建历史消息上下文
   let historyMessages = result.messages
-  for (let i = result.messages.length - 1; i >= 0; i--) {
-    if (result.messages[i].mark === 'summary') {
-      historyMessages = result.messages.slice(i)
-      break
+
+  if (isCompressRequest) {
+    // 压缩请求：发送待压缩的消息（从上次压缩点到压缩请求之前）
+    // 找到压缩请求消息的位置
+    const compressRequestIndex = result.messages.findIndex(m => m.mark === 'compress-request')
+    if (compressRequestIndex > 0) {
+      // 找到上次压缩点
+      let startIndex = 0
+      for (let i = compressRequestIndex - 1; i >= 0; i--) {
+        if (result.messages[i].mark === 'compress-response') {
+          startIndex = i
+          break
+        }
+      }
+      // 待压缩消息：从上次压缩点到压缩请求之前（不包含压缩请求）
+      historyMessages = result.messages.slice(startIndex, compressRequestIndex)
     }
+  } else {
+    // 普通消息：从最后一个 compress-response 消息开始（包含它）
+    // 排除 compress-request 消息
+    for (let i = result.messages.length - 1; i >= 0; i--) {
+      if (result.messages[i].mark === 'compress-response') {
+        historyMessages = result.messages.slice(i).filter(m => m.mark !== 'compress-request')
+        break
+      }
+    }
+    // 如果没有压缩点，也要排除 compress-request
+    historyMessages = historyMessages.filter(m => m.mark !== 'compress-request')
   }
 
   // 创建聊天服务
@@ -105,6 +143,8 @@ export default defineEventHandler(async (event) => {
           content: fullContent,
           modelConfigId: assistant.modelConfigId,
           modelName: assistant.modelName,
+          mark: responseMark,
+          sortId: responseSortId,
         })
       }
 
@@ -145,6 +185,8 @@ export default defineEventHandler(async (event) => {
       content: response.content!,
       modelConfigId: assistant.modelConfigId,
       modelName: assistant.modelName,
+      mark: responseMark,
+      sortId: responseSortId,
     })
 
     return {

@@ -119,7 +119,8 @@ export const messages = sqliteTable('messages', {
   content: text('content').notNull(),
   modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
   modelName: text('model_name'), // 使用的模型名，仅assistant消息
-  mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误消息，summary=压缩摘要
+  mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应
+  sortId: integer('sort_id'), // 排序ID，用于压缩后消息重排序
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

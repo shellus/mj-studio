@@ -19,14 +19,14 @@ export function useConversationService() {
     })
   }
 
-  // 获取对话详情（包含所有消息）
+  // 获取对话详情（包含所有消息，按 sortId 排序）
   async function getWithMessages(id: number): Promise<{ conversation: Conversation, messages: Message[] } | undefined> {
     const conversation = await getById(id)
     if (!conversation) return undefined
 
     const messageList = await db.query.messages.findMany({
       where: eq(messages.conversationId, id),
-      orderBy: [messages.createdAt],
+      orderBy: [messages.sortId, messages.id], // 优先按 sortId 排序，sortId 为空时按 id
     })
 
     return { conversation, messages: messageList }
@@ -95,6 +95,7 @@ export function useConversationService() {
     modelConfigId?: number
     modelName?: string
     mark?: MessageMark
+    sortId?: number
   }): Promise<Message> {
     const [message] = await db.insert(messages).values({
       conversationId: data.conversationId,
@@ -103,12 +104,28 @@ export function useConversationService() {
       modelConfigId: data.modelConfigId ?? null,
       modelName: data.modelName ?? null,
       mark: data.mark ?? null,
+      sortId: data.sortId ?? null,
     }).returning()
+
+    // 如果没有指定 sortId，则设置为 id（普通消息）
+    if (!data.sortId) {
+      await db.update(messages)
+        .set({ sortId: message.id })
+        .where(eq(messages.id, message.id))
+      message.sortId = message.id
+    }
 
     // 更新对话时间
     await touch(data.conversationId)
 
     return message
+  }
+
+  // 更新消息的 sortId
+  async function updateMessageSortId(messageId: number, sortId: number): Promise<void> {
+    await db.update(messages)
+      .set({ sortId })
+      .where(eq(messages.id, messageId))
   }
 
   // 获取单条消息
@@ -158,6 +175,7 @@ export function useConversationService() {
     touch,
     remove,
     addMessage,
+    updateMessageSortId,
     getMessageById,
     removeMessage,
     generateTitle,

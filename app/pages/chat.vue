@@ -44,6 +44,7 @@ const {
   cleanup,
   addManualMessage,
   stopStreaming,
+  compressConversation,
 } = useConversations()
 
 // 模型配置
@@ -52,6 +53,9 @@ const { configs: modelConfigs, loadConfigs } = useModelConfigs()
 // 助手编辑弹窗
 const showAssistantEditor = ref(false)
 const editingAssistant = ref<typeof currentAssistant.value>(null)
+
+// 消息列表 ref
+const messageListRef = ref<{ scrollToCompressRequest: () => void } | null>(null)
 
 // 页面加载
 onMounted(async () => {
@@ -248,21 +252,22 @@ async function handleCompress() {
   if (!currentConversationId.value) return
 
   try {
-    toast.add({ title: '正在压缩对话...', color: 'info' })
-    const result = await $fetch<{
-      success: boolean
-      stats: { messagesCompressed: number, compressionRatio: string }
-    }>(`/api/conversations/${currentConversationId.value}/compress`, {
-      method: 'POST',
-    })
-
-    // 重新加载消息
-    await selectConversation(currentConversationId.value)
-
-    toast.add({
-      title: `已压缩 ${result.stats.messagesCompressed} 条消息，压缩率 ${result.stats.compressionRatio}`,
-      color: 'success',
-    })
+    const stats = await compressConversation(
+      currentConversationId.value,
+      currentAssistant.value?.modelName,
+      // 开始回调：跳转到压缩位置
+      () => {
+        nextTick(() => {
+          messageListRef.value?.scrollToCompressRequest()
+        })
+      }
+    )
+    if (stats) {
+      toast.add({
+        title: `已压缩 ${stats.messagesToCompressCount} 条消息`,
+        color: 'success',
+      })
+    }
   } catch (error: any) {
     toast.add({ title: error.message || '压缩失败', color: 'error' })
   }
@@ -280,6 +285,11 @@ async function handleUpdateModel(configId: number, modelName: string) {
   } catch (error: any) {
     toast.add({ title: error.message || '更新失败', color: 'error' })
   }
+}
+
+// 滚动到压缩请求位置
+function handleScrollToCompress() {
+  messageListRef.value?.scrollToCompressRequest()
 }
 
 // 页面卸载时清理
@@ -326,6 +336,7 @@ onUnmounted(() => {
 
         <!-- 消息列表 -->
         <ChatMessageList
+          ref="messageListRef"
           :messages="messages"
           :is-streaming="isStreaming"
           class="flex-1 min-h-0"
@@ -346,6 +357,7 @@ onUnmounted(() => {
           @stop="handleStop"
           @compress="handleCompress"
           @update-model="handleUpdateModel"
+          @scroll-to-compress="handleScrollToCompress"
         />
       </div>
 
