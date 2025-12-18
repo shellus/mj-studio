@@ -13,6 +13,7 @@ const emit = defineEmits<{
   updateModel: [configId: number, modelName: string]
 }>()
 
+const router = useRouter()
 const content = ref('')
 const textareaRef = ref<HTMLTextAreaElement>()
 
@@ -89,11 +90,18 @@ const modelDropdownItems = computed(() => {
   // 构建分组菜单
   for (const [configId, { name, models }] of configMap) {
     const group: any[] = [
-      { label: name, type: 'label' }
+      {
+        label: name,
+        configId, // 用于 slot 中获取 configId
+        isConfigHeader: true, // 标记为上游标题
+        disabled: true, // 禁止整行点击
+        class: 'font-medium text-(--ui-text-muted) text-xs',
+      }
     ]
     for (const modelName of models) {
       group.push({
         label: modelName,
+        class: 'pl-6',
         onSelect: () => handleSelectModel(configId, modelName)
       })
     }
@@ -155,6 +163,22 @@ function handleInput() {
           {{ currentDisplayText }}
           <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 ml-1" />
         </UButton>
+
+        <template #item="{ item }">
+          <div
+            v-if="item.isConfigHeader"
+            class="flex items-center justify-between w-full"
+          >
+            <span>{{ item.label }}</span>
+            <button
+              class="p-1 hover:bg-(--ui-bg-accented) rounded"
+              @click.stop="router.push(`/settings/${item.configId}`)"
+            >
+              <UIcon name="i-heroicons-cog-6-tooth" class="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <span v-else>{{ item.label }}</span>
+        </template>
       </UDropdownMenu>
 
       <div v-if="allChatModels.length === 0" class="text-xs text-(--ui-text-muted) flex items-center">

@@ -9,6 +9,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   delete: [id: number]
+  replay: [message: Message]
 }>()
 
 const messagesContainer = ref<HTMLElement>()
@@ -139,21 +140,27 @@ async function copyMessage(content: string) {
 
 // 删除确认状态
 const deleteConfirmId = ref<number | null>(null)
+const showDeleteConfirm = ref(false)
 
-// 处理删除
+// 处理删除（打开确认框）
 function handleDelete(id: number) {
-  if (deleteConfirmId.value === id) {
-    emit('delete', id)
-    deleteConfirmId.value = null
-  } else {
-    deleteConfirmId.value = id
-    // 3秒后重置
-    setTimeout(() => {
-      if (deleteConfirmId.value === id) {
-        deleteConfirmId.value = null
-      }
-    }, 3000)
+  deleteConfirmId.value = id
+  showDeleteConfirm.value = true
+}
+
+// 确认删除
+function confirmDelete() {
+  if (deleteConfirmId.value) {
+    emit('delete', deleteConfirmId.value)
   }
+  showDeleteConfirm.value = false
+  deleteConfirmId.value = null
+}
+
+// 取消删除
+function cancelDelete() {
+  showDeleteConfirm.value = false
+  deleteConfirmId.value = null
 }
 </script>
 
@@ -244,12 +251,20 @@ function handleDelete(id: number) {
           >
             <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
           </button>
+          <!-- 重放按钮 -->
+          <button
+            v-if="!isStreaming"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+            :title="message.role === 'user' ? '重新发送' : '重新生成'"
+            @click="emit('replay', message)"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+          </button>
           <!-- 删除按钮（流式输出时隐藏） -->
           <button
             v-if="!isStreaming"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
-            :class="deleteConfirmId === message.id ? 'bg-(--ui-error) text-white opacity-100' : 'hover:bg-(--ui-bg-elevated)'"
-            :title="deleteConfirmId === message.id ? '再次点击确认删除' : '删除'"
+            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+            title="删除"
             @click="handleDelete(message.id)"
           >
             <UIcon name="i-heroicons-trash" class="w-3 h-3" />
@@ -257,5 +272,15 @@ function handleDelete(id: number) {
         </div>
       </div>
     </div>
+
+    <!-- 删除确认框 -->
+    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这条消息吗？" :close="false">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="error" @click="confirmDelete">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="cancelDelete">取消</UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

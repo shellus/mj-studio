@@ -111,6 +111,13 @@ export function useConversationService() {
     return message
   }
 
+  // 获取单条消息
+  async function getMessageById(id: number): Promise<Message | undefined> {
+    return db.query.messages.findFirst({
+      where: eq(messages.id, id),
+    })
+  }
+
   // 删除消息
   async function removeMessage(messageId: number, userId: number): Promise<boolean> {
     // 先获取消息对应的对话
@@ -151,6 +158,7 @@ export function useConversationService() {
     touch,
     remove,
     addMessage,
+    getMessageById,
     removeMessage,
     generateTitle,
   }

@@ -37,6 +37,15 @@ export const CHAT_MODEL_TYPES: ChatModelType[] = [
   'gemini-chat',
   'deepseek',
   'qwen-chat',
+  'grok',
+  'llama',
+  'moonshot',
+  'glm',
+  'doubao-chat',
+  'minimax',
+  'hunyuan',
+  'mixtral',
+  'phi',
 ]
 
 /**
@@ -78,6 +87,15 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   'gemini-chat': ['openai-chat'],
   'deepseek': ['openai-chat'],
   'qwen-chat': ['openai-chat'],
+  'grok': ['openai-chat'],
+  'llama': ['openai-chat'],
+  'moonshot': ['openai-chat'],
+  'glm': ['openai-chat'],
+  'doubao-chat': ['openai-chat'],
+  'minimax': ['openai-chat'],
+  'hunyuan': ['openai-chat'],
+  'mixtral': ['openai-chat'],
+  'phi': ['openai-chat'],
 }
 
 /**
@@ -102,6 +120,15 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
   'gemini-chat': 'chat',
   'deepseek': 'chat',
   'qwen-chat': 'chat',
+  'grok': 'chat',
+  'llama': 'chat',
+  'moonshot': 'chat',
+  'glm': 'chat',
+  'doubao-chat': 'chat',
+  'minimax': 'chat',
+  'hunyuan': 'chat',
+  'mixtral': 'chat',
+  'phi': 'chat',
 }
 
 // ==================== 默认模型名称 ====================
@@ -132,6 +159,15 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'gemini-chat': 'gemini-2.5-flash',
   'deepseek': 'deepseek-chat',
   'qwen-chat': 'qwen-max',
+  'grok': 'grok-3',
+  'llama': 'llama-3.3-70b-instruct-fp8-fast',
+  'moonshot': 'moonshot-v1-128k',
+  'glm': 'glm-4.5',
+  'doubao-chat': 'doubao-1-5-pro-256k-250115',
+  'minimax': 'minimax-m1-80k',
+  'hunyuan': 'hunyuan-t1',
+  'mixtral': 'mixtral-8x22b',
+  'phi': 'phi-4',
 }
 
 // ==================== 默认预计时间 ====================
@@ -178,16 +214,25 @@ export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'gemini': 'Gemini 绘图',
   'flux': 'Flux',
   'dalle': 'DALL-E',
-  'doubao': '豆包',
+  'doubao': '豆包绘图',
   'gpt4o-image': 'GPT-4o 绘图',
   'grok-image': 'Grok 绘图',
   'qwen-image': '通义万相',
   // 对话模型
   'gpt': 'GPT',
   'claude': 'Claude',
-  'gemini-chat': 'Gemini 对话',
+  'gemini-chat': 'Gemini',
   'deepseek': 'DeepSeek',
   'qwen-chat': '通义千问',
+  'grok': 'Grok',
+  'llama': 'LLaMA',
+  'moonshot': 'Kimi',
+  'glm': '智谱GLM',
+  'doubao-chat': '豆包',
+  'minimax': 'MiniMax',
+  'hunyuan': '混元',
+  'mixtral': 'Mixtral',
+  'phi': 'Phi',
 }
 
 /**
@@ -326,3 +371,126 @@ export const SQIDS_ALPHABET = 'wNEBY3eVubF4xJRZSvPprtKQdck79C2Hhs6g8yWfUAzTaXGMj
  *   - app/utils/sqids.ts: Sqids 实例化配置
  */
 export const SQIDS_MIN_LENGTH = 6
+
+// ==================== 模型名称匹配规则 ====================
+
+/**
+ * 对话模型类型的关键词匹配规则
+ * - 用途：根据用户输入的模型名称自动推断模型类型
+ * - 使用场景：
+ *   - settings/[id].vue: 对话模型名称输入时自动匹配类型
+ * - 规则：按顺序匹配，第一个匹配的规则生效
+ */
+export const CHAT_MODEL_MATCH_RULES: { type: ChatModelType; patterns: RegExp[] }[] = [
+  {
+    type: 'gpt',
+    patterns: [
+      /^gpt/i,
+      /^chatgpt/i,
+      /^o[134]-/i,  // o1-preview, o3-mini, o4-mini 等
+      /^o[134]$/i,   // 纯 o1, o3, o4
+    ],
+  },
+  {
+    type: 'claude',
+    patterns: [
+      /claude/i,
+    ],
+  },
+  {
+    type: 'gemini-chat',
+    patterns: [
+      /^gemini/i,
+    ],
+  },
+  {
+    type: 'deepseek',
+    patterns: [
+      /deepseek/i,
+    ],
+  },
+  {
+    type: 'qwen-chat',
+    patterns: [
+      /^qwen/i,
+      /^qwq/i,      // QWQ 推理模型
+      /tongyi/i,
+      /通义/,
+    ],
+  },
+  {
+    type: 'grok',
+    patterns: [
+      /^grok/i,
+    ],
+  },
+  {
+    type: 'llama',
+    patterns: [
+      /^llama/i,
+    ],
+  },
+  {
+    type: 'moonshot',
+    patterns: [
+      /^moonshot/i,
+      /^kimi/i,
+    ],
+  },
+  {
+    type: 'glm',
+    patterns: [
+      /^glm/i,
+    ],
+  },
+  {
+    type: 'doubao-chat',
+    patterns: [
+      /^doubao/i,
+    ],
+  },
+  {
+    type: 'minimax',
+    patterns: [
+      /^minimax/i,
+      /^MiniMax/,
+    ],
+  },
+  {
+    type: 'hunyuan',
+    patterns: [
+      /^hunyuan/i,
+      /混元/,
+    ],
+  },
+  {
+    type: 'mixtral',
+    patterns: [
+      /^mixtral/i,
+    ],
+  },
+  {
+    type: 'phi',
+    patterns: [
+      /^phi/i,
+      /^Phi/,
+    ],
+  },
+]
+
+/**
+ * 根据模型名称推断对话模型类型
+ * @param modelName 用户输入的模型名称
+ * @returns 匹配的模型类型，如果未匹配则返回 null
+ */
+export function inferChatModelType(modelName: string): ChatModelType | null {
+  if (!modelName?.trim()) return null
+
+  const name = modelName.trim()
+  for (const rule of CHAT_MODEL_MATCH_RULES) {
+    if (rule.patterns.some(pattern => pattern.test(name))) {
+      return rule.type
+    }
+  }
+  return null
+}

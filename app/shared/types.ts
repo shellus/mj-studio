@@ -44,6 +44,15 @@ export type ChatModelType =
   | 'gemini-chat'  // Google Gemini 对话
   | 'deepseek'     // DeepSeek
   | 'qwen-chat'    // 阿里通义千问
+  | 'grok'         // xAI Grok 系列
+  | 'llama'        // Meta LLaMA 系列
+  | 'moonshot'     // 月之暗面 Kimi
+  | 'glm'          // 智谱 GLM 系列
+  | 'doubao-chat'  // 字节豆包对话
+  | 'minimax'      // MiniMax
+  | 'hunyuan'      // 腾讯混元
+  | 'mixtral'      // Mistral Mixtral
+  | 'phi'          // Microsoft Phi
 
 /**
  * 所有模型类型的联合

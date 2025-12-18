@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig } from '../../shared/types'
+import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType } from '../../shared/types'
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import {
   IMAGE_MODEL_TYPES,
@@ -10,6 +10,7 @@ import {
   DEFAULT_ESTIMATED_TIMES,
   MODEL_TYPE_LABELS,
   API_FORMAT_LABELS,
+  inferChatModelType,
 } from '../../shared/constants'
 
 definePageMeta({
@@ -135,8 +136,8 @@ function addImageModel() {
 function addChatModel() {
   chatModelConfigs.value.push({
     category: 'chat',
-    modelType: '' as any,
-    apiFormat: '' as any,
+    modelType: 'gpt' as any, // 保留字段但使用默认值
+    apiFormat: 'openai-chat' as any,
     modelName: '',
   })
 }
@@ -172,6 +173,40 @@ function onChatModelTypeChange(index: number) {
   }
 
   config.modelName = DEFAULT_MODEL_NAMES[config.modelType as ModelType]
+}
+
+// 获取推断的模型类型显示
+function getInferredModelType(modelName: string): { type: ChatModelType | null; label: string } {
+  const inferred = inferChatModelType(modelName)
+  if (inferred) {
+    return { type: inferred, label: MODEL_TYPE_LABELS[inferred] }
+  }
+  return { type: null, label: '自定义' }
+}
+
+// 当对话模型名称变化时，自动推断类型
+function onChatModelNameChange(index: number) {
+  const config = chatModelConfigs.value[index]
+  const inferred = inferChatModelType(config.modelName)
+  if (inferred) {
+    config.modelType = inferred
+    // 确保 apiFormat 兼容
+    const availableFormats = getAvailableFormats(inferred)
+    if (!availableFormats.includes(config.apiFormat)) {
+      config.apiFormat = availableFormats[0]
+    }
+  }
+}
+
+// 快捷选择模型类型（对话模型）
+function onChatQuickSelect(index: number, type: ChatModelType) {
+  const config = chatModelConfigs.value[index]
+  config.modelType = type
+  config.modelName = DEFAULT_MODEL_NAMES[type]
+  const availableFormats = getAvailableFormats(type)
+  if (!availableFormats.includes(config.apiFormat)) {
+    config.apiFormat = availableFormats[0]
+  }
 }
 
 // 提交表单
@@ -370,6 +405,12 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
             <!-- 对话模型 Tab -->
             <template #chat>
               <div class="pt-4 space-y-4">
+                <!-- 提示说明 -->
+                <div class="text-sm text-(--ui-text-muted) bg-(--ui-bg-muted) rounded-lg p-3">
+                  <p>输入模型名称后会自动识别模型类型，也可点击快捷按钮快速填入推荐模型。</p>
+                  <p class="mt-1 text-xs text-(--ui-text-dimmed)">模型类型仅用于标识，不影响实际调用。未识别的模型名称将标记为"自定义"。</p>
+                </div>
+
                 <div class="flex justify-end">
                   <UButton size="sm" variant="ghost" type="button" @click="addChatModel">
                     <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
@@ -388,10 +429,20 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm font-medium text-(--ui-text)">
-                        #{{ index + 1 }} 💬 {{ MODEL_TYPE_LABELS[mtc.modelType] || mtc.modelType || '未选择' }}
-                      </span>
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-(--ui-text)">
+                          #{{ index + 1 }} 💬
+                        </span>
+                        <span
+                          class="text-xs px-2 py-0.5 rounded-full"
+                          :class="getInferredModelType(mtc.modelName).type
+                            ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
+                            : 'bg-(--ui-bg-accented) text-(--ui-text-muted)'"
+                        >
+                          {{ getInferredModelType(mtc.modelName).label }}
+                        </span>
+                      </div>
                       <UButton
                         size="xs"
                         variant="ghost"
@@ -403,34 +454,36 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       </UButton>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
-                      <UFormField label="模型类型">
-                        <USelectMenu
-                          v-model="mtc.modelType"
-                          :items="CHAT_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
-                          value-key="value"
-                          class="w-full"
-                          @update:model-value="onChatModelTypeChange(index)"
-                        />
-                      </UFormField>
-
-                      <UFormField label="请求格式">
-                        <USelectMenu
-                          v-model="mtc.apiFormat"
-                          :items="getAvailableFormats(mtc.modelType as ModelType).map(f => ({ label: API_FORMAT_LABELS[f], value: f }))"
-                          value-key="value"
-                          class="w-full"
-                        />
-                      </UFormField>
+                    <!-- 快捷选择按钮 -->
+                    <div class="mb-3">
+                      <span class="text-xs text-(--ui-text-muted) mb-1.5 block">快捷选择</span>
+                      <div class="flex flex-wrap gap-1.5">
+                        <UButton
+                          v-for="type in CHAT_MODEL_TYPES"
+                          :key="type"
+                          size="xs"
+                          :variant="mtc.modelType === type ? 'solid' : 'outline'"
+                          :color="mtc.modelType === type ? 'primary' : 'neutral'"
+                          type="button"
+                          @click="onChatQuickSelect(index, type)"
+                        >
+                          {{ MODEL_TYPE_LABELS[type] }}
+                        </UButton>
+                      </div>
                     </div>
 
-                    <UFormField label="模型名称" help="不同中转站可能不同" class="mt-2">
+                    <!-- 模型名称输入 -->
+                    <UFormField label="模型名称" class="mb-2">
                       <UInput
                         v-model="mtc.modelName"
-                        :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType as ModelType] || '可选'"
+                        placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
                         class="w-full"
+                        @input="onChatModelNameChange(index)"
                       />
                     </UFormField>
+
+                    <!-- 请求格式（隐藏，因为对话模型目前都是 openai-chat） -->
+                    <input type="hidden" :value="mtc.apiFormat" />
                   </div>
                 </div>
               </div>

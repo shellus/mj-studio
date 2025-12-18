@@ -1,6 +1,7 @@
 // POST /api/model-configs - 创建模型配置
 import { useModelConfigService } from '../../services/modelConfig'
 import type { ModelTypeConfig, ModelType, ChatModelType, ApiFormat, MODEL_FORMAT_MAP } from '../../database/schema'
+import { IMAGE_MODEL_TYPES, CHAT_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -18,17 +19,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: '请至少添加一种模型类型' })
   }
 
-  const validImageModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
-  const validChatModelTypes: ChatModelType[] = ['gpt', 'claude', 'gemini-chat', 'deepseek', 'qwen-chat']
-  const validModelTypes = [...validImageModelTypes, ...validChatModelTypes]
-  const validApiFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
-
+  // 验证 API 格式（必须是已知格式）
   for (const mtc of modelTypeConfigs) {
-    if (!validModelTypes.includes(mtc.modelType)) {
-      throw createError({ statusCode: 400, message: `不支持的模型类型: ${mtc.modelType}` })
-    }
-    if (!validApiFormats.includes(mtc.apiFormat)) {
+    if (!API_FORMATS.includes(mtc.apiFormat)) {
       throw createError({ statusCode: 400, message: `不支持的API格式: ${mtc.apiFormat}` })
+    }
+    // 绘图模型必须是已知类型，对话模型允许自定义类型（因为都用 openai-chat 格式）
+    if (mtc.category === 'image' && !IMAGE_MODEL_TYPES.includes(mtc.modelType)) {
+      throw createError({ statusCode: 400, message: `不支持的绘图模型类型: ${mtc.modelType}` })
     }
   }
 

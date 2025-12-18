@@ -310,6 +310,107 @@ export function useConversations() {
     messages.value = messages.value.filter(m => m.id !== id)
   }
 
+  // 重放消息（让 AI 重新回复）
+  async function replayMessage(message: Message) {
+    isStreaming.value = true
+    streamingContent.value = ''
+    contentBuffer = ''
+    displayedContent = ''
+
+    // 如果是 AI 消息，先从本地移除
+    if (message.role === 'assistant') {
+      messages.value = messages.value.filter(m => m.id !== message.id)
+    }
+
+    // 添加临时的助手消息占位
+    const tempAssistantMessage: Message = {
+      id: Date.now(),
+      conversationId: message.conversationId,
+      role: 'assistant',
+      content: '',
+      modelConfigId: null,
+      modelName: null,
+      createdAt: new Date().toISOString(),
+      isError: false,
+    }
+    messages.value.push(tempAssistantMessage)
+
+    try {
+      const response = await fetch(`/api/messages/${message.id}/replay`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || '重放失败')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('无法读取响应')
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let streamDone = false
+
+      while (!streamDone) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data:')) continue
+
+          const data = trimmed.slice(5).trim()
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+            if (parsed.done) {
+              streamDone = true
+              break
+            }
+            if (parsed.content) {
+              contentBuffer += parsed.content
+              startTyping()
+            }
+          } catch (e: any) {
+            if (e.message && !e.message.includes('JSON')) {
+              throw e
+            }
+          }
+        }
+      }
+
+      // 流结束，等待打字机效果完成
+      await flushTyping()
+
+      // 刷新消息列表
+      if (currentConversationId.value) {
+        const data = await $fetch(`/api/conversations/${currentConversationId.value}`)
+        messages.value = data.messages
+      }
+    } catch (error: any) {
+      // 显示错误
+      const lastMsg = messages.value[messages.value.length - 1]
+      if (lastMsg && lastMsg.role === 'assistant') {
+        lastMsg.content = error.message || '重放失败'
+        lastMsg.isError = true
+      }
+      flushTyping()
+    } finally {
+      isStreaming.value = false
+      streamingContent.value = ''
+      contentBuffer = ''
+      displayedContent = ''
+    }
+  }
+
   // 清理状态
   function cleanup() {
     flushTyping()
@@ -337,6 +438,7 @@ export function useConversations() {
     deleteConversation,
     sendMessage,
     deleteMessage,
+    replayMessage,
     cleanup,
   }
 }
