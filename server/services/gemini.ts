@@ -4,6 +4,7 @@
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface GeminiResponse {
   candidates: Array<{
@@ -29,7 +30,7 @@ interface GeminiResponse {
 // 工厂函数：根据配置创建Gemini服务实例
 export function createGeminiService(baseUrl: string, apiKey: string) {
   // 生成图像
-  async function generateImage(prompt: string, modelName: string = 'gemini-2.5-flash-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES.gemini, taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (!apiKey) {
       return { success: false, error: 'Gemini API Key 未配置' }
     }
@@ -99,7 +100,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图（带参考图）- 使用multimodal输入
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gemini-2.5-flash-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = DEFAULT_MODEL_NAMES.gemini, taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (!apiKey) {
       return { success: false, error: 'Gemini API Key 未配置' }
     }

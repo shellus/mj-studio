@@ -1,11 +1,11 @@
 // Sqids 编解码工具 - 将自增ID转换为短字符串
 import Sqids from 'sqids'
+import { SQIDS_ALPHABET, SQIDS_MIN_LENGTH } from '../shared/constants'
 
-// 使用固定的 alphabet 确保编码结果一致（与 server/utils/sqids.ts 保持同步）
-// 移除了容易混淆的字符：0O1lI
+// 使用共享配置确保前后端编码结果一致
 const sqids = new Sqids({
-  alphabet: 'wNEBY3eVubF4xJRZSvPprtKQdck79C2Hhs6g8yWfUAzTaXGMjmnqD5',
-  minLength: 6,
+  alphabet: SQIDS_ALPHABET,
+  minLength: SQIDS_MIN_LENGTH,
 })
 
 // 编码：数字ID -> 短字符串

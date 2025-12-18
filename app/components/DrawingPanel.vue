@@ -1,71 +1,22 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
-
-type ModelCategory = 'image' | 'chat'
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
-type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
-
-interface ModelTypeConfig {
-  category?: ModelCategory
-  modelType: ModelType
-  apiFormat: ApiFormat
-  modelName: string
-  estimatedTime?: number
-}
-
-// 模型类型显示名称
-const MODEL_TYPE_LABELS: Record<ModelType, string> = {
-  'midjourney': 'Midjourney',
-  'gemini': 'Gemini',
-  'flux': 'Flux',
-  'dalle': 'DALL-E',
-  'doubao': '豆包',
-  'gpt4o-image': 'GPT-4o Image',
-  'grok-image': 'Grok Image',
-  'qwen-image': '通义万相',
-}
-
-// 模型类型图标
-const MODEL_TYPE_ICONS: Record<ModelType, string> = {
-  'midjourney': 'i-heroicons-sparkles',
-  'gemini': 'i-heroicons-cpu-chip',
-  'flux': 'i-heroicons-bolt',
-  'dalle': 'i-heroicons-photo',
-  'doubao': 'i-heroicons-fire',
-  'gpt4o-image': 'i-heroicons-chat-bubble-left-right',
-  'grok-image': 'i-heroicons-rocket-launch',
-  'qwen-image': 'i-heroicons-cloud',
-}
-
-// 请求格式显示名称
-const API_FORMAT_LABELS: Record<ApiFormat, string> = {
-  'mj-proxy': 'MJ-Proxy',
-  'gemini': 'Gemini API',
-  'dalle': 'DALL-E API',
-  'openai-chat': 'OpenAI Chat',
-}
-
-// 模型使用提示（type: warning 为警告样式，info 为普通信息样式）
-const MODEL_TYPE_HINTS: Record<ModelType, { text: string; type: 'warning' | 'info' }> = {
-  'midjourney': { text: '支持 U/V 操作、图片混合、垫图等完整功能', type: 'info' },
-  'gemini': { text: '支持多轮对话式图像编辑，垫图效果较好', type: 'info' },
-  'flux': { text: '仅 flux-kontext-{max, pro} 支持垫图', type: 'warning' },
-  'dalle': { text: 'DALL-E 3 API 不支持垫图功能', type: 'warning' },
-  'doubao': { text: '字节跳动图像生成模型，中文理解能力强', type: 'info' },
-  'gpt4o-image': { text: '基于 GPT-4o 的图像生成，支持复杂指令', type: 'info' },
-  'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
-  'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
-}
-
-// 不支持垫图的模型
-const MODELS_WITHOUT_REF_IMAGE: ModelType[] = ['dalle']
+import type { ModelCategory, ImageModelType, ApiFormat, ModelTypeConfig } from '../shared/types'
+import {
+  MODEL_TYPE_LABELS,
+  MODEL_TYPE_ICONS,
+  API_FORMAT_LABELS,
+  MODEL_USAGE_HINTS,
+  MODELS_WITHOUT_REFERENCE_IMAGE,
+  MAX_REFERENCE_IMAGE_SIZE_BYTES,
+  MAX_REFERENCE_IMAGE_COUNT,
+} from '../shared/constants'
 
 const props = defineProps<{
   modelConfigs: ModelConfig[]
 }>()
 
 const emit = defineEmits<{
-  submit: [prompt: string, images: string[], modelConfigId: number, modelType: ModelType, apiFormat: ApiFormat, modelName: string]
+  submit: [prompt: string, images: string[], modelConfigId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
 }>()
 
 const prompt = ref('')
@@ -99,15 +50,15 @@ const availableModelTypes = computed((): ModelTypeConfig[] => {
 // 是否支持垫图（部分模型不支持）
 const supportsReferenceImages = computed(() => {
   if (!selectedModelTypeConfig.value?.apiFormat) return false
-  // DALL-E 3 不支持垫图
-  if (MODELS_WITHOUT_REF_IMAGE.includes(selectedModelTypeConfig.value.modelType)) return false
+  // 检查是否在不支持垫图的模型列表中（使用共享常量）
+  if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedModelTypeConfig.value.modelType as ImageModelType)) return false
   return true
 })
 
 // 当前模型的使用提示
 const currentModelHint = computed(() => {
   if (!selectedModelTypeConfig.value) return undefined
-  return MODEL_TYPE_HINTS[selectedModelTypeConfig.value.modelType]
+  return MODEL_USAGE_HINTS[selectedModelTypeConfig.value.modelType as ImageModelType]
 })
 
 // 当配置列表变化时，选择默认配置
@@ -147,10 +98,10 @@ async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
 
-  const files = Array.from(input.files).slice(0, 3) // 最多3张
+  const files = Array.from(input.files).slice(0, MAX_REFERENCE_IMAGE_COUNT)
 
   for (const file of files) {
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
       alert('图片大小不能超过10MB')
       continue
     }
@@ -158,7 +109,7 @@ async function handleFileChange(event: Event) {
     const reader = new FileReader()
     reader.onload = (e) => {
       const base64 = e.target?.result as string
-      if (referenceImages.value.length < 3) {
+      if (referenceImages.value.length < MAX_REFERENCE_IMAGE_COUNT) {
         referenceImages.value.push(base64)
       }
     }
@@ -211,7 +162,7 @@ async function handleSubmit() {
 // 设置面板内容（供外部调用）
 function setContent(newPrompt: string | null, images: string[]) {
   prompt.value = newPrompt || ''
-  referenceImages.value = images.slice(0, 3) // 最多3张
+  referenceImages.value = images.slice(0, MAX_REFERENCE_IMAGE_COUNT)
 }
 
 // 暴露给父组件
@@ -332,7 +283,7 @@ defineExpose({
 
         <!-- 上传按钮 -->
         <label
-          v-if="referenceImages.length < 3"
+          v-if="referenceImages.length < MAX_REFERENCE_IMAGE_COUNT"
           class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
         >
           <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />

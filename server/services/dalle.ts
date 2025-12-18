@@ -8,6 +8,7 @@
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface DalleResponse {
   created: number
@@ -52,7 +53,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'dall-e-3', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/generations`
     const body = {
       model: modelName,
@@ -106,7 +107,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (images.length === 0) {
       return generateImage(prompt, modelName, taskId, signal)
     }

@@ -2,6 +2,7 @@
 import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
 import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
+import { IMAGE_MODEL_TYPES, API_FORMATS } from '../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -18,18 +19,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 验证模型类型
-  const validTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
-  if (!modelType || !validTypes.includes(modelType)) {
+  // 验证模型类型（使用共享常量 IMAGE_MODEL_TYPES）
+  if (!modelType || !IMAGE_MODEL_TYPES.includes(modelType)) {
     throw createError({
       statusCode: 400,
       message: '请选择模型类型',
     })
   }
 
-  // 验证API格式
-  const validFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
-  if (!apiFormat || !validFormats.includes(apiFormat)) {
+  // 验证API格式（使用共享常量 API_FORMATS）
+  if (!apiFormat || !API_FORMATS.includes(apiFormat)) {
     throw createError({
       statusCode: 400,
       message: '请选择API格式',

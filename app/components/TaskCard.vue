@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
 import { encodeTaskId } from '~/utils/sqids'
+import type { ImageModelType, ApiFormat } from '../shared/types'
+import {
+  TASK_CARD_MODEL_DISPLAY,
+  API_FORMAT_LABELS,
+  DEFAULT_FALLBACK_ESTIMATED_TIME,
+  PROGRESS_UPDATE_INTERVAL_MS,
+  PROGRESS_TIME_BUFFER_RATIO,
+} from '../shared/constants'
 
 const props = defineProps<{
   task: Task
@@ -83,30 +91,10 @@ const statusInfo = computed(() => {
   }
 })
 
-// 模型类型显示配置
-const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
-  'midjourney': { label: 'MJ', color: 'bg-purple-500/80' },
-  'gemini': { label: 'Gemini', color: 'bg-blue-500/80' },
-  'flux': { label: 'Flux', color: 'bg-orange-500/80' },
-  'dalle': { label: 'DALL-E', color: 'bg-green-500/80' },
-  'doubao': { label: '豆包', color: 'bg-cyan-500/80' },
-  'gpt4o-image': { label: 'GPT-4o', color: 'bg-emerald-500/80' },
-  'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
-  'qwen-image': { label: '通义', color: 'bg-violet-500/80' },
-}
-
-// 请求格式显示配置
-const API_FORMAT_DISPLAY: Record<string, string> = {
-  'mj-proxy': 'MJ-Proxy',
-  'gemini': 'Gemini API',
-  'dalle': 'DALL-E API',
-  'openai-chat': 'OpenAI Chat',
-}
-
-// 获取模型显示信息
+// 获取模型显示信息（使用共享常量 TASK_CARD_MODEL_DISPLAY）
 const modelInfo = computed(() => {
-  const modelType = props.task.modelType
-  const display = MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
+  const modelType = props.task.modelType as ImageModelType
+  const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
   return {
     label: display.label,
@@ -118,27 +106,27 @@ const modelInfo = computed(() => {
 // 是否显示加载动画
 const isLoading = computed(() => ['pending', 'submitting', 'processing'].includes(props.task.status))
 
-// 获取当前任务的预计时间（秒）
+// 获取当前任务的预计时间（秒）（使用共享常量 DEFAULT_FALLBACK_ESTIMATED_TIME）
 const estimatedTime = computed(() => {
   const modelConfig = props.task.modelConfig
-  if (!modelConfig?.modelTypeConfigs) return 60 // 默认60秒
+  if (!modelConfig?.modelTypeConfigs) return DEFAULT_FALLBACK_ESTIMATED_TIME
   const mtc = modelConfig.modelTypeConfigs.find(
     (c: { modelName: string }) => c.modelName === props.task.modelName
   )
-  return mtc?.estimatedTime ?? 60
+  return mtc?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
 })
 
 // 进度条：当前时间（定时更新）
 const now = ref(Date.now())
 let progressTimer: ReturnType<typeof setInterval> | null = null
 
-// 启动/停止进度条计时器
+// 启动/停止进度条计时器（使用共享常量 PROGRESS_UPDATE_INTERVAL_MS）
 watch(isLoading, (loading) => {
   if (loading) {
     now.value = Date.now()
     progressTimer = setInterval(() => {
       now.value = Date.now()
-    }, 500)
+    }, PROGRESS_UPDATE_INTERVAL_MS)
   } else if (progressTimer) {
     clearInterval(progressTimer)
     progressTimer = null
@@ -149,12 +137,12 @@ onUnmounted(() => {
   if (progressTimer) clearInterval(progressTimer)
 })
 
-// 进度百分比（额外增加10%时长缓冲）
+// 进度百分比（使用共享常量 PROGRESS_TIME_BUFFER_RATIO 作为时长缓冲系数）
 const progressPercent = computed(() => {
   if (!isLoading.value) return 0
   const start = new Date(props.task.createdAt).getTime()
   const elapsed = (now.value - start) / 1000
-  const bufferedTime = estimatedTime.value * 1.1
+  const bufferedTime = estimatedTime.value * PROGRESS_TIME_BUFFER_RATIO
   return Math.min((elapsed / bufferedTime) * 100, 100)
 })
 
@@ -528,7 +516,7 @@ async function showErrorDetail() {
             </div>
             <div class="flex justify-between">
               <span class="text-(--ui-text-muted)">请求格式</span>
-              <span class="text-(--ui-text)">{{ API_FORMAT_DISPLAY[task.apiFormat] || task.apiFormat }}</span>
+              <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[task.apiFormat] || task.apiFormat }}</span>
             </div>
             <div v-if="task.modelName" class="flex justify-between">
               <span class="text-(--ui-text-muted)">模型名称</span>

@@ -1,123 +1,21 @@
 <script setup lang="ts">
+import type { ModelCategory, ImageModelType, ChatModelType, ModelType, ApiFormat, ModelTypeConfig } from '../shared/types'
+import {
+  IMAGE_MODEL_TYPES,
+  CHAT_MODEL_TYPES,
+  ALL_MODEL_TYPES,
+  MODEL_API_FORMAT_OPTIONS,
+  MODEL_CATEGORY_MAP,
+  DEFAULT_MODEL_NAMES,
+  DEFAULT_ESTIMATED_TIMES,
+  MODEL_TYPE_LABELS,
+  API_FORMAT_LABELS,
+  CATEGORY_LABELS,
+} from '../shared/constants'
+
 definePageMeta({
   middleware: 'auth',
 })
-
-type ModelCategory = 'image' | 'chat'
-type ImageModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
-type ChatModelType = 'gpt' | 'claude' | 'gemini-chat' | 'deepseek' | 'qwen-chat'
-type ModelType = ImageModelType | ChatModelType
-type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
-
-interface ModelTypeConfig {
-  category?: ModelCategory
-  modelType: ModelType
-  apiFormat: ApiFormat
-  modelName: string
-  estimatedTime?: number
-}
-
-// 模型类型与请求格式的对应关系
-const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
-  // 绘图模型
-  'midjourney': ['mj-proxy'],
-  'gemini': ['gemini', 'openai-chat'],
-  'flux': ['dalle'],
-  'dalle': ['dalle'],
-  'doubao': ['dalle'],
-  'gpt4o-image': ['openai-chat'],
-  'grok-image': ['openai-chat'],
-  'qwen-image': ['openai-chat'],
-  // 对话模型
-  'gpt': ['openai-chat'],
-  'claude': ['openai-chat'],
-  'gemini-chat': ['openai-chat'],
-  'deepseek': ['openai-chat'],
-  'qwen-chat': ['openai-chat'],
-}
-
-// 模型类型对应的分类
-const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
-  // 绘图模型
-  'midjourney': 'image',
-  'gemini': 'image',
-  'flux': 'image',
-  'dalle': 'image',
-  'doubao': 'image',
-  'gpt4o-image': 'image',
-  'grok-image': 'image',
-  'qwen-image': 'image',
-  // 对话模型
-  'gpt': 'chat',
-  'claude': 'chat',
-  'gemini-chat': 'chat',
-  'deepseek': 'chat',
-  'qwen-chat': 'chat',
-}
-
-// 默认模型名称
-const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
-  // 绘图模型
-  'midjourney': '',
-  'gemini': 'gemini-2.5-flash-image',
-  'flux': 'flux-dev',
-  'dalle': 'dall-e-3',
-  'doubao': 'doubao-seedream-3-0-t2i-250415',
-  'gpt4o-image': 'gpt-4o-image',
-  'grok-image': 'grok-4',
-  'qwen-image': 'qwen-image',
-  // 对话模型
-  'gpt': 'gpt-4o',
-  'claude': 'claude-sonnet-4-20250514',
-  'gemini-chat': 'gemini-2.5-flash',
-  'deepseek': 'deepseek-chat',
-  'qwen-chat': 'qwen-max',
-}
-
-// 默认预计时间（秒）- 对话模型不需要此字段
-const DEFAULT_ESTIMATED_TIMES: Partial<Record<ModelType, number>> = {
-  'midjourney': 60,
-  'gemini': 15,
-  'flux': 20,
-  'dalle': 15,
-  'doubao': 15,
-  'gpt4o-image': 30,
-  'grok-image': 30,
-  'qwen-image': 30,
-}
-
-// 模型类型显示名称
-const MODEL_TYPE_LABELS: Record<ModelType, string> = {
-  // 绘图模型
-  'midjourney': 'Midjourney',
-  'gemini': 'Gemini 绘图',
-  'flux': 'Flux',
-  'dalle': 'DALL-E',
-  'doubao': '豆包',
-  'gpt4o-image': 'GPT-4o 绘图',
-  'grok-image': 'Grok 绘图',
-  'qwen-image': '通义万相',
-  // 对话模型
-  'gpt': 'GPT',
-  'claude': 'Claude',
-  'gemini-chat': 'Gemini 对话',
-  'deepseek': 'DeepSeek',
-  'qwen-chat': '通义千问',
-}
-
-// 分类显示名称
-const CATEGORY_LABELS: Record<ModelCategory, string> = {
-  'image': '绘图',
-  'chat': '对话',
-}
-
-// 请求格式显示名称
-const API_FORMAT_LABELS: Record<ApiFormat, string> = {
-  'mj-proxy': 'MJ-Proxy',
-  'gemini': 'Gemini API',
-  'dalle': 'DALL-E API',
-  'openai-chat': 'OpenAI Chat',
-}
 
 const { configs, isLoading, loadConfigs, createConfig, updateConfig, deleteConfig } = useModelConfigs()
 const toast = useToast()
@@ -135,35 +33,30 @@ const form = ref({
   isDefault: false,
 })
 
-// 可选的模型类型列表（按分类）
-const imageModelTypeOptions: ImageModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'doubao', 'gpt4o-image', 'grok-image', 'qwen-image']
-const chatModelTypeOptions: ChatModelType[] = ['gpt', 'claude', 'gemini-chat', 'deepseek', 'qwen-chat']
-const modelTypeOptions: ModelType[] = [...imageModelTypeOptions, ...chatModelTypeOptions]
-
-// 获取可用的请求格式
+// 获取可用的请求格式（使用共享常量 MODEL_API_FORMAT_OPTIONS）
 function getAvailableFormats(modelType: ModelType): ApiFormat[] {
-  return MODEL_FORMAT_MAP[modelType] || []
+  return MODEL_API_FORMAT_OPTIONS[modelType] || []
 }
 
 // 添加模型类型配置
 function addModelTypeConfig() {
-  // 找一个还没添加的模型类型
+  // 找一个还没添加的模型类型（使用共享常量 ALL_MODEL_TYPES）
   const existingTypes = form.value.modelTypeConfigs.map(c => c.modelType)
-  const availableType = modelTypeOptions.find(t => !existingTypes.includes(t))
+  const availableType = ALL_MODEL_TYPES.find(t => !existingTypes.includes(t))
 
   if (!availableType) {
     toast.add({ title: '已添加所有模型类型', color: 'warning' })
     return
   }
 
-  const defaultFormat = MODEL_FORMAT_MAP[availableType][0]
+  const defaultFormat = MODEL_API_FORMAT_OPTIONS[availableType][0]
   const category = MODEL_CATEGORY_MAP[availableType]
   form.value.modelTypeConfigs.push({
     category,
     modelType: availableType,
     apiFormat: defaultFormat,
     modelName: DEFAULT_MODEL_NAMES[availableType],
-    estimatedTime: DEFAULT_ESTIMATED_TIMES[availableType],
+    estimatedTime: DEFAULT_ESTIMATED_TIMES[availableType as ImageModelType],
   })
 }
 
@@ -175,22 +68,22 @@ function removeModelTypeConfig(index: number) {
 // 当模型类型变化时，更新默认值
 function onModelTypeChange(index: number) {
   const config = form.value.modelTypeConfigs[index]
-  const availableFormats = getAvailableFormats(config.modelType)
+  const availableFormats = getAvailableFormats(config.modelType as ModelType)
 
   // 如果当前格式不可用，切换到第一个可用格式
   if (!availableFormats.includes(config.apiFormat)) {
     config.apiFormat = availableFormats[0]
   }
 
-  // 更新分类
-  config.category = MODEL_CATEGORY_MAP[config.modelType]
+  // 更新分类（使用共享常量 MODEL_CATEGORY_MAP）
+  config.category = MODEL_CATEGORY_MAP[config.modelType as ModelType]
 
-  // 更新默认模型名称
-  config.modelName = DEFAULT_MODEL_NAMES[config.modelType]
+  // 更新默认模型名称（使用共享常量 DEFAULT_MODEL_NAMES）
+  config.modelName = DEFAULT_MODEL_NAMES[config.modelType as ModelType]
 
-  // 更新预计时间（仅绘图模型）
+  // 更新预计时间（仅绘图模型，使用共享常量 DEFAULT_ESTIMATED_TIMES）
   if (config.category === 'image') {
-    config.estimatedTime = DEFAULT_ESTIMATED_TIMES[config.modelType]
+    config.estimatedTime = DEFAULT_ESTIMATED_TIMES[config.modelType as ImageModelType]
   } else {
     config.estimatedTime = undefined
   }
@@ -298,15 +191,15 @@ async function handleSetDefault(id: number) {
   }
 }
 
-// 格式化模型类型显示
+// 格式化模型类型显示（使用共享常量 MODEL_TYPE_LABELS）
 function formatModelTypes(modelTypeConfigs: ModelTypeConfig[]) {
   if (!modelTypeConfigs || modelTypeConfigs.length === 0) return '-'
-  return modelTypeConfigs.map(c => MODEL_TYPE_LABELS[c.modelType]).join(' / ')
+  return modelTypeConfigs.map(c => MODEL_TYPE_LABELS[c.modelType as ModelType]).join(' / ')
 }
 
-// 按分类获取模型类型列表
+// 按分类获取模型类型列表（使用共享常量 IMAGE_MODEL_TYPES / CHAT_MODEL_TYPES）
 function getModelTypesByCategory(category: ModelCategory): ModelType[] {
-  return category === 'image' ? imageModelTypeOptions : chatModelTypeOptions
+  return category === 'image' ? IMAGE_MODEL_TYPES : CHAT_MODEL_TYPES
 }
 </script>
 

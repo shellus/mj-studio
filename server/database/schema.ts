@@ -1,5 +1,20 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
+// 从共享模块导入类型和常量
+// 类型用于数据库字段定义，常量已移至 shared/constants.ts
+export type {
+  ModelCategory,
+  ImageModelType,
+  ChatModelType,
+  ModelType,
+  ApiFormat,
+  TaskStatus,
+  MessageRole,
+  ModelTypeConfig,
+} from '../../app/shared/types'
+
+import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole } from '../../app/shared/types'
+
 // 用户表
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -11,63 +26,6 @@ export const users = sqliteTable('users', {
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
-
-// 模型分类
-export type ModelCategory = 'image' | 'chat'
-
-// 支持的绘图模型类型
-export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
-
-// 支持的对话模型类型
-export type ChatModelType = 'gpt' | 'claude' | 'gemini-chat' | 'deepseek' | 'qwen-chat'
-
-// 支持的请求格式
-export type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
-
-// 模型类型配置
-export interface ModelTypeConfig {
-  category?: ModelCategory   // 模型分类，默认 'image' 兼容旧数据
-  modelType: ModelType | ChatModelType
-  apiFormat: ApiFormat
-  modelName: string          // 实际请求时使用的模型名称
-  estimatedTime?: number     // 预计生成时间（秒），仅绘图需要
-}
-
-// 模型类型与请求格式的对应关系
-export const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
-  'midjourney': ['mj-proxy'],
-  'gemini': ['gemini', 'openai-chat'],
-  'flux': ['dalle'],
-  'dalle': ['dalle'],
-  'doubao': ['dalle'],
-  'gpt4o-image': ['openai-chat'],
-  'grok-image': ['openai-chat'],
-  'qwen-image': ['openai-chat'],
-}
-
-// 默认模型名称
-export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
-  'midjourney': '',
-  'gemini': 'gemini-2.5-flash-image',
-  'flux': 'flux-dev',
-  'dalle': 'dall-e-3',
-  'doubao': 'doubao-seedream-3-0-t2i-250415',
-  'gpt4o-image': 'gpt-4o-image',
-  'grok-image': 'grok-4',
-  'qwen-image': 'qwen-image',
-}
-
-// 默认预计时间（秒）
-export const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
-  'midjourney': 60,
-  'gemini': 15,
-  'flux': 20,
-  'dalle': 15,
-  'doubao': 15,
-  'gpt4o-image': 30,
-  'grok-image': 30,
-  'qwen-image': 30,
-}
 
 // 模型配置表（用户级别）
 export const modelConfigs = sqliteTable('model_configs', {
@@ -85,10 +43,7 @@ export const modelConfigs = sqliteTable('model_configs', {
 export type ModelConfig = typeof modelConfigs.$inferSelect
 export type NewModelConfig = typeof modelConfigs.$inferInsert
 
-// 任务状态
-export type TaskStatus = 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'
-
-// 任务表
+// 任务表（TaskStatus 类型已从 shared/types 导入）
 export const tasks = sqliteTable('tasks', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull().default(1),
@@ -121,9 +76,7 @@ export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 
 // ==================== 对话功能相关表 ====================
-
-// 消息角色
-export type MessageRole = 'user' | 'assistant'
+// MessageRole 类型已从 shared/types 导入
 
 // 助手表
 export const assistants = sqliteTable('assistants', {

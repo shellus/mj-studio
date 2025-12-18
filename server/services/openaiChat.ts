@@ -5,6 +5,7 @@
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface OpenAIChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -58,7 +59,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'gpt-4o-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES['gpt4o-image'], taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/chat/completions`
     const body = {
       model: modelName,
@@ -111,7 +112,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图（带参考图）- 使用multimodal输入
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gpt-4o-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = DEFAULT_MODEL_NAMES['gpt4o-image'], taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (images.length === 0) {
       return generateImage(prompt, modelName, taskId, signal)
     }

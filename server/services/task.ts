@@ -10,6 +10,7 @@ import { downloadImage, saveBase64Image, getImageUrl } from './image'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
+import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 // 存储每个任务的 AbortController，用于取消请求
 const taskAbortControllers = new Map<number, AbortController>()
@@ -298,7 +299,7 @@ export function useTaskService() {
   // 提交到Gemini（同步API）
   async function submitToGemini(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const gemini = createGeminiService(config.baseUrl, config.apiKey)
-    const modelName = task.modelName || 'gemini-2.5-flash-image'
+    const modelName = task.modelName || DEFAULT_MODEL_NAMES.gemini
 
     try {
       let result: GenerateResult
@@ -324,7 +325,7 @@ export function useTaskService() {
   // 提交到DALL-E（同步API）
   async function submitToDalle(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const dalle = createDalleService(config.baseUrl, config.apiKey)
-    const modelName = task.modelName || 'dall-e-3'
+    const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
 
     try {
       let result: GenerateResult
@@ -350,7 +351,7 @@ export function useTaskService() {
   // 提交到OpenAI Chat（同步API）
   async function submitToOpenAIChat(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const openai = createOpenAIChatService(config.baseUrl, config.apiKey)
-    const modelName = task.modelName || 'gpt-4o-image'
+    const modelName = task.modelName || DEFAULT_MODEL_NAMES['gpt4o-image']
 
     try {
       let result: GenerateResult

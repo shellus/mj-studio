@@ -9,7 +9,11 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:shared": "vitest run tests/shared.test.ts",
+    "test:api": "vitest run tests/api-integration.test.ts"
   },
   "dependencies": {
     "@nuxt/ui": "^4.2.1",
