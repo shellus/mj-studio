@@ -3,6 +3,8 @@ import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { createChatService } from '../../../services/chat'
+import type { LogContext } from '../../../utils/logger'
+import { logTitleResponse } from '../../../utils/logger'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -77,12 +79,23 @@ ${contextMessages.join('\n\n')}`
   // 调用 AI 生成标题
   const chatService = createChatService(modelConfig)
 
+  // 构建日志上下文
+  const logContext: LogContext = {
+    type: '标题',
+    conversationId,
+    conversationTitle: result.conversation.title,
+  }
+
+  const startTime = Date.now()
+
   try {
     const response = await chatService.chat(
       assistant.modelName,
       '你是一个标题生成助手，擅长根据对话内容生成简洁准确的标题。',
       [],
-      prompt
+      prompt,
+      undefined,
+      logContext
     )
 
     if (!response.success || !response.content) {
@@ -102,6 +115,9 @@ ${contextMessages.join('\n\n')}`
 
     // 更新对话标题
     await conversationService.updateTitle(conversationId, user.id, title)
+
+    // 记录标题响应日志
+    logTitleResponse(logContext, title, Date.now() - startTime)
 
     return { title }
   } catch (error: any) {

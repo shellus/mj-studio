@@ -3,6 +3,7 @@ import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { createChatService, writeStreamToResponse } from '../../../services/chat'
+import type { LogContext } from '../../../utils/logger'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -88,6 +89,13 @@ export default defineEventHandler(async (event) => {
   // 创建聊天服务
   const chatService = createChatService(modelConfig)
 
+  // 构建日志上下文
+  const logContext: LogContext = {
+    type: '重放',
+    conversationId: message.conversationId,
+    conversationTitle: result.conversation.title,
+  }
+
   // 流式响应
   setHeader(event, 'Content-Type', 'text/event-stream')
   setHeader(event, 'Cache-Control', 'no-cache')
@@ -98,7 +106,9 @@ export default defineEventHandler(async (event) => {
       assistant.modelName,
       assistant.systemPrompt,
       messagesBeforeReplay,
-      userMessageContent
+      userMessageContent,
+      undefined,
+      logContext
     )
 
     const fullContent = await writeStreamToResponse(

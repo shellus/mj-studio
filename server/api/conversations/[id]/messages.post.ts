@@ -4,6 +4,7 @@ import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { createChatService, writeStreamToResponse } from '../../../services/chat'
 import type { MessageMark } from '../../../database/schema'
+import type { LogContext } from '../../../utils/logger'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -119,6 +120,13 @@ export default defineEventHandler(async (event) => {
   // 创建聊天服务
   const chatService = createChatService(modelConfig)
 
+  // 构建日志上下文
+  const logContext: LogContext = {
+    type: isCompressRequest ? '压缩' : '聊天',
+    conversationId,
+    conversationTitle: result.conversation.title,
+  }
+
   if (stream) {
     // 流式响应
     setHeader(event, 'Content-Type', 'text/event-stream')
@@ -130,7 +138,9 @@ export default defineEventHandler(async (event) => {
         assistant.modelName,
         assistant.systemPrompt,
         historyMessages,
-        content.trim()
+        content.trim(),
+        undefined,
+        logContext
       )
 
       const fullContent = await writeStreamToResponse(event, generator, conversationId, user.id)
@@ -171,7 +181,9 @@ export default defineEventHandler(async (event) => {
       assistant.modelName,
       assistant.systemPrompt,
       historyMessages,
-      content.trim()
+      content.trim(),
+      undefined,
+      logContext
     )
 
     if (!response.success) {

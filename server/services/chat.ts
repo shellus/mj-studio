@@ -1,6 +1,8 @@
 // 对话服务层（流式响应）
 import type { ModelConfig, Message } from '../database/schema'
 import { startStreamingSession, appendStreamingContent, endStreamingSession } from './streamingCache'
+import type { LogContext } from '../utils/logger'
+import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -45,10 +47,31 @@ export function createChatService(config: ModelConfig) {
     systemPrompt: string | null,
     historyMessages: Message[],
     userMessage: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    logContext?: LogContext
   ): Promise<{ success: boolean, content?: string, error?: string }> {
     const url = `${config.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage)
+    const startTime = Date.now()
+
+    // 记录请求日志
+    if (logContext) {
+      const ctx = { ...logContext, baseUrl: config.baseUrl, modelName }
+      const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
+      const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
+      const currentSize = calcSize(userMessage)
+
+      if (logContext.type === '压缩') {
+        logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
+      } else {
+        logRequest(ctx, {
+          systemPromptSize,
+          historyCount: historyMessages.length,
+          historySize,
+          currentSize,
+        })
+      }
+    }
 
     const body = {
       model: modelName,
@@ -66,19 +89,32 @@ export function createChatService(config: ModelConfig) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        const errorMsg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
+        if (logContext) {
+          logError({ ...logContext, baseUrl: config.baseUrl, modelName }, errorMsg)
+        }
         return {
           success: false,
-          error: errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`,
+          error: errorMsg,
         }
       }
 
       const data = await response.json()
       const content = data.choices?.[0]?.message?.content || ''
+      const durationMs = Date.now() - startTime
+
+      // 记录响应日志
+      if (logContext) {
+        logResponse({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(content), durationMs)
+      }
 
       return { success: true, content }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         return { success: false, error: '请求已取消' }
+      }
+      if (logContext) {
+        logError({ ...logContext, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
       }
       return { success: false, error: error.message || '请求失败' }
     }
@@ -90,10 +126,31 @@ export function createChatService(config: ModelConfig) {
     systemPrompt: string | null,
     historyMessages: Message[],
     userMessage: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    logContext?: LogContext
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${config.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage)
+    const startTime = Date.now()
+
+    // 记录请求日志
+    if (logContext) {
+      const ctx = { ...logContext, baseUrl: config.baseUrl, modelName }
+      const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
+      const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
+      const currentSize = calcSize(userMessage)
+
+      if (logContext.type === '压缩') {
+        logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
+      } else {
+        logRequest(ctx, {
+          systemPromptSize,
+          historyCount: historyMessages.length,
+          historySize,
+          currentSize,
+        })
+      }
+    }
 
     const body = {
       model: modelName,
@@ -101,7 +158,7 @@ export function createChatService(config: ModelConfig) {
       stream: true,
     }
 
-    console.log('[Chat] 发送请求:', url, 'model:', modelName)
+    let totalContent = ''
 
     try {
       const response = await fetch(url, {
@@ -113,12 +170,14 @@ export function createChatService(config: ModelConfig) {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('[Chat] 错误响应:', response.status, errorText)
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         try {
           const errorData = JSON.parse(errorText)
           errorMessage = errorData.error?.message || errorMessage
         } catch {}
+        if (logContext) {
+          logError({ ...logContext, baseUrl: config.baseUrl, modelName }, errorMessage)
+        }
         throw new Error(errorMessage)
       }
 
@@ -147,6 +206,11 @@ export function createChatService(config: ModelConfig) {
 
           const data = trimmed.slice(5).trim()
           if (data === '[DONE]') {
+            // 记录完成日志
+            if (logContext) {
+              const durationMs = Date.now() - startTime
+              logComplete({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+            }
             yield { content: '', done: true }
             return
           }
@@ -155,6 +219,7 @@ export function createChatService(config: ModelConfig) {
             const parsed = JSON.parse(data)
             const content = parsed.choices?.[0]?.delta?.content || ''
             if (content) {
+              totalContent += content
               yield { content, done: false }
             }
           } catch {
@@ -163,11 +228,19 @@ export function createChatService(config: ModelConfig) {
         }
       }
 
+      // 记录完成日志
+      if (logContext) {
+        const durationMs = Date.now() - startTime
+        logComplete({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+      }
       yield { content: '', done: true }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         yield { content: '', done: true }
         return
+      }
+      if (logContext) {
+        logError({ ...logContext, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
       }
       throw error
     }
