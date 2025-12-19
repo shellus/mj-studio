@@ -5,6 +5,7 @@ definePageMeta({
 
 const toast = useToast()
 const router = useRouter()
+const route = useRoute()
 
 // 移动端抽屉状态
 const showLeftDrawer = ref(false)
@@ -58,12 +59,35 @@ const editingAssistant = ref<typeof currentAssistant.value>(null)
 // 消息列表 ref
 const messageListRef = ref<{ scrollToCompressRequest: () => void } | null>(null)
 
+// 更新 URL 参数
+function updateUrlParams(assistantId: number | null, conversationId: number | null) {
+  const query: Record<string, string> = {}
+  if (assistantId) query.a = String(assistantId)
+  if (conversationId) query.c = String(conversationId)
+  router.replace({ query })
+}
+
 // 页面加载
 onMounted(async () => {
   await Promise.all([
     loadAssistants(),
     loadConfigs(),
   ])
+
+  // 从 URL 恢复状态
+  const assistantIdFromUrl = route.query.a ? Number(route.query.a) : null
+  const conversationIdFromUrl = route.query.c ? Number(route.query.c) : null
+
+  if (assistantIdFromUrl && assistants.value.some(a => a.id === assistantIdFromUrl)) {
+    selectAssistant(assistantIdFromUrl)
+    // 等待对话列表加载完成后选择对话
+    if (conversationIdFromUrl) {
+      await loadConversations(assistantIdFromUrl)
+      if (conversations.value.some(c => c.id === conversationIdFromUrl)) {
+        await selectConversation(conversationIdFromUrl)
+      }
+    }
+  }
 })
 
 // 监听当前助手变化，加载对话列表
@@ -76,6 +100,7 @@ watch(currentAssistantId, async (id) => {
 // 选择助手
 async function handleSelectAssistant(id: number) {
   selectAssistant(id)
+  updateUrlParams(id, null)
   showLeftDrawer.value = false
 }
 
@@ -100,6 +125,7 @@ async function handleSaveAssistant(data: any) {
     } else {
       const assistant = await createAssistant(data)
       selectAssistant(assistant.id)
+      updateUrlParams(assistant.id, null)
       toast.add({ title: '助手已创建', color: 'success' })
     }
     showAssistantEditor.value = false
@@ -112,11 +138,13 @@ async function handleSaveAssistant(data: any) {
 function handleCreateConversation() {
   if (!currentAssistantId.value) return
   startNewConversation()
+  updateUrlParams(currentAssistantId.value, null)
 }
 
 // 选择对话
 async function handleSelectConversation(id: number) {
   await selectConversation(id)
+  updateUrlParams(currentAssistantId.value, id)
   showRightDrawer.value = false
 }
 
@@ -125,6 +153,7 @@ async function handleDeleteConversation(id: number) {
   // 先获取对话的 assistantId
   const conversation = conversations.value.find(c => c.id === id)
   const assistantId = conversation?.assistantId
+  const isCurrentConversation = currentConversationId.value === id
 
   try {
     await deleteConversation(id)
@@ -132,6 +161,10 @@ async function handleDeleteConversation(id: number) {
     // 更新对话数量
     if (assistantId) {
       decrementConversationCount(assistantId)
+    }
+    // 如果删除的是当前对话，更新 URL
+    if (isCurrentConversation) {
+      updateUrlParams(currentAssistantId.value, null)
     }
   } catch (error: any) {
     toast.add({ title: error.message || '删除失败', color: 'error' })
@@ -195,6 +228,8 @@ async function handleSendMessage(content: string) {
       conversationId = conversation.id
       // 更新对话数量
       incrementConversationCount(currentAssistantId.value)
+      // 更新 URL
+      updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
       toast.add({ title: error.message || '创建对话失败', color: 'error' })
       return
@@ -219,6 +254,8 @@ async function handleAddMessage(content: string, role: 'user' | 'assistant') {
       const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
       conversationId = conversation.id
       incrementConversationCount(currentAssistantId.value)
+      // 更新 URL
+      updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
       toast.add({ title: error.message || '创建对话失败', color: 'error' })
       return
