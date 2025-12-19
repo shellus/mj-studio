@@ -188,6 +188,28 @@ async function copyMessage(content: string) {
 const deleteConfirmId = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
 
+// 压缩响应展开状态（默认折叠）
+const expandedCompressResponses = ref<Set<number>>(new Set())
+
+function toggleCompressResponse(id: number) {
+  if (expandedCompressResponses.value.has(id)) {
+    expandedCompressResponses.value.delete(id)
+  } else {
+    expandedCompressResponses.value.add(id)
+  }
+}
+
+function isCompressResponseExpanded(message: Message) {
+  // 流式输出中的压缩响应始终展开
+  if (props.isStreaming && message.mark === 'compress-response') {
+    const compressResponseIndex = props.messages.findIndex(m => m.mark === 'compress-response')
+    if (compressResponseIndex >= 0 && props.messages[compressResponseIndex].id === message.id) {
+      return true
+    }
+  }
+  return expandedCompressResponses.value.has(message.id)
+}
+
 // 处理删除（打开确认框）
 function handleDelete(id: number) {
   deleteConfirmId.value = id
@@ -291,11 +313,24 @@ function cancelDelete() {
           </div>
           <!-- 压缩响应消息（可折叠） -->
           <div v-else-if="message.mark === 'compress-response'" class="text-sm">
-            <div class="flex items-center gap-2 mb-2 text-amber-600 dark:text-amber-400">
+            <button
+              class="flex items-center gap-2 text-amber-600 dark:text-amber-400 hover:opacity-80 transition-opacity w-full"
+              @click="toggleCompressResponse(message.id)"
+            >
+              <UIcon
+                :name="isCompressResponseExpanded(message) ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
+                class="w-4 h-4"
+              />
               <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
               <span class="font-medium">对话摘要</span>
+              <span v-if="!isCompressResponseExpanded(message)" class="text-xs opacity-60">点击展开</span>
+            </button>
+            <div
+              v-if="isCompressResponseExpanded(message)"
+              class="mt-2 whitespace-pre-wrap break-words text-(--ui-text)"
+            >
+              {{ message.content }}
             </div>
-            <div class="whitespace-pre-wrap break-words">{{ message.content }}</div>
           </div>
           <!-- 用户消息：纯文本 -->
           <div v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
