@@ -11,6 +11,9 @@ if (existsSync('.env')) {
   })
 }
 
+const hmrPort = Number(process.env.NUXT_HMR_PORT) || 24678
+console.log('[nuxt.config] HMR Port:', hmrPort)
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
@@ -51,11 +54,13 @@ export default defineNuxtConfig({
   },
 
   // 多实例开发时通过 NUXT_HMR_PORT 环境变量避免 HMR 端口冲突
-  vite: {
-    server: {
-      hmr: {
-        port: Number(process.env.NUXT_HMR_PORT) || 24678,
-      },
+  hooks: {
+    'vite:extendConfig': (config) => {
+      if (typeof config.server?.hmr === 'object') {
+        config.server.hmr.port = hmrPort
+      } else if (config.server) {
+        config.server.hmr = { port: hmrPort }
+      }
     },
   },
 })
