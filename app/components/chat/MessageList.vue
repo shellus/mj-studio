@@ -10,6 +10,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   delete: [id: number]
   replay: [message: Message]
+  stop: []
 }>()
 
 const messagesContainer = ref<HTMLElement>()
@@ -105,11 +106,28 @@ function getRenderedContent(message: Message): string {
   return renderedMessages.value.get(message.id) || message.content
 }
 
+// 检查消息是否正在生成中（显示加载动画）
+function isMessageLoading(message: Message): boolean {
+  return message.role === 'assistant' &&
+    (message.status === 'created' || message.status === 'pending') &&
+    !message.content
+}
+
+// 检查消息是否正在流式输出
+function isMessageStreaming(message: Message): boolean {
+  return message.role === 'assistant' && message.status === 'streaming'
+}
+
+// 检查消息是否被中断
+function isMessageStopped(message: Message): boolean {
+  return message.role === 'assistant' && message.status === 'stopped'
+}
+
 // 检查是否需要显示原始内容（正在流式输出或渲染中）
 function shouldShowRaw(message: Message): boolean {
   if (message.role === 'user') return true
-  // 流式输出的最后一条消息显示原始内容
-  if (props.isStreaming && message === props.messages[props.messages.length - 1]) {
+  // 正在流式输出的消息显示原始内容
+  if (message.status === 'created' || message.status === 'pending' || message.status === 'streaming') {
     return true
   }
   // 还没有渲染完成时显示原始内容
@@ -131,8 +149,8 @@ watch(
   async (messages) => {
     for (const msg of messages) {
       if (msg.role === 'assistant') {
-        // 流式输出时不渲染最后一条消息
-        if (props.isStreaming && msg === messages[messages.length - 1]) {
+        // 正在生成的消息不渲染
+        if (msg.status === 'created' || msg.status === 'pending' || msg.status === 'streaming') {
           continue
         }
         await renderMessage(msg)
@@ -142,16 +160,19 @@ watch(
   { immediate: true, deep: true }
 )
 
-// 流式输出结束后渲染最后一条消息
+// 流式输出结束后渲染消息
 watch(
   () => props.isStreaming,
   async (streaming, prevStreaming) => {
     if (prevStreaming && !streaming) {
-      // 流式输出刚结束
-      const lastMsg = props.messages[props.messages.length - 1]
-      if (lastMsg?.role === 'assistant') {
-        renderedMessages.value.delete(lastMsg.id) // 清除旧缓存
-        await renderMessage(lastMsg)
+      // 流式输出刚结束，找到所有未渲染的已完成消息
+      for (const msg of props.messages) {
+        if (msg.role === 'assistant' &&
+          msg.status !== 'created' && msg.status !== 'pending' && msg.status !== 'streaming') {
+          if (!renderedMessages.value.has(msg.id)) {
+            await renderMessage(msg)
+          }
+        }
       }
     }
   }
@@ -308,16 +329,31 @@ function cancelDelete() {
           </div>
           <!-- 助手消息：Markdown 渲染 -->
           <div v-else class="text-sm">
+            <!-- 正在加载（created/pending 状态） -->
+            <template v-if="isMessageLoading(message)">
+              <div class="flex items-center gap-2 text-(--ui-text-muted)">
+                <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+                <span>{{ message.status === 'created' ? '准备中...' : '等待响应...' }}</span>
+              </div>
+            </template>
             <!-- 流式输出中显示原始文本 + 光标 -->
-            <template v-if="shouldShowRaw(message)">
+            <template v-else-if="shouldShowRaw(message)">
               <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
               <span
-                v-if="isStreaming && message === messages[messages.length - 1]"
+                v-if="isMessageStreaming(message)"
                 class="inline-block w-2 h-4 bg-current animate-pulse ml-0.5"
               />
             </template>
             <!-- 渲染后的 Markdown -->
             <div v-else v-html="getRenderedContent(message)" class="markdown-content" />
+            <!-- 被中断的标记 -->
+            <div
+              v-if="isMessageStopped(message) && message.content"
+              class="mt-2 text-xs text-(--ui-text-muted) flex items-center gap-1"
+            >
+              <UIcon name="i-heroicons-stop-circle" class="w-3 h-3" />
+              <span>已中断</span>
+            </div>
           </div>
         </div>
 
@@ -329,32 +365,44 @@ function cancelDelete() {
           <span>{{ formatTime(message.createdAt) }}</span>
           <span v-if="message.modelName" class="opacity-70">{{ message.modelName }}</span>
 
-          <!-- 操作按钮 -->
+          <!-- 停止按钮（正在生成时显示） -->
           <button
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
-            title="复制"
-            @click="copyMessage(message.content)"
+            v-if="isMessageStreaming(message) || isMessageLoading(message)"
+            class="p-1 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 rounded text-red-600 dark:text-red-400"
+            title="停止生成"
+            @click="emit('stop')"
           >
-            <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
+            <UIcon name="i-heroicons-stop" class="w-3 h-3" />
           </button>
-          <!-- 重放按钮 -->
-          <button
-            v-if="!isStreaming"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
-            :title="message.role === 'user' ? '重新发送' : '重新生成'"
-            @click="emit('replay', message)"
-          >
-            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
-          </button>
-          <!-- 删除按钮（流式输出时隐藏） -->
-          <button
-            v-if="!isStreaming"
-            class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
-            title="删除"
-            @click="handleDelete(message.id)"
-          >
-            <UIcon name="i-heroicons-trash" class="w-3 h-3" />
-          </button>
+
+          <!-- 操作按钮（非生成状态时显示） -->
+          <template v-else>
+            <button
+              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              title="复制"
+              @click="copyMessage(message.content)"
+            >
+              <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
+            </button>
+            <!-- 重放按钮 -->
+            <button
+              v-if="!isStreaming"
+              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              :title="message.role === 'user' ? '重新发送' : '重新生成'"
+              @click="emit('replay', message)"
+            >
+              <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+            </button>
+            <!-- 删除按钮（流式输出时隐藏） -->
+            <button
+              v-if="!isStreaming"
+              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              title="删除"
+              @click="handleDelete(message.id)"
+            >
+              <UIcon name="i-heroicons-trash" class="w-3 h-3" />
+            </button>
+          </template>
         </div>
       </div>
     </div>

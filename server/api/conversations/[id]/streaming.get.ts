@@ -1,5 +1,6 @@
 // GET /api/conversations/[id]/streaming - 获取进行中的流式内容
-import { getStreamingSession } from '../../../services/streamingCache'
+// 兼容旧 API，新系统通过消息 status 字段判断
+import { findActiveSession } from '../../../services/streamingCache'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -14,7 +15,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: '无效的对话ID' })
   }
 
-  const session = getStreamingSession(conversationId, user.id)
+  // 使用兼容函数查找活跃会话
+  const session = findActiveSession(conversationId, user.id)
 
   if (!session) {
     return { streaming: false, content: '' }
@@ -24,5 +26,6 @@ export default defineEventHandler(async (event) => {
     streaming: true,
     content: session.content,
     startedAt: session.startedAt,
+    messageId: session.messageId,
   }
 })

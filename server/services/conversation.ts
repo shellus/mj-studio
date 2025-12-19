@@ -1,6 +1,6 @@
 // 对话服务层
 import { db } from '../database'
-import { conversations, messages, type Conversation, type Message, type MessageMark } from '../database/schema'
+import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus } from '../database/schema'
 import { eq, and, desc } from 'drizzle-orm'
 
 export function useConversationService() {
@@ -95,6 +95,7 @@ export function useConversationService() {
     modelConfigId?: number
     modelName?: string
     mark?: MessageMark
+    status?: MessageStatus
     sortId?: number
   }): Promise<Message> {
     const [message] = await db.insert(messages).values({
@@ -104,6 +105,7 @@ export function useConversationService() {
       modelConfigId: data.modelConfigId ?? null,
       modelName: data.modelName ?? null,
       mark: data.mark ?? null,
+      status: data.status ?? null,
       sortId: data.sortId ?? null,
     }).returning()
 
@@ -125,6 +127,24 @@ export function useConversationService() {
   async function updateMessageSortId(messageId: number, sortId: number): Promise<void> {
     await db.update(messages)
       .set({ sortId })
+      .where(eq(messages.id, messageId))
+  }
+
+  // 更新消息状态
+  async function updateMessageStatus(messageId: number, status: MessageStatus): Promise<void> {
+    await db.update(messages)
+      .set({ status })
+      .where(eq(messages.id, messageId))
+  }
+
+  // 更新消息内容和状态
+  async function updateMessageContentAndStatus(messageId: number, content: string, status: MessageStatus, mark?: MessageMark): Promise<void> {
+    const updateData: { content: string; status: MessageStatus; mark?: MessageMark | null } = { content, status }
+    if (mark !== undefined) {
+      updateData.mark = mark
+    }
+    await db.update(messages)
+      .set(updateData)
       .where(eq(messages.id, messageId))
   }
 
@@ -176,6 +196,8 @@ export function useConversationService() {
     remove,
     addMessage,
     updateMessageSortId,
+    updateMessageStatus,
+    updateMessageContentAndStatus,
     getMessageById,
     removeMessage,
     generateTitle,

@@ -1,6 +1,5 @@
 // 对话服务层（流式响应）
 import type { ModelConfig, Message } from '../database/schema'
-import { startStreamingSession, appendStreamingContent, endStreamingSession } from './streamingCache'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
@@ -251,48 +250,4 @@ export function createChatService(config: ModelConfig) {
     chatStream,
     buildMessages,
   }
-}
-
-// 工具函数：将流式响应写入 H3 事件（带缓存）
-export async function writeStreamToResponse(
-  event: any,
-  stream: AsyncGenerator<ChatStreamChunk>,
-  conversationId?: number,
-  userId?: number
-): Promise<string> {
-  let fullContent = ''
-  let streamCompleted = false
-
-  // 开始缓存会话
-  if (conversationId && userId) {
-    startStreamingSession(conversationId, userId)
-  }
-
-  try {
-    for await (const chunk of stream) {
-      if (chunk.content) {
-        fullContent += chunk.content
-        // 缓存内容
-        if (conversationId && userId) {
-          appendStreamingContent(conversationId, userId, chunk.content)
-        }
-        // 写入 SSE 格式数据
-        const data = JSON.stringify({ content: chunk.content, done: false })
-        await event.node.res.write(`data: ${data}\n\n`)
-      }
-      if (chunk.done) {
-        streamCompleted = true
-        const data = JSON.stringify({ content: '', done: true })
-        await event.node.res.write(`data: ${data}\n\n`)
-      }
-    }
-    streamCompleted = true
-  } finally {
-    // 只有流式成功完成后才清除缓存，否则保留缓存供客户端恢复
-    if (streamCompleted && conversationId && userId) {
-      endStreamingSession(conversationId, userId)
-    }
-  }
-
-  return fullContent
 }

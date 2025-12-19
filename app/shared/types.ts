@@ -104,6 +104,19 @@ export type MessageRole = 'user' | 'assistant'
  */
 export type MessageMark = 'error' | 'compress-request' | 'compress-response'
 
+/**
+ * AI 消息状态
+ * - 用于追踪 AI 消息的生成生命周期
+ * - 用户消息的 status 为 null
+ */
+export type MessageStatus =
+  | 'created'    // 已创建，尚未发起上游请求
+  | 'pending'    // 已发起上游请求，等待响应
+  | 'streaming'  // 正在接收流式输出
+  | 'completed'  // 生成完成
+  | 'stopped'    // 用户中断
+  | 'failed'     // 生成失败
+
 // ==================== 模型类型配置接口 ====================
 
 /**

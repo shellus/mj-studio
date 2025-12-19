@@ -1,5 +1,7 @@
 // 对话状态管理
-import type { MessageMark } from '~/shared/types'
+// 适配流式输出系统规范：消息 ID 提前生成、SSE 独立订阅、后端独立状态机
+import type { MessageMark, MessageStatus } from '~/shared/types'
+import { useAuth } from './useAuth'
 
 export interface Message {
   id: number
@@ -10,6 +12,7 @@ export interface Message {
   modelName: string | null
   createdAt: string
   mark?: MessageMark | null
+  status?: MessageStatus | null  // AI 消息状态
 }
 
 export interface Conversation {
@@ -22,6 +25,7 @@ export interface Conversation {
 }
 
 export function useConversations() {
+  const { getAuthHeader } = useAuth()
   const conversations = useState<Conversation[]>('conversations', () => [])
   const messages = useState<Message[]>('messages', () => [])
   const isLoading = useState('conversations-loading', () => false)
@@ -34,17 +38,14 @@ export function useConversations() {
   let displayedContent = '' // 已显示的内容
   let typingTimer: ReturnType<typeof setTimeout> | null = null
   const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
-  let streamingMessageIndex = -1 // 正在流式输出的消息索引（-1 表示最后一条）
+  let streamingMessageId = -1 // 正在流式输出的消息 ID
 
-  // 用于停止流式输出的 AbortController
-  let currentAbortController: AbortController | null = null
+  // 当前的 SSE 连接（用于停止时清理）
+  let currentEventSource: { abort: () => void } | null = null
 
   // 获取正在流式输出的消息
-  function getStreamingMessage() {
-    if (streamingMessageIndex >= 0 && streamingMessageIndex < messages.value.length) {
-      return messages.value[streamingMessageIndex]
-    }
-    return messages.value[messages.value.length - 1]
+  function getStreamingMessage(): Message | undefined {
+    return messages.value.find(m => m.id === streamingMessageId)
   }
 
   // 打字机效果：逐字渲染缓冲区内容
@@ -122,34 +123,128 @@ export function useConversations() {
       const result = await $fetch<{ conversation: Conversation, messages: Message[] }>(`/api/conversations/${id}`)
       messages.value = result.messages
 
-      // 检查是否有进行中的流式内容
-      const streamingData = await $fetch<{ streaming: boolean, content: string }>(`/api/conversations/${id}/streaming`)
-      if (streamingData.streaming && streamingData.content) {
-        // 恢复流式状态
-        isStreaming.value = true
-        contentBuffer = streamingData.content
-        displayedContent = ''
-        streamingContent.value = ''
+      // 检查是否有正在生成的消息（status 为 created/pending/streaming）
+      const streamingMsg = result.messages.find(m =>
+        m.role === 'assistant' &&
+        (m.status === 'created' || m.status === 'pending' || m.status === 'streaming')
+      )
 
-        // 添加临时的助手消息占位
-        const tempAssistantMessage: Message = {
-          id: Date.now(),
-          conversationId: id,
-          role: 'assistant',
-          content: '',
-          modelConfigId: null,
-          modelName: null,
-          createdAt: new Date().toISOString(),
-        }
-        messages.value.push(tempAssistantMessage)
-
-        // 开始打字机效果
-        startTyping()
+      if (streamingMsg) {
+        // 恢复流式状态：订阅该消息的 SSE
+        subscribeToStream(streamingMsg.id)
       }
     } catch (error) {
       console.error('加载对话详情失败:', error)
       messages.value = []
     }
+  }
+
+  // 订阅消息的 SSE 流
+  function subscribeToStream(messageId: number) {
+    isStreaming.value = true
+    streamingMessageId = messageId
+    contentBuffer = ''
+    displayedContent = ''
+    streamingContent.value = ''
+
+    // 创建 AbortController 用于取消
+    const abortController = new AbortController()
+    currentEventSource = { abort: () => abortController.abort() }
+
+    // 使用 fetch 订阅 SSE（需要手动添加 JWT 认证头）
+    fetch(`/api/messages/${messageId}/stream`, {
+      signal: abortController.signal,
+      headers: getAuthHeader(),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error('订阅失败')
+        }
+
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('无法读取响应')
+
+        const decoder = new TextDecoder()
+        let buffer = ''
+        let streamDone = false
+
+        while (!streamDone) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+
+          // 处理 SSE 格式
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed || !trimmed.startsWith('data:')) continue
+
+            const data = trimmed.slice(5).trim()
+            try {
+              const parsed = JSON.parse(data)
+
+              if (parsed.error) {
+                // 错误处理
+                const targetMessage = getStreamingMessage()
+                if (targetMessage) {
+                  targetMessage.content = parsed.error
+                  targetMessage.mark = 'error'
+                  targetMessage.status = 'failed'
+                }
+                streamDone = true
+                break
+              }
+
+              if (parsed.done) {
+                // 流结束：更新消息状态
+                const targetMessage = getStreamingMessage()
+                if (targetMessage) {
+                  targetMessage.status = parsed.status || 'completed'
+                }
+                flushTyping()
+                streamDone = true
+                break
+              }
+
+              if (parsed.content) {
+                // 追加到缓冲区，打字机效果会逐字渲染
+                contentBuffer += parsed.content
+                startTyping()
+              }
+            } catch {
+              // JSON 解析错误则忽略
+            }
+          }
+        }
+      })
+      .catch((error) => {
+        if (error.name === 'AbortError') {
+          // 用户主动停止，保留已输出内容
+          flushTyping()
+          return
+        }
+        console.error('SSE 订阅错误:', error)
+        // 显示错误
+        const targetMessage = getStreamingMessage()
+        if (targetMessage) {
+          targetMessage.content = error.message || '连接失败'
+          targetMessage.mark = 'error'
+          targetMessage.status = 'failed'
+        }
+        flushTyping()
+      })
+      .finally(() => {
+        flushTyping()
+        isStreaming.value = false
+        streamingContent.value = ''
+        contentBuffer = ''
+        displayedContent = ''
+        currentEventSource = null
+        streamingMessageId = -1
+      })
   }
 
   // 创建对话
@@ -191,18 +286,9 @@ export function useConversations() {
     }
   }
 
-  // 发送消息（流式）
+  // 发送消息
   async function sendMessage(conversationId: number, content: string, modelName?: string | null) {
-    isStreaming.value = true
-    streamingContent.value = ''
-    contentBuffer = ''
-    displayedContent = ''
-
-    // 创建 AbortController 用于停止
-    const abortController = new AbortController()
-    currentAbortController = abortController
-
-    // 先添加用户消息到本地
+    // 创建临时用户消息显示
     const tempUserMessage: Message = {
       id: Date.now(),
       conversationId,
@@ -214,78 +300,39 @@ export function useConversations() {
     }
     messages.value.push(tempUserMessage)
 
-    // 添加临时的助手消息占位
-    const tempAssistantMessage: Message = {
-      id: Date.now() + 1,
-      conversationId,
-      role: 'assistant',
-      content: '',
-      modelConfigId: null,
-      modelName: modelName || null,
-      createdAt: new Date().toISOString(),
-      mark: null,
-    }
-    messages.value.push(tempAssistantMessage)
-
     try {
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+      // 发送 POST 请求创建消息
+      const result = await $fetch<{ userMessageId: number | null; assistantMessageId: number }>(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, stream: true }),
-        signal: abortController.signal,
+        body: { content },
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || '发送失败')
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('无法读取响应')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let streamDone = false
-
-      while (!streamDone) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        // 处理 SSE 格式
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data:')) continue
-
-          const data = trimmed.slice(5).trim()
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.error) {
-              throw new Error(parsed.error)
-            }
-            // 处理完成信号
-            if (parsed.done) {
-              streamDone = true
-              break
-            }
-            if (parsed.content) {
-              // 追加到缓冲区，打字机效果会逐字渲染
-              contentBuffer += parsed.content
-              startTyping()
-            }
-          } catch (e: any) {
-            // 如果是应用错误（非 JSON 解析错误），重新抛出
-            if (e.message && !e.message.includes('JSON')) {
-              throw e
-            }
-            // JSON 解析错误则忽略
+      // 更新用户消息的真实 ID
+      if (result.userMessageId) {
+        const userMsgIndex = messages.value.findIndex(m => m.id === tempUserMessage.id)
+        if (userMsgIndex >= 0) {
+          const userMsg = messages.value[userMsgIndex]
+          if (userMsg) {
+            userMsg.id = result.userMessageId
           }
         }
       }
+
+      // 添加 AI 消息占位符（status: created）
+      const assistantMessage: Message = {
+        id: result.assistantMessageId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        modelConfigId: null,
+        modelName: modelName || null,
+        createdAt: new Date().toISOString(),
+        status: 'created',
+      }
+      messages.value.push(assistantMessage)
+
+      // 订阅 SSE 流
+      subscribeToStream(result.assistantMessageId)
 
       // 更新对话列表中的更新时间
       const conversation = conversations.value.find(c => c.id === conversationId)
@@ -297,34 +344,19 @@ export function useConversations() {
         }
       }
     } catch (error: any) {
-      // 如果是用户主动停止，不显示错误
-      if (error.name === 'AbortError') {
-        // 保留已输出的内容
-        flushTyping()
-        return
+      // 发送失败，显示错误
+      const errorMessage: Message = {
+        id: Date.now() + 1,
+        conversationId,
+        role: 'assistant',
+        content: error.message || '发送失败',
+        modelConfigId: null,
+        modelName: null,
+        createdAt: new Date().toISOString(),
+        mark: 'error',
+        status: 'failed',
       }
-      // 停止打字机效果
-      flushTyping()
-      // 将错误显示在助手消息中
-      const lastIndex = messages.value.length - 1
-      const lastMessage = messages.value[lastIndex]
-      if (lastMessage?.role === 'assistant') {
-        // 替换整个对象以确保 Vue 响应式更新
-        messages.value[lastIndex] = {
-          ...lastMessage,
-          content: error.message || '发送失败',
-          mark: 'error',
-        }
-      }
-      // 不抛出错误，让错误显示在对话中
-    } finally {
-      // 确保所有内容都显示完毕
-      flushTyping()
-      isStreaming.value = false
-      streamingContent.value = ''
-      contentBuffer = ''
-      displayedContent = ''
-      currentAbortController = null
+      messages.value.push(errorMessage)
     }
   }
 
@@ -338,108 +370,51 @@ export function useConversations() {
 
   // 重放消息（让 AI 重新回复）
   async function replayMessage(message: Message) {
-    isStreaming.value = true
-    streamingContent.value = ''
-    contentBuffer = ''
-    displayedContent = ''
-
     // 如果是 AI 消息，先从本地移除
     if (message.role === 'assistant') {
       messages.value = messages.value.filter(m => m.id !== message.id)
     }
 
-    // 添加临时的助手消息占位
-    const tempAssistantMessage: Message = {
-      id: Date.now(),
-      conversationId: message.conversationId,
-      role: 'assistant',
-      content: '',
-      modelConfigId: null,
-      modelName: null,
-      createdAt: new Date().toISOString(),
-      mark: null,
-    }
-    messages.value.push(tempAssistantMessage)
-
     try {
-      const response = await fetch(`/api/messages/${message.id}/replay`, {
+      const result = await $fetch<{ assistantMessageId: number }>(`/api/messages/${message.id}/replay`, {
         method: 'POST',
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || '重放失败')
+      // 添加 AI 消息占位符
+      const assistantMessage: Message = {
+        id: result.assistantMessageId,
+        conversationId: message.conversationId,
+        role: 'assistant',
+        content: '',
+        modelConfigId: null,
+        modelName: null,
+        createdAt: new Date().toISOString(),
+        status: 'created',
       }
+      messages.value.push(assistantMessage)
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('无法读取响应')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let streamDone = false
-
-      while (!streamDone) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data:')) continue
-
-          const data = trimmed.slice(5).trim()
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.error) {
-              throw new Error(parsed.error)
-            }
-            if (parsed.done) {
-              streamDone = true
-              break
-            }
-            if (parsed.content) {
-              contentBuffer += parsed.content
-              startTyping()
-            }
-          } catch (e: any) {
-            if (e.message && !e.message.includes('JSON')) {
-              throw e
-            }
-          }
-        }
-      }
-
-      // 流结束，等待打字机效果完成
-      await flushTyping()
-
-      // 刷新消息列表
-      if (currentConversationId.value) {
-        const data = await $fetch(`/api/conversations/${currentConversationId.value}`)
-        messages.value = data.messages
-      }
+      // 订阅 SSE 流
+      subscribeToStream(result.assistantMessageId)
     } catch (error: any) {
       // 显示错误
-      const lastMsg = messages.value[messages.value.length - 1]
-      if (lastMsg && lastMsg.role === 'assistant') {
-        lastMsg.content = error.message || '重放失败'
-        lastMsg.mark = 'error'
+      const errorMessage: Message = {
+        id: Date.now(),
+        conversationId: message.conversationId,
+        role: 'assistant',
+        content: error.message || '重放失败',
+        modelConfigId: null,
+        modelName: null,
+        createdAt: new Date().toISOString(),
+        mark: 'error',
+        status: 'failed',
       }
-      flushTyping()
-    } finally {
-      isStreaming.value = false
-      streamingContent.value = ''
-      contentBuffer = ''
-      displayedContent = ''
+      messages.value.push(errorMessage)
     }
   }
 
   // 清理状态
   function cleanup() {
-    flushTyping()
+    stopStreaming()
     conversations.value = []
     messages.value = []
     currentConversationId.value = null
@@ -467,13 +442,33 @@ export function useConversations() {
   }
 
   // 停止流式输出
-  function stopStreaming() {
-    if (currentAbortController) {
-      currentAbortController.abort()
-      currentAbortController = null
+  async function stopStreaming() {
+    if (streamingMessageId > 0) {
+      try {
+        // 调用后端停止接口
+        await $fetch(`/api/messages/${streamingMessageId}/stop`, {
+          method: 'POST',
+        })
+      } catch (error) {
+        console.error('停止生成失败:', error)
+      }
     }
+
+    // 关闭 SSE 连接
+    if (currentEventSource) {
+      currentEventSource.abort()
+      currentEventSource = null
+    }
+
     // 立即结束打字机效果，保留已输出的内容
     flushTyping()
+
+    // 更新消息状态
+    const targetMessage = getStreamingMessage()
+    if (targetMessage) {
+      targetMessage.status = 'stopped'
+    }
+
     isStreaming.value = false
   }
 
@@ -496,19 +491,18 @@ export function useConversations() {
     onStart?.()
 
     // 3. 发送压缩请求触发 AI 生成摘要
-    isStreaming.value = true
-    streamingContent.value = ''
-    contentBuffer = ''
-    displayedContent = ''
+    const sendResult = await $fetch<{ userMessageId: number | null; assistantMessageId: number }>(`/api/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: {
+        content: result.compressRequest.content,
+        isCompressRequest: true,
+      },
+    })
 
-    // 创建 AbortController 用于停止
-    const abortController = new AbortController()
-    currentAbortController = abortController
-
-    // 找到压缩请求消息的位置，在其后插入临时的压缩响应
+    // 找到压缩请求消息的位置，在其后插入 AI 消息
     const compressRequestIndex = messages.value.findIndex(m => m.mark === 'compress-request')
-    const tempAssistantMessage: Message = {
-      id: Date.now(),
+    const assistantMessage: Message = {
+      id: sendResult.assistantMessageId,
       conversationId,
       role: 'assistant',
       content: '',
@@ -516,107 +510,19 @@ export function useConversations() {
       modelName: modelName || null,
       createdAt: new Date().toISOString(),
       mark: 'compress-response',
+      status: 'created',
     }
-    // 插入到压缩请求之后，并记录索引
+
     if (compressRequestIndex >= 0) {
-      messages.value.splice(compressRequestIndex + 1, 0, tempAssistantMessage)
-      streamingMessageIndex = compressRequestIndex + 1
+      messages.value.splice(compressRequestIndex + 1, 0, assistantMessage)
     } else {
-      messages.value.push(tempAssistantMessage)
-      streamingMessageIndex = messages.value.length - 1
+      messages.value.push(assistantMessage)
     }
 
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: result.compressRequest.content,
-          stream: true,
-          isCompressRequest: true,
-        }),
-        signal: abortController.signal,
-      })
+    // 订阅 SSE 流
+    subscribeToStream(sendResult.assistantMessageId)
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || '压缩失败')
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('无法读取响应')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let streamDone = false
-
-      while (!streamDone) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data:')) continue
-
-          const data = trimmed.slice(5).trim()
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.error) {
-              throw new Error(parsed.error)
-            }
-            if (parsed.done) {
-              streamDone = true
-              break
-            }
-            if (parsed.content) {
-              contentBuffer += parsed.content
-              startTyping()
-            }
-          } catch (e: any) {
-            if (e.message && !e.message.includes('JSON')) {
-              throw e
-            }
-          }
-        }
-      }
-
-      // 刷新消息列表获取最终状态
-      flushTyping()
-      const finalData = await $fetch<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${conversationId}`)
-      messages.value = finalData.messages
-
-      return result.stats
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        flushTyping()
-        return
-      }
-      flushTyping()
-      // 更新正在流式输出的消息为错误状态
-      const targetMessage = getStreamingMessage()
-      if (targetMessage?.role === 'assistant') {
-        const targetIndex = streamingMessageIndex >= 0 ? streamingMessageIndex : messages.value.length - 1
-        messages.value[targetIndex] = {
-          ...targetMessage,
-          content: error.message || '压缩失败',
-          mark: 'error',
-        }
-      }
-      throw error
-    } finally {
-      flushTyping()
-      isStreaming.value = false
-      streamingContent.value = ''
-      contentBuffer = ''
-      displayedContent = ''
-      currentAbortController = null
-      streamingMessageIndex = -1
-    }
+    return result.stats
   }
 
   return {

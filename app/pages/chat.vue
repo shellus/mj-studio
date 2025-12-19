@@ -342,6 +342,7 @@ onUnmounted(() => {
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
           @replay="handleReplayMessage"
+          @stop="handleStop"
         />
 
         <!-- 输入框 -->
