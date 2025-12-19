@@ -2,7 +2,7 @@
 import { useTaskService } from '../../../services/task'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const query = getQuery(event)
   const page = parseInt(query.page as string, 10) || 1

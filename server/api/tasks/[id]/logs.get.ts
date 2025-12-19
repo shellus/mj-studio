@@ -4,7 +4,7 @@ import { readTaskLogs } from '../../../services/logger'
 import { decodeTaskId } from '../../../utils/sqids'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const id = getRouterParam(event, 'id')
 

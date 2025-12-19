@@ -3,7 +3,7 @@ definePageMeta({
   layout: false,
 })
 
-const { fetch: refreshSession } = useUserSession()
+const { login } = useAuth()
 const toast = useToast()
 
 const isLogin = ref(true) // true=登录, false=注册
@@ -28,12 +28,14 @@ async function handleSubmit() {
       ? { email: form.email, password: form.password }
       : { email: form.email, password: form.password, name: form.name }
 
-    await $fetch(endpoint, {
+    const result = await $fetch<{ token: string; user: { id: number; email: string; name: string | null } }>(endpoint, {
       method: 'POST',
       body,
     })
 
-    await refreshSession()
+    // 保存 JWT token 到 localStorage
+    login(result.token, result.user)
+
     toast.add({
       title: isLogin.value ? '登录成功' : '注册成功',
       color: 'success',

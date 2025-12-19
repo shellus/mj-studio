@@ -2,7 +2,7 @@
 import { useTaskService } from '../../../services/task'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const taskService = useTaskService()
   const count = await taskService.emptyTrash(user.id)

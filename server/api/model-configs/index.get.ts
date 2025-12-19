@@ -2,7 +2,7 @@
 import { useModelConfigService } from '../../services/modelConfig'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const service = useModelConfigService()
 
   return service.listByUser(user.id)

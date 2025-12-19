@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 首页无需登录
-const { loggedIn } = useUserSession()
+const { loggedIn } = useAuth()
 </script>
 
 <template>

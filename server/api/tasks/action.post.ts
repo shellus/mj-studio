@@ -3,7 +3,7 @@ import { useTaskService } from '../../services/task'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const body = await readBody(event)
   const { taskId, customId } = body

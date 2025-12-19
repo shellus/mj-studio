@@ -9,7 +9,7 @@ import { db } from '../../database'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const body = await readBody(event)
   const { prompt, base64Array = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body

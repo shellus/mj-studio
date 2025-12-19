@@ -1,5 +1,6 @@
 // POST /api/auth/login - 用户登录
 import { useUserService } from '../../services/user'
+import { signJwt } from '../../utils/jwt'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -33,18 +34,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 设置会话
-  await setUserSession(event, {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    },
-    loggedInAt: Date.now(),
+  // 生成 JWT token
+  const token = await signJwt({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
   })
 
   return {
     success: true,
+    token,
     user: {
       id: user.id,
       email: user.email,

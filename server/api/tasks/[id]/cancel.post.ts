@@ -2,7 +2,7 @@
 import { useTaskService } from '../../../services/task'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireUserSession(event)
+  const session = await requireAuth(event)
   const id = Number(getRouterParam(event, 'id'))
 
   if (!id || isNaN(id)) {

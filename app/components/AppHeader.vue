@@ -5,7 +5,7 @@ withDefaults(defineProps<{
   showNav: true,
 })
 
-const { user, loggedIn, clear } = useUserSession()
+const { user, loggedIn, logout } = useAuth()
 const router = useRouter()
 const route = useRoute()
 
@@ -44,9 +44,8 @@ const userMenuItems = computed(() => [
   { label: '退出登录', icon: 'i-heroicons-arrow-right-on-rectangle', click: handleLogout },
 ])
 
-async function handleLogout() {
-  await $fetch('/api/auth/logout', { method: 'POST' })
-  await clear()
+function handleLogout() {
+  logout()
   router.push('/login')
 }
 </script>

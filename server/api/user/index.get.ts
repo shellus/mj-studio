@@ -4,7 +4,7 @@ import { users } from '../../database/schema'
 import { db } from '../../database'
 
 export default defineEventHandler(async (event) => {
-  const { user: sessionUser } = await requireUserSession(event)
+  const { user: sessionUser } = await requireAuth(event)
 
   const [user] = await db.select({
     id: users.id,

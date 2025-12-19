@@ -4,7 +4,7 @@ import type { ModelTypeConfig, ModelType, ChatModelType, ApiFormat, MODEL_FORMAT
 import { IMAGE_MODEL_TYPES, CHAT_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const body = await readBody(event)
 
   const { name, baseUrl, apiKey, modelTypeConfigs, remark, isDefault } = body

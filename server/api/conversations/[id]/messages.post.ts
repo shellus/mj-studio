@@ -7,7 +7,7 @@ import type { MessageMark } from '../../../database/schema'
 import type { LogContext } from '../../../utils/logger'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
 
   if (!id) {

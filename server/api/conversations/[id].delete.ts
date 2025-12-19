@@ -2,7 +2,7 @@
 import { useConversationService } from '../../services/conversation'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
 
   if (!id) {

@@ -4,7 +4,7 @@ import { decodeTaskId } from '../../utils/sqids'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const id = getRouterParam(event, 'id')
 

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-// 确保 session 在服务端已加载，避免 hydration mismatch
-const { fetch } = useUserSession()
-if (import.meta.server) {
-  await fetch()
-}
+// JWT 认证状态在客户端通过 plugin 初始化
 </script>
 
 <template>

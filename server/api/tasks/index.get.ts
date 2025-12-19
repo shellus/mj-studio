@@ -3,7 +3,7 @@ import { useTaskService } from '../../services/task'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const query = getQuery(event)
   const page = parseInt(query.page as string, 10) || 1

@@ -14,7 +14,7 @@ const COMPRESS_PROMPT = `请将以上对话内容压缩为一份详细的摘要�
 直接输出摘要内容，不要加标题或格式说明。`
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
 
   if (!id) {

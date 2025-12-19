@@ -2,7 +2,7 @@
 import { saveBase64Image, getImageUrl } from '../../services/image'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireUserSession(event)
+  const session = await requireAuth(event)
 
   const body = await readBody(event)
   const { base64 } = body

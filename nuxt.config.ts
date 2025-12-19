@@ -19,7 +19,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   future: { compatibilityVersion: 4 },
 
-  modules: ['@nuxt/ui', 'nuxt-auth-utils'],
+  modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
 
   app: {
@@ -46,11 +46,7 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    session: {
-      cookie: {
-        secure: false, // 允许HTTP，生产环境通过反向代理处理HTTPS
-      },
-    },
+    // JWT 密钥从环境变量读取
   },
 
   // 多实例开发时通过 NUXT_HMR_PORT 环境变量避免 HMR 端口冲突

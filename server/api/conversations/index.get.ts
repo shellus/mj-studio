@@ -2,7 +2,7 @@
 import { useConversationService } from '../../services/conversation'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
 
   const query = getQuery(event)
   const assistantId = parseInt(query.assistantId as string, 10)

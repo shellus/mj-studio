@@ -4,7 +4,7 @@ import type { ModelType, ChatModelType, ApiFormat, ModelTypeConfig } from '../..
 import { IMAGE_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const id = getRouterParam(event, 'id')
 
   if (!id) {

@@ -2,7 +2,7 @@
 import { useAssistantService } from '../../services/assistant'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const body = await readBody(event)
 
   const { name, description, avatar, systemPrompt, modelConfigId, modelName, isDefault } = body

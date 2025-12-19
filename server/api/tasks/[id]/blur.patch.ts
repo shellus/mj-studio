@@ -4,7 +4,7 @@ import { tasks } from '../../../database/schema'
 import { eq, and } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireUserSession(event)
+  const session = await requireAuth(event)
   const id = Number(getRouterParam(event, 'id'))
 
   if (!id || isNaN(id)) {

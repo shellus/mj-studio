@@ -2,7 +2,7 @@
 import { useAssistantService } from '../../services/assistant'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const { user } = await requireAuth(event)
   const service = useAssistantService()
 
   // 确保有默认助手
