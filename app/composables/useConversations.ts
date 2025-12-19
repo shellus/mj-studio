@@ -1,6 +1,6 @@
 // 对话状态管理
 // 适配流式输出系统规范：消息 ID 提前生成、SSE 独立订阅、后端独立状态机
-import type { MessageMark, MessageStatus } from '~/shared/types'
+import type { MessageMark, MessageStatus, MessageFile } from '~/shared/types'
 import { useAuth } from './useAuth'
 
 export interface Message {
@@ -8,6 +8,7 @@ export interface Message {
   conversationId: number
   role: 'user' | 'assistant'
   content: string
+  files?: MessageFile[] | null
   modelConfigId: number | null
   modelName: string | null
   createdAt: string
@@ -293,13 +294,14 @@ export function useConversations() {
   }
 
   // 发送消息（流式）
-  async function sendMessage(conversationId: number, content: string, modelName?: string | null) {
+  async function sendMessage(conversationId: number, content: string, files?: MessageFile[], modelName?: string | null) {
     // 创建临时用户消息显示
     const tempUserMessage: Message = {
       id: Date.now(),
       conversationId,
       role: 'user',
       content,
+      files: files || null,
       modelConfigId: null,
       modelName: null,
       createdAt: new Date().toISOString(),
@@ -310,7 +312,7 @@ export function useConversations() {
       // 发送 POST 请求创建消息
       const result = await $fetch<{ userMessageId: number | null; assistantMessageId: number }>(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
-        body: { content },
+        body: { content, files },
       })
 
       // 更新用户消息的真实 ID

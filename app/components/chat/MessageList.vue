@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Message } from '~/composables/useConversations'
+import type { MessageFile } from '~/shared/types'
 import { renderMarkdown } from '~/composables/useMarkdown'
 
 const props = defineProps<{
@@ -14,6 +15,49 @@ const emit = defineEmits<{
 }>()
 
 const messagesContainer = ref<HTMLElement>()
+
+// 图片预览状态
+const previewImage = ref<string | null>(null)
+
+// 判断是否为图片类型
+function isImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('image/')
+}
+
+// 获取文件图标
+function getFileIcon(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'i-heroicons-photo'
+  if (mimeType.startsWith('video/')) return 'i-heroicons-video-camera'
+  if (mimeType.startsWith('audio/')) return 'i-heroicons-musical-note'
+  if (mimeType.includes('pdf')) return 'i-heroicons-document-text'
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'i-heroicons-document'
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'i-heroicons-table-cells'
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'i-heroicons-presentation-chart-bar'
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'i-heroicons-archive-box'
+  return 'i-heroicons-document'
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+// 获取文件 URL
+function getFileUrl(fileName: string): string {
+  return `/api/files/${fileName}`
+}
+
+// 打开图片预览
+function openImagePreview(fileName: string) {
+  previewImage.value = getFileUrl(fileName)
+}
+
+// 关闭图片预览
+function closeImagePreview() {
+  previewImage.value = null
+}
 
 // 用户是否在底部（或接近底部）
 const isAtBottom = ref(true)
@@ -353,9 +397,42 @@ function cancelDelete() {
               {{ message.content }}
             </div>
           </div>
-          <!-- 用户消息：纯文本 -->
-          <div v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
-            {{ message.content }}
+          <!-- 用户消息：纯文本 + 文件附件 -->
+          <div v-else-if="message.role === 'user'" class="text-sm">
+            <!-- 文件附件 -->
+            <div v-if="message.files?.length" class="flex flex-wrap gap-2 mb-2">
+              <template v-for="file in message.files" :key="file.fileName">
+                <!-- 图片缩略图 -->
+                <div
+                  v-if="isImageMimeType(file.mimeType)"
+                  class="w-20 h-20 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  @click="openImagePreview(file.fileName)"
+                >
+                  <img
+                    :src="getFileUrl(file.fileName)"
+                    :alt="file.name"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <!-- 非图片文件 -->
+                <a
+                  v-else
+                  :href="getFileUrl(file.fileName)"
+                  target="_blank"
+                  class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                >
+                  <UIcon :name="getFileIcon(file.mimeType)" class="w-5 h-5" />
+                  <div class="text-left">
+                    <div class="text-xs font-medium truncate max-w-[120px]">{{ file.name }}</div>
+                    <div class="text-[10px] opacity-70">{{ formatFileSize(file.size) }}</div>
+                  </div>
+                </a>
+              </template>
+            </div>
+            <!-- 文本内容 -->
+            <div v-if="message.content" class="whitespace-pre-wrap break-words">
+              {{ message.content }}
+            </div>
           </div>
           <!-- 错误消息 -->
           <div v-else-if="message.mark === 'error'" class="text-sm flex items-start gap-2">
@@ -452,5 +529,24 @@ function cancelDelete() {
         </div>
       </template>
     </UModal>
+
+    <!-- 图片预览 -->
+    <div
+      v-if="previewImage"
+      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      @click="closeImagePreview"
+    >
+      <button
+        class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
+        @click="closeImagePreview"
+      >
+        <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+      </button>
+      <img
+        :src="previewImage"
+        class="max-w-full max-h-full object-contain rounded-lg"
+        @click.stop
+      />
+    </div>
   </div>
 </template>

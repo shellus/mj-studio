@@ -1,6 +1,6 @@
 // 对话服务层
 import { db } from '../database'
-import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus } from '../database/schema'
+import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile } from '../database/schema'
 import { eq, and, desc } from 'drizzle-orm'
 
 export function useConversationService() {
@@ -92,6 +92,7 @@ export function useConversationService() {
     conversationId: number
     role: 'user' | 'assistant'
     content: string
+    files?: MessageFile[]
     modelConfigId?: number
     modelName?: string
     mark?: MessageMark
@@ -102,6 +103,7 @@ export function useConversationService() {
       conversationId: data.conversationId,
       role: data.role,
       content: data.content,
+      files: data.files ?? null,
       modelConfigId: data.modelConfigId ?? null,
       modelName: data.modelName ?? null,
       mark: data.mark ?? null,

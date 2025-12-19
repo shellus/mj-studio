@@ -2,7 +2,7 @@
 // 同时创建用户消息和 AI 消息，返回两个消息 ID，后端异步开始生成
 import { useConversationService } from '../../../services/conversation'
 import { startStreamingTask } from '../../../services/streamingTask'
-import type { MessageMark } from '../../../database/schema'
+import type { MessageMark, MessageFile } from '../../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -18,9 +18,19 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { content, isCompressRequest = false } = body
+  const { content, files, isCompressRequest = false } = body as {
+    content: string
+    files?: MessageFile[]
+    isCompressRequest?: boolean
+  }
 
-  if (!content?.trim()) {
+  // 调试日志
+  console.log('[Messages] 收到请求 | content:', content?.slice(0, 30), '| files:', files?.length ?? 0, '个文件')
+  if (files?.length) {
+    console.log('[Messages] 文件详情:', files.map(f => `${f.name} (${f.mimeType})`).join(', '))
+  }
+
+  if (!content?.trim() && (!files || files.length === 0)) {
     throw createError({ statusCode: 400, message: '消息内容不能为空' })
   }
 
@@ -53,12 +63,13 @@ export default defineEventHandler(async (event) => {
     userMessage = await conversationService.addMessage({
       conversationId,
       role: 'user',
-      content: content.trim(),
+      content: content?.trim() || '',
+      files: files && files.length > 0 ? files : undefined,
     })
 
     // 如果是首条消息，更新对话标题
     if (result.messages.length === 0) {
-      const title = conversationService.generateTitle(content.trim())
+      const title = conversationService.generateTitle(content?.trim() || (files?.[0]?.name || '新对话'))
       await conversationService.updateTitle(conversationId, user.id, title)
     }
   }
@@ -80,7 +91,8 @@ export default defineEventHandler(async (event) => {
       messageId: assistantMessage.id,
       conversationId,
       userId: user.id,
-      userContent: content.trim(),
+      userContent: content?.trim() || '',
+      userFiles: files,
       isCompressRequest,
       responseMark,
       responseSortId,

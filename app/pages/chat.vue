@@ -219,12 +219,14 @@ async function handleReplayMessage(message: any) {
 }
 
 // 发送消息
-async function handleSendMessage(content: string) {
+async function handleSendMessage(content: string, files?: import('~/shared/types').MessageFile[]) {
   // 如果没有当前对话，先创建一个
   let conversationId = currentConversationId.value
   if (!conversationId && currentAssistantId.value) {
     try {
-      const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
+      // 使用文本内容或第一个文件名作为标题
+      const title = content?.slice(0, 20) || files?.[0]?.name?.slice(0, 20) || '新对话'
+      const conversation = await createConversation(currentAssistantId.value, title)
       conversationId = conversation.id
       // 更新对话数量
       incrementConversationCount(currentAssistantId.value)
@@ -239,7 +241,7 @@ async function handleSendMessage(content: string) {
   if (!conversationId) return
 
   try {
-    await sendMessage(conversationId, content, currentAssistant.value?.modelName)
+    await sendMessage(conversationId, content, files, currentAssistant.value?.modelName)
   } catch (error: any) {
     toast.add({ title: error.message || '发送失败', color: 'error' })
   }

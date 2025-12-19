@@ -1,8 +1,8 @@
-// 上传图片
-import { saveBase64Image, getImageUrl } from '../../services/image'
+// 上传图片（向后兼容，建议使用 /api/files/upload）
+import { saveBase64File, getFileUrl } from '../../services/file'
 
 export default defineEventHandler(async (event) => {
-  const session = await requireAuth(event)
+  await requireAuth(event)
 
   const body = await readBody(event)
   const { base64 } = body
@@ -14,8 +14,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const fileName = saveBase64Image(base64)
-  if (!fileName) {
+  const result = saveBase64File(base64)
+  if (!result) {
     throw createError({
       statusCode: 500,
       message: '保存图片失败',
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     success: true,
-    fileName,
-    url: getImageUrl(fileName),
+    fileName: result.fileName,
+    url: getFileUrl(result.fileName),
   }
 })

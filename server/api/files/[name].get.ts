@@ -1,4 +1,4 @@
-// 获取图片文件（向后兼容，重定向到 /api/files）
+// 获取文件
 import { readFile } from '../../services/file'
 
 export default defineEventHandler(async (event) => {
@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   if (!name) {
     throw createError({
       statusCode: 400,
-      message: '缺少图片名称',
+      message: '缺少文件名称',
     })
   }
 
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!result) {
     throw createError({
       statusCode: 404,
-      message: '图片不存在',
+      message: '文件不存在',
     })
   }
 
