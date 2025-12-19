@@ -1,4 +1,16 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { readFileSync, existsSync } from 'fs'
+
+// 手动加载 .env 以支持 vite 配置中的环境变量
+if (existsSync('.env')) {
+  readFileSync('.env', 'utf-8').split('\n').forEach(line => {
+    const [key, ...vals] = line.split('=')
+    if (key && !key.startsWith('#') && !process.env[key]) {
+      process.env[key] = vals.join('=')
+    }
+  })
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
