@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import type { ModelConfig, ModelTypeConfig } from '~/composables/useTasks'
 import type { Message } from '~/composables/useConversations'
+import type { MessageFile } from '~/shared/types'
+
+// 上传中的文件状态
+interface UploadingFile {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  status: 'uploading' | 'done' | 'error'
+  progress: number
+  result?: MessageFile
+  error?: string
+  previewUrl?: string
+}
 
 const props = defineProps<{
   modelConfigs: ModelConfig[]
@@ -12,7 +26,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [content: string]
+  send: [content: string, files?: MessageFile[]]
   addMessage: [content: string, role: 'user' | 'assistant']
   updateModel: [configId: number, modelName: string]
   stop: []
@@ -23,13 +37,180 @@ const emit = defineEmits<{
 const router = useRouter()
 const content = ref('')
 const textareaRef = ref<HTMLTextAreaElement>()
+const fileInputRef = ref<HTMLInputElement>()
 const showCompressHint = ref(false)
+
+// 文件上传状态
+const uploadingFiles = ref<UploadingFile[]>([])
+const isDragging = ref(false)
+
+// 已上传完成的文件
+const uploadedFiles = computed(() =>
+  uploadingFiles.value
+    .filter(f => f.status === 'done' && f.result)
+    .map(f => f.result!)
+)
+
+// 是否有文件正在上传
+const isUploading = computed(() =>
+  uploadingFiles.value.some(f => f.status === 'uploading')
+)
+
+// 判断是否为图片类型
+function isImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('image/')
+}
+
+// 生成唯一 ID
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
+// 文件转 base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// 上传单个文件
+async function uploadFile(file: File) {
+  const id = generateId()
+  const uploadingFile: UploadingFile = {
+    id,
+    name: file.name,
+    size: file.size,
+    mimeType: file.type || 'application/octet-stream',
+    status: 'uploading',
+    progress: 0,
+    previewUrl: isImageMimeType(file.type) ? URL.createObjectURL(file) : undefined,
+  }
+
+  uploadingFiles.value.push(uploadingFile)
+
+  // 找到数组中的索引，用于响应式更新
+  const index = uploadingFiles.value.length - 1
+
+  try {
+    // 使用 FormData 上传文件
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await $fetch<{
+      success: boolean
+      fileName: string
+      url: string
+      mimeType: string
+      size: number
+    }>('/api/files/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    // 响应式更新
+    uploadingFiles.value[index] = {
+      ...uploadingFiles.value[index],
+      status: 'done',
+      progress: 100,
+      result: {
+        name: file.name,
+        fileName: response.fileName,
+        mimeType: response.mimeType,
+        size: response.size,
+      },
+    }
+  } catch (error: any) {
+    uploadingFiles.value[index] = {
+      ...uploadingFiles.value[index],
+      status: 'error',
+      error: error.message || '上传失败',
+    }
+  }
+}
+
+// 处理文件选择
+async function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files
+  if (!files?.length) return
+
+  for (const file of files) {
+    await uploadFile(file)
+  }
+
+  // 清空 input 以便重复选择同一文件
+  input.value = ''
+}
+
+// 处理拖拽
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+}
+
+async function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  isDragging.value = false
+
+  const files = event.dataTransfer?.files
+  if (!files?.length) return
+
+  for (const file of files) {
+    await uploadFile(file)
+  }
+}
+
+// 移除文件
+function removeFile(id: string) {
+  const index = uploadingFiles.value.findIndex(f => f.id === id)
+  if (index >= 0) {
+    const file = uploadingFiles.value[index]
+    // 释放预览 URL
+    if (file.previewUrl) {
+      URL.revokeObjectURL(file.previewUrl)
+    }
+    uploadingFiles.value.splice(index, 1)
+  }
+}
+
+// 触发文件选择
+function triggerFileSelect() {
+  fileInputRef.value?.click()
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+// 获取文件图标
+function getFileIcon(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'i-heroicons-photo'
+  if (mimeType.startsWith('video/')) return 'i-heroicons-video-camera'
+  if (mimeType.startsWith('audio/')) return 'i-heroicons-musical-note'
+  if (mimeType.includes('pdf')) return 'i-heroicons-document-text'
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'i-heroicons-document'
+  if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'i-heroicons-table-cells'
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'i-heroicons-presentation-chart-bar'
+  if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'i-heroicons-archive-box'
+  return 'i-heroicons-document'
+}
 
 // 计算对话大小（模拟发送给 AI 的上下文）
 // 从最后一个 compress-response 开始，排除 compress-request
 const conversationStats = computed(() => {
   if (!props.messages?.length) {
-    return { size: 0, messageCount: 0, hasCompressed: false }
+    return { size: 0, messageCount: 0, hasCompressed: false, fileCount: 0 }
   }
 
   // 找到最后一个 compress-response 消息的位置
@@ -46,14 +227,27 @@ const conversationStats = computed(() => {
     .slice(startIndex)
     .filter(msg => msg.mark !== 'compress-request')
 
+  let fileCount = 0
   const size = relevantMessages.reduce((sum, msg) => {
-    return sum + new TextEncoder().encode(msg.content).length
+    let msgSize = new TextEncoder().encode(msg.content).length
+    // 计算文件大小（图片会转为 base64，大小约为原始的 4/3）
+    if (msg.files?.length) {
+      fileCount += msg.files.length
+      for (const file of msg.files) {
+        // 只有图片会作为 base64 发送给 AI
+        if (file.mimeType.startsWith('image/')) {
+          msgSize += Math.ceil(file.size * 4 / 3) // base64 编码后的大小
+        }
+      }
+    }
+    return sum + msgSize
   }, 0)
 
   return {
     size,
     messageCount: relevantMessages.length,
     hasCompressed: startIndex > 0,
+    fileCount,
   }
 })
 
@@ -186,9 +380,13 @@ function handleSelectModel(configId: number, modelName: string) {
 // 发送消息
 function handleSend() {
   const text = content.value.trim()
-  if (!text || props.disabled) return
+  const files = uploadedFiles.value
 
-  emit('send', text)
+  // 必须有文本或文件
+  if (!text && files.length === 0) return
+  if (props.disabled || isUploading.value) return
+
+  emit('send', text, files.length > 0 ? files : undefined)
   clearInput()
 }
 
@@ -206,9 +404,16 @@ function handleStop() {
   emit('stop')
 }
 
-// 清空输入框
+// 清空输入框和文件
 function clearInput() {
   content.value = ''
+  // 释放所有预览 URL
+  for (const file of uploadingFiles.value) {
+    if (file.previewUrl) {
+      URL.revokeObjectURL(file.previewUrl)
+    }
+  }
+  uploadingFiles.value = []
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
   }
@@ -309,13 +514,99 @@ function handleInput() {
       </div>
     </div>
 
+    <!-- 文件预览区域 -->
+    <div v-if="uploadingFiles.length > 0" class="mb-3 flex flex-wrap gap-2">
+      <div
+        v-for="file in uploadingFiles"
+        :key="file.id"
+        class="relative group"
+      >
+        <!-- 图片预览 -->
+        <div
+          v-if="isImageMimeType(file.mimeType) && file.previewUrl"
+          class="w-16 h-16 rounded-lg overflow-hidden border border-(--ui-border) bg-(--ui-bg-elevated)"
+        >
+          <img
+            :src="file.previewUrl"
+            :alt="file.name"
+            class="w-full h-full object-cover"
+          />
+        </div>
+        <!-- 非图片文件 -->
+        <div
+          v-else
+          class="w-16 h-16 rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) flex flex-col items-center justify-center p-1"
+        >
+          <UIcon :name="getFileIcon(file.mimeType)" class="w-6 h-6 text-(--ui-text-muted)" />
+          <span class="text-[10px] text-(--ui-text-muted) truncate w-full text-center mt-1">
+            {{ file.name.split('.').pop() }}
+          </span>
+        </div>
+
+        <!-- 上传中遮罩 -->
+        <div
+          v-if="file.status === 'uploading'"
+          class="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center"
+        >
+          <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 text-white animate-spin" />
+        </div>
+
+        <!-- 错误遮罩 -->
+        <div
+          v-if="file.status === 'error'"
+          class="absolute inset-0 bg-red-500/50 rounded-lg flex items-center justify-center"
+          :title="file.error"
+        >
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-white" />
+        </div>
+
+        <!-- 删除按钮 -->
+        <button
+          class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          @click="removeFile(file.id)"
+        >
+          <UIcon name="i-heroicons-x-mark" class="w-3 h-3" />
+        </button>
+
+        <!-- 文件名提示 -->
+        <div class="absolute -bottom-5 left-0 right-0 text-[10px] text-(--ui-text-muted) truncate text-center">
+          {{ formatFileSize(file.size) }}
+        </div>
+      </div>
+    </div>
+
     <!-- 输入框 -->
-    <div class="flex gap-2 items-end">
+    <div
+      class="flex gap-2 items-end"
+      :class="{ 'ring-2 ring-(--ui-primary) rounded-xl': isDragging }"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
+      <!-- 隐藏的文件输入 -->
+      <input
+        ref="fileInputRef"
+        type="file"
+        multiple
+        class="hidden"
+        @change="handleFileSelect"
+      />
+
+      <!-- 文件上传按钮 -->
+      <UButton
+        variant="ghost"
+        class="h-[48px] w-[48px] flex-shrink-0"
+        :disabled="disabled || isStreaming"
+        @click="triggerFileSelect"
+      >
+        <UIcon name="i-heroicons-paper-clip" class="w-5 h-5" />
+      </UButton>
+
       <textarea
         ref="textareaRef"
         v-model="content"
         class="flex-1 resize-none bg-(--ui-bg-elevated) border border-(--ui-border) rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-(--ui-primary) min-h-[48px] max-h-[200px]"
-        placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+        :placeholder="isDragging ? '松开以上传文件' : '输入消息，Enter 发送，Shift+Enter 换行'"
         rows="1"
         :disabled="disabled || isStreaming"
         @keydown="handleKeydown"
@@ -338,7 +629,7 @@ function handleInput() {
         <UButton
           color="primary"
           class="h-[48px] w-[48px] flex-shrink-0"
-          :disabled="!content.trim() || disabled || !selectedConfigId || !selectedModelName"
+          :disabled="(!content.trim() && uploadedFiles.length === 0) || disabled || isUploading || !selectedConfigId || !selectedModelName"
           @click="handleSend"
         >
           <UIcon name="i-heroicons-paper-airplane" class="w-5 h-5" />

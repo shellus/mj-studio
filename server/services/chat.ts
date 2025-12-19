@@ -1,17 +1,71 @@
 // 对话服务层（流式响应）
-import type { ModelConfig, Message } from '../database/schema'
+import type { ModelConfig, Message, MessageFile } from '../database/schema'
 import { startStreamingSession, appendStreamingContent, endStreamingSession } from './streamingCache'
+import { readFileAsBase64, isImageMimeType } from './file'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
+// OpenAI 多模态消息内容类型
+type ChatMessageContent =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
+
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
-  content: string
+  content: string | ChatMessageContent[]
 }
 
 interface ChatStreamChunk {
   content: string
   done: boolean
+}
+
+// 将文件转换为多模态消息内容
+function filesToContent(files: MessageFile[]): ChatMessageContent[] {
+  const contents: ChatMessageContent[] = []
+
+  for (const file of files) {
+    // 只有图片类型才能作为多模态输入
+    if (isImageMimeType(file.mimeType)) {
+      const base64 = readFileAsBase64(file.fileName)
+      if (base64) {
+        contents.push({
+          type: 'image_url',
+          image_url: { url: base64, detail: 'auto' },
+        })
+      }
+    }
+    // 非图片文件暂时跳过（未来可扩展支持 PDF 等）
+  }
+
+  return contents
+}
+
+// 构建单条消息的 content（支持多模态）
+function buildMessageContent(text: string, files?: MessageFile[] | null): string | ChatMessageContent[] {
+  // 没有文件，返回纯文本
+  if (!files || files.length === 0) {
+    return text
+  }
+
+  // 有文件，构建多模态内容
+  const contents: ChatMessageContent[] = []
+
+  // 先添加文本
+  if (text) {
+    contents.push({ type: 'text', text })
+  }
+
+  // 添加文件内容
+  const fileContents = filesToContent(files)
+  contents.push(...fileContents)
+
+  // 如果只有文本没有有效的文件内容，返回纯文本
+  if (contents.length === 1 && contents[0].type === 'text') {
+    return text
+  }
+
+  return contents
 }
 
 // 创建对话服务实例
@@ -21,8 +75,13 @@ export function createChatService(config: ModelConfig) {
     'Content-Type': 'application/json',
   }
 
-  // 构建消息列表（包含系统提示词和历史消息）
-  function buildMessages(systemPrompt: string | null, historyMessages: Message[], userMessage: string): ChatMessage[] {
+  // 构建消息列表（包含系统提示词和历史消息，支持多模态）
+  function buildMessages(
+    systemPrompt: string | null,
+    historyMessages: Message[],
+    userMessage: string,
+    userFiles?: MessageFile[]
+  ): ChatMessage[] {
     const messages: ChatMessage[] = []
 
     // 添加系统提示词
@@ -30,13 +89,19 @@ export function createChatService(config: ModelConfig) {
       messages.push({ role: 'system', content: systemPrompt })
     }
 
-    // 添加历史消息
+    // 添加历史消息（包含文件）
     for (const msg of historyMessages) {
-      messages.push({ role: msg.role, content: msg.content })
+      messages.push({
+        role: msg.role,
+        content: buildMessageContent(msg.content, msg.files),
+      })
     }
 
-    // 添加当前用户消息
-    messages.push({ role: 'user', content: userMessage })
+    // 添加当前用户消息（包含文件）
+    messages.push({
+      role: 'user',
+      content: buildMessageContent(userMessage, userFiles),
+    })
 
     return messages
   }
@@ -47,11 +112,12 @@ export function createChatService(config: ModelConfig) {
     systemPrompt: string | null,
     historyMessages: Message[],
     userMessage: string,
+    userFiles?: MessageFile[],
     signal?: AbortSignal,
     logContext?: LogContext
   ): Promise<{ success: boolean, content?: string, error?: string }> {
     const url = `${config.baseUrl}/v1/chat/completions`
-    const messages = buildMessages(systemPrompt, historyMessages, userMessage)
+    const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
     // 记录请求日志
@@ -126,11 +192,12 @@ export function createChatService(config: ModelConfig) {
     systemPrompt: string | null,
     historyMessages: Message[],
     userMessage: string,
+    userFiles?: MessageFile[],
     signal?: AbortSignal,
     logContext?: LogContext
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${config.baseUrl}/v1/chat/completions`
-    const messages = buildMessages(systemPrompt, historyMessages, userMessage)
+    const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
     // 记录请求日志

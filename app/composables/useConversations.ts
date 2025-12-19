@@ -1,11 +1,12 @@
 // 对话状态管理
-import type { MessageMark } from '~/shared/types'
+import type { MessageMark, MessageFile } from '~/shared/types'
 
 export interface Message {
   id: number
   conversationId: number
   role: 'user' | 'assistant'
   content: string
+  files?: MessageFile[] | null
   modelConfigId: number | null
   modelName: string | null
   createdAt: string
@@ -198,7 +199,7 @@ export function useConversations() {
   }
 
   // 发送消息（流式）
-  async function sendMessage(conversationId: number, content: string, modelName?: string | null) {
+  async function sendMessage(conversationId: number, content: string, files?: MessageFile[], modelName?: string | null) {
     isStreaming.value = true
     streamingContent.value = ''
     contentBuffer = ''
@@ -214,6 +215,7 @@ export function useConversations() {
       conversationId,
       role: 'user',
       content,
+      files: files || null,
       modelConfigId: null,
       modelName: null,
       createdAt: new Date().toISOString(),
@@ -237,7 +239,7 @@ export function useConversations() {
       const response = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, stream: true }),
+        body: JSON.stringify({ content, files, stream: true }),
         signal: abortController.signal,
       })
 

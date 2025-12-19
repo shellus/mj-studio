@@ -11,10 +11,11 @@ export type {
   TaskStatus,
   MessageRole,
   MessageMark,
+  MessageFile,
   ModelTypeConfig,
 } from '../../app/shared/types'
 
-import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark } from '../../app/shared/types'
+import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageFile } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -117,6 +118,7 @@ export const messages = sqliteTable('messages', {
   conversationId: integer('conversation_id').notNull(),
   role: text('role').$type<MessageRole>().notNull(),
   content: text('content').notNull(),
+  files: text('files', { mode: 'json' }).$type<MessageFile[]>(), // 附件文件列表
   modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
   modelName: text('model_name'), // 使用的模型名，仅assistant消息
   mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应

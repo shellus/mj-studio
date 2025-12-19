@@ -6,7 +6,7 @@ import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
-import { downloadImage, saveBase64Image, getImageUrl } from './image'
+import { downloadFile, saveBase64Image, getFileUrl } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
@@ -277,7 +277,7 @@ export function useTaskService() {
       const dataUrl = `data:${result.mimeType || 'image/png'};base64,${result.imageBase64}`
       fileName = saveBase64Image(dataUrl)
     } else if (result.imageUrl) {
-      fileName = await downloadImage(result.imageUrl)
+      fileName = await downloadFile(result.imageUrl)
     }
 
     if (!fileName) {
@@ -291,7 +291,7 @@ export function useTaskService() {
     await updateTask(task.id, {
       status: 'success',
       progress: '100%',
-      imageUrl: getImageUrl(fileName),
+      imageUrl: getFileUrl(fileName),
     })
 
     // 更新预计时间
@@ -444,9 +444,9 @@ export function useTaskService() {
       // 处理图片URL：成功时下载到本地
       let imageUrl = mjTask.imageUrl || null
       if (status === 'success' && imageUrl && !imageUrl.startsWith('/api/images/')) {
-        const fileName = await downloadImage(imageUrl)
+        const fileName = await downloadFile(imageUrl)
         if (fileName) {
-          imageUrl = getImageUrl(fileName)
+          imageUrl = getFileUrl(fileName)
         }
         // 下载失败时保留原始URL
 

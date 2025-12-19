@@ -104,6 +104,24 @@ export type MessageRole = 'user' | 'assistant'
  */
 export type MessageMark = 'error' | 'compress-request' | 'compress-response'
 
+// ==================== 消息文件类型 ====================
+
+/**
+ * 消息附件文件
+ * - 用于存储对话消息中的文件信息
+ * - 使用场景：多模态对话、文件上传
+ */
+export interface MessageFile {
+  /** 原始文件名 */
+  name: string
+  /** 存储文件名（服务器生成的唯一名称） */
+  fileName: string
+  /** MIME 类型 */
+  mimeType: string
+  /** 文件大小（字节） */
+  size: number
+}
+
 // ==================== 模型类型配置接口 ====================
 
 /**
