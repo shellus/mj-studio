@@ -37,4 +37,13 @@ export default defineNuxtConfig({
       },
     },
   },
+
+  // 多实例开发时通过 NUXT_HMR_PORT 环境变量避免 HMR 端口冲突
+  vite: {
+    server: {
+      hmr: {
+        port: Number(process.env.NUXT_HMR_PORT) || 24678,
+      },
+    },
+  },
 })
