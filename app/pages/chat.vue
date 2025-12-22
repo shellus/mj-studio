@@ -42,6 +42,7 @@ const {
   updateConversationTitle,
   sendMessage,
   deleteMessage,
+  editMessage,
   replayMessage,
   cleanup,
   addManualMessage,
@@ -226,6 +227,15 @@ async function handleReplayMessage(message: any) {
   }
 }
 
+// 编辑消息
+async function handleEditMessage(id: number, content: string) {
+  try {
+    await editMessage(id, content)
+  } catch (error: any) {
+    toast.add({ title: error.message || '编辑失败', color: 'error' })
+  }
+}
+
 // 发送消息
 async function handleSendMessage(content: string, files?: import('~/shared/types').MessageFile[]) {
   // 如果没有当前对话，先创建一个
@@ -382,6 +392,7 @@ onUnmounted(() => {
           :is-streaming="isStreaming"
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
+          @edit="handleEditMessage"
           @replay="handleReplayMessage"
           @stop="handleStop"
         />

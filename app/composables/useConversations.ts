@@ -376,6 +376,18 @@ export function useConversations() {
     messages.value = messages.value.filter(m => m.id !== id)
   }
 
+  // 编辑消息
+  async function editMessage(id: number, content: string) {
+    await $fetch(`/api/messages/${id}`, {
+      method: 'PATCH',
+      body: { content },
+    })
+    const index = messages.value.findIndex(m => m.id === id)
+    if (index >= 0) {
+      messages.value[index] = { ...messages.value[index], content }
+    }
+  }
+
   // 重放消息（让 AI 重新回复）
   async function replayMessage(message: Message) {
     // 如果是 AI 消息，先从本地移除
@@ -549,6 +561,7 @@ export function useConversations() {
     deleteConversation,
     sendMessage,
     deleteMessage,
+    editMessage,
     replayMessage,
     cleanup,
     addManualMessage,

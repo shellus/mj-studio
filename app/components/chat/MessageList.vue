@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   delete: [id: number]
   replay: [message: Message]
+  edit: [id: number, content: string]
   stop: []
 }>()
 
@@ -327,6 +328,47 @@ function cancelDelete() {
   showDeleteConfirm.value = false
   deleteConfirmId.value = null
 }
+
+// 编辑状态
+const editingId = ref<number | null>(null)
+const editingContent = ref('')
+
+// 开始编辑
+function startEdit(message: Message) {
+  editingId.value = message.id
+  editingContent.value = message.content
+}
+
+// 取消编辑
+function cancelEdit() {
+  editingId.value = null
+  editingContent.value = ''
+}
+
+// 保存编辑
+function saveEdit() {
+  if (editingId.value !== null && editingContent.value.trim()) {
+    // 立即更新本地消息内容
+    const message = props.messages.find(m => m.id === editingId.value)
+    if (message) {
+      message.content = editingContent.value
+      // 如果是 AI 消息，清除渲染缓存以便重新渲染
+      if (message.role === 'assistant') {
+        renderedMessages.value.delete(message.id)
+        lastRenderedLength.delete(message.id)
+        renderMessage(message, true)
+      }
+    }
+    emit('edit', editingId.value, editingContent.value)
+    editingId.value = null
+    editingContent.value = ''
+  }
+}
+
+// 是否正在编辑某条消息
+function isEditing(messageId: number): boolean {
+  return editingId.value === messageId
+}
 </script>
 
 <template>
@@ -384,12 +426,16 @@ function cancelDelete() {
 
       <!-- 消息内容 -->
       <div
-        class="max-w-[85%] group min-w-0"
-        :class="message.role === 'user' ? 'text-right' : ''"
+        class="group min-w-0"
+        :class="[
+          isEditing(message.id) ? 'w-[85%]' : 'max-w-[85%]',
+          message.role === 'user' ? 'text-right' : ''
+        ]"
       >
         <div
-          class="inline-block px-4 py-2 rounded-2xl max-w-full overflow-hidden"
           :class="[
+            'px-4 py-2 rounded-2xl max-w-full overflow-hidden',
+            isEditing(message.id) ? 'block' : 'inline-block',
             message.role === 'user' && message.mark !== 'compress-request'
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
               : message.mark === 'error'
@@ -463,8 +509,32 @@ function cancelDelete() {
                 </a>
               </template>
             </div>
-            <!-- 文本内容 -->
-            <div v-if="message.content" class="whitespace-pre-wrap break-words">
+            <!-- 文本内容（编辑模式） -->
+            <template v-if="isEditing(message.id)">
+              <textarea
+                ref="editTextareaRef"
+                v-model="editingContent"
+                class="w-full bg-transparent text-white resize-none outline-none whitespace-pre-wrap field-sizing-content"
+                @keydown.escape="cancelEdit"
+                @keydown.ctrl.enter="saveEdit"
+              />
+              <div class="flex justify-end gap-2 mt-2 text-white/80">
+                <button
+                  class="px-2 py-0.5 text-xs hover:text-white"
+                  @click="cancelEdit"
+                >
+                  取消
+                </button>
+                <button
+                  class="px-2 py-0.5 text-xs hover:text-white"
+                  @click="saveEdit"
+                >
+                  保存
+                </button>
+              </div>
+            </template>
+            <!-- 文本内容（显示模式） -->
+            <div v-else-if="message.content" class="whitespace-pre-wrap break-words">
               {{ message.content }}
             </div>
           </div>
@@ -475,8 +545,31 @@ function cancelDelete() {
           </div>
           <!-- 助手消息：Markdown 渲染 -->
           <div v-else class="text-sm">
+            <!-- 编辑模式 -->
+            <template v-if="isEditing(message.id)">
+              <textarea
+                v-model="editingContent"
+                class="w-full bg-transparent text-(--ui-text) resize-none outline-none whitespace-pre-wrap field-sizing-content"
+                @keydown.escape="cancelEdit"
+                @keydown.ctrl.enter="saveEdit"
+              />
+              <div class="flex justify-end gap-2 mt-2 text-(--ui-text-muted)">
+                <button
+                  class="px-2 py-0.5 text-xs hover:text-(--ui-text)"
+                  @click="cancelEdit"
+                >
+                  取消
+                </button>
+                <button
+                  class="px-2 py-0.5 text-xs hover:text-(--ui-text)"
+                  @click="saveEdit"
+                >
+                  保存
+                </button>
+              </div>
+            </template>
             <!-- 正在加载（created/pending 状态） -->
-            <template v-if="isMessageLoading(message)">
+            <template v-else-if="isMessageLoading(message)">
               <div class="flex items-center gap-1">
                 <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0s" />
                 <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0.2s" />
@@ -502,7 +595,7 @@ function cancelDelete() {
             </template>
             <!-- 被中断的标记 -->
             <div
-              v-if="isMessageStopped(message) && message.content"
+              v-if="isMessageStopped(message) && message.content && !isEditing(message.id)"
               class="mt-2 text-xs text-(--ui-text-muted) flex items-center gap-1"
             >
               <UIcon name="i-heroicons-stop-circle" class="w-3 h-3" />
@@ -537,6 +630,15 @@ function cancelDelete() {
               @click="copyMessage(message.content)"
             >
               <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
+            </button>
+            <!-- 编辑按钮 -->
+            <button
+              v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              title="编辑"
+              @click="startEdit(message)"
+            >
+              <UIcon name="i-heroicons-pencil" class="w-3 h-3" />
             </button>
             <!-- 重放按钮 -->
             <button
