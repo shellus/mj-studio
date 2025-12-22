@@ -3,25 +3,10 @@
 type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
 
-// 模型类型配置
-export interface ModelTypeConfig {
-  modelType: ModelType
-  apiFormat: ApiFormat
-  modelName: string
-  estimatedTime: number
-}
-
-// 模型配置类型
-export interface ModelConfig {
-  id: number
-  userId: number
+// 精简的模型配置（用于任务列表/详情）
+export interface TaskModelConfigSummary {
   name: string
-  baseUrl: string
-  apiKey: string
-  modelTypeConfigs: ModelTypeConfig[]
-  remark: string | null
-  isDefault: boolean
-  createdAt: string
+  estimatedTime: number | null
 }
 
 // 后端Task类型
@@ -32,8 +17,9 @@ export interface Task {
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string | null
-  modelConfig?: ModelConfig // 关联的模型配置
+  modelConfig?: TaskModelConfigSummary // 精简的模型配置
   prompt: string | null
+  negativePrompt: string | null
   images: string[]
   type: string
   status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'

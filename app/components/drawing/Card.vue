@@ -108,12 +108,7 @@ const isLoading = computed(() => ['pending', 'submitting', 'processing'].include
 
 // 获取当前任务的预计时间（秒）（使用共享常量 DEFAULT_FALLBACK_ESTIMATED_TIME）
 const estimatedTime = computed(() => {
-  const modelConfig = props.task.modelConfig
-  if (!modelConfig?.modelTypeConfigs) return DEFAULT_FALLBACK_ESTIMATED_TIME
-  const mtc = modelConfig.modelTypeConfigs.find(
-    (c: { modelName: string }) => c.modelName === props.task.modelName
-  )
-  return mtc?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
+  return props.task.modelConfig?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
 })
 
 // 进度条：当前时间（定时更新）

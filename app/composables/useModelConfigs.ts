@@ -1,5 +1,28 @@
 // 模型配置管理
-import type { ModelConfig, ModelTypeConfig } from './useTasks'
+
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
+type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
+
+// 模型类型配置
+export interface ModelTypeConfig {
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string
+  estimatedTime: number
+}
+
+// 完整的模型配置类型（设置页使用）
+export interface ModelConfig {
+  id: number
+  userId: number
+  name: string
+  baseUrl: string
+  apiKey: string
+  modelTypeConfigs: ModelTypeConfig[]
+  remark: string | null
+  isDefault: boolean
+  createdAt: string
+}
 
 export function useModelConfigs() {
   const configs = useState<ModelConfig[]>('modelConfigs', () => [])

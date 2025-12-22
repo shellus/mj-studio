@@ -78,7 +78,7 @@ export function useTaskService() {
     })
   }
 
-  // 获取任务及其模型配置
+  // 获取任务及其模型配置（内部使用，返回完整配置）
   async function getTaskWithConfig(id: number): Promise<{ task: Task; config: ModelConfig } | undefined> {
     const task = await getTask(id)
     if (!task) return undefined
@@ -91,9 +91,35 @@ export function useTaskService() {
     return { task, config }
   }
 
-  // 获取用户任务列表（包含模型配置信息，支持分页）
+  // 获取任务及精简的模型配置（用于 API 返回）
+  async function getTaskWithSummary(id: number): Promise<{ task: Task; modelConfig: TaskModelConfigSummary } | undefined> {
+    const result = await getTaskWithConfig(id)
+    if (!result) return undefined
+
+    return {
+      task: result.task,
+      modelConfig: getConfigSummary(result.config, result.task.modelName),
+    }
+  }
+
+  // 精简的模型配置信息（用于任务列表/详情）
+  type TaskModelConfigSummary = {
+    name: string
+    estimatedTime: number | null
+  }
+
+  // 从完整配置中提取精简信息
+  function getConfigSummary(config: ModelConfig, modelName: string | null): TaskModelConfigSummary {
+    const mtc = config.modelTypeConfigs.find(c => c.modelName === modelName)
+    return {
+      name: config.name,
+      estimatedTime: mtc?.estimatedTime ?? null,
+    }
+  }
+
+  // 获取用户任务列表（包含精简的模型配置信息，支持分页）
   async function listTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
-    tasks: Array<Task & { modelConfig?: ModelConfig }>
+    tasks: Array<Task & { modelConfig?: TaskModelConfigSummary }>
     total: number
     page: number
     pageSize: number
@@ -126,10 +152,13 @@ export function useTaskService() {
     }
 
     return {
-      tasks: taskList.map(task => ({
-        ...task,
-        modelConfig: configMap.get(task.modelConfigId),
-      })),
+      tasks: taskList.map(task => {
+        const config = configMap.get(task.modelConfigId)
+        return {
+          ...task,
+          modelConfig: config ? getConfigSummary(config, task.modelName) : undefined,
+        }
+      }),
       total,
       page,
       pageSize,
@@ -147,7 +176,7 @@ export function useTaskService() {
 
   // 获取回收站任务列表（支持分页）
   async function listTrashTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
-    tasks: Array<Task & { modelConfig?: ModelConfig }>
+    tasks: Array<Task & { modelConfig?: TaskModelConfigSummary }>
     total: number
     page: number
     pageSize: number
@@ -180,10 +209,13 @@ export function useTaskService() {
     }
 
     return {
-      tasks: taskList.map(task => ({
-        ...task,
-        modelConfig: configMap.get(task.modelConfigId),
-      })),
+      tasks: taskList.map(task => {
+        const config = configMap.get(task.modelConfigId)
+        return {
+          ...task,
+          modelConfig: config ? getConfigSummary(config, task.modelName) : undefined,
+        }
+      }),
       total,
       page,
       pageSize,
@@ -588,6 +620,7 @@ export function useTaskService() {
     updateTask,
     getTask,
     getTaskWithConfig,
+    getTaskWithSummary,
     listTasks,
     deleteTask,
     listTrashTasks,
