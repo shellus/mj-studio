@@ -257,24 +257,6 @@ onUnmounted(() => {
   stopStreamingRender()
 })
 
-// 格式化时间
-function formatTime(dateStr: string) {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-
-  return date.toLocaleDateString('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  })
-}
-
 // 复制消息内容
 async function copyMessage(content: string) {
   try {
@@ -650,7 +632,7 @@ function isEditing(messageId: number): boolean {
         <div
           class="mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2"
         >
-          <span>{{ formatTime(message.createdAt) }}</span>
+          <TimeAgo :time="message.createdAt" />
           <span v-if="message.modelName" class="opacity-70">{{ message.modelName }}</span>
 
           <!-- 操作按钮（非生成状态时显示） -->

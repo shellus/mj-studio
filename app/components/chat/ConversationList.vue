@@ -14,26 +14,6 @@ const emit = defineEmits<{
   generateTitle: [id: number]
 }>()
 
-// 格式化时间
-function formatTime(dateStr: string) {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-
-  const days = Math.floor(diff / 86400000)
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-
-  return date.toLocaleDateString('zh-CN', {
-    month: 'numeric',
-    day: 'numeric',
-  })
-}
-
 // 删除确认
 const deleteConfirmId = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
@@ -161,11 +141,10 @@ function handleKeydown(e: KeyboardEvent) {
                 <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
               </button>
             </div>
-            <!-- 显示模式 -->
             <template v-else>
               <div class="text-sm truncate pr-6">{{ conv.title }}</div>
               <div class="text-xs text-(--ui-text-dimmed) mt-0.5">
-                {{ formatTime(conv.updatedAt) }}
+                <TimeAgo :time="conv.updatedAt" />
               </div>
             </template>
           </div>

@@ -146,17 +146,6 @@ const progressPercent = computed(() => {
   return Math.min((elapsed / bufferedTime) * 100, 100)
 })
 
-// 格式化时间
-function formatTime(dateStr: string) {
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 // 计算耗时
 const duration = computed(() => {
   if (!props.task.createdAt) return null
@@ -469,7 +458,7 @@ async function showErrorDetail() {
             title="点击复制"
             @click="copyTaskId"
           >ID:{{ taskSqid }}</span>
-          <span>{{ formatTime(task.createdAt) }}</span>
+          <TimeAgo :time="task.createdAt" />
         </div>
         <span v-if="duration">耗时 {{ duration }}</span>
       </div>
