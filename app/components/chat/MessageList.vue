@@ -12,6 +12,8 @@ const emit = defineEmits<{
   delete: [id: number]
   replay: [message: Message]
   edit: [id: number, content: string]
+  fork: [id: number]
+  deleteUntil: [id: number]
   stop: []
 }>()
 
@@ -329,6 +331,37 @@ function cancelDelete() {
   deleteConfirmId.value = null
 }
 
+// 删除以上确认状态
+const deleteUntilConfirmId = ref<number | null>(null)
+const showDeleteUntilConfirm = ref(false)
+const deleteUntilCount = ref(0)
+
+// 处理删除以上（打开确认框）
+function handleDeleteUntil(id: number) {
+  const targetIndex = props.messages.findIndex(m => m.id === id)
+  if (targetIndex < 0) return
+  deleteUntilConfirmId.value = id
+  deleteUntilCount.value = targetIndex + 1
+  showDeleteUntilConfirm.value = true
+}
+
+// 确认删除以上
+function confirmDeleteUntil() {
+  if (deleteUntilConfirmId.value) {
+    emit('deleteUntil', deleteUntilConfirmId.value)
+  }
+  showDeleteUntilConfirm.value = false
+  deleteUntilConfirmId.value = null
+  deleteUntilCount.value = 0
+}
+
+// 取消删除以上
+function cancelDeleteUntil() {
+  showDeleteUntilConfirm.value = false
+  deleteUntilConfirmId.value = null
+  deleteUntilCount.value = 0
+}
+
 // 编辑状态
 const editingId = ref<number | null>(null)
 const editingContent = ref('')
@@ -612,25 +645,8 @@ function isEditing(messageId: number): boolean {
           <span>{{ formatTime(message.createdAt) }}</span>
           <span v-if="message.modelName" class="opacity-70">{{ message.modelName }}</span>
 
-          <!-- 停止按钮（正在生成时显示） -->
-          <button
-            v-if="isMessageStreaming(message) || isMessageLoading(message)"
-            class="p-1 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 rounded text-red-600 dark:text-red-400"
-            title="停止生成"
-            @click="emit('stop')"
-          >
-            <UIcon name="i-heroicons-stop" class="w-3 h-3" />
-          </button>
-
           <!-- 操作按钮（非生成状态时显示） -->
-          <template v-else>
-            <button
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
-              title="复制"
-              @click="copyMessage(message.content)"
-            >
-              <UIcon name="i-heroicons-clipboard" class="w-3 h-3" />
-            </button>
+          <template v-if="!isMessageStreaming(message) && !isMessageLoading(message)">
             <!-- 编辑按钮 -->
             <button
               v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
@@ -649,7 +665,7 @@ function isEditing(messageId: number): boolean {
             >
               <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
             </button>
-            <!-- 删除按钮（流式输出时隐藏） -->
+            <!-- 删除按钮 -->
             <button
               v-if="!isStreaming"
               class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
@@ -658,6 +674,36 @@ function isEditing(messageId: number): boolean {
             >
               <UIcon name="i-heroicons-trash" class="w-3 h-3" />
             </button>
+            <!-- 更多操作下拉菜单 -->
+            <UDropdownMenu
+              v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+              :items="[
+                [
+                  {
+                    label: '复制',
+                    icon: 'i-heroicons-clipboard',
+                    onSelect: () => copyMessage(message.content)
+                  },
+                  {
+                    label: '分叉对话',
+                    icon: 'i-lucide-split',
+                    onSelect: () => emit('fork', message.id)
+                  },
+                  {
+                    label: '删除此消息及以上',
+                    icon: 'i-heroicons-fire',
+                    onSelect: () => handleDeleteUntil(message.id)
+                  }
+                ]
+              ]"
+            >
+              <button
+                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+                title="更多操作"
+              >
+                <UIcon name="i-heroicons-ellipsis-horizontal" class="w-3 h-3" />
+              </button>
+            </UDropdownMenu>
           </template>
         </div>
       </div>
@@ -670,6 +716,21 @@ function isEditing(messageId: number): boolean {
         <div class="flex justify-end gap-3">
           <UButton color="error" @click="confirmDelete">删除</UButton>
           <UButton variant="outline" color="neutral" @click="cancelDelete">取消</UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 删除以上确认框 -->
+    <UModal v-model:open="showDeleteUntilConfirm" title="确认删除" :close="false">
+      <template #body>
+        <p class="text-(--ui-text-muted)">
+          确定要删除此消息及之前的共 <span class="font-medium text-(--ui-text)">{{ deleteUntilCount }}</span> 条消息吗？此操作不可撤销。
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="error" @click="confirmDeleteUntil">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="cancelDeleteUntil">取消</UButton>
         </div>
       </template>
     </UModal>

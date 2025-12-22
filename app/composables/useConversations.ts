@@ -492,6 +492,40 @@ export function useConversations() {
     isStreaming.value = false
   }
 
+  // 分叉对话：从指定消息处创建新对话
+  async function forkConversation(messageId: number): Promise<Conversation> {
+    const result = await $fetch<{
+      success: boolean
+      conversation: Conversation
+      messageCount: number
+    }>(`/api/messages/${messageId}/fork`, {
+      method: 'POST',
+    })
+
+    // 将新对话添加到列表顶部
+    conversations.value.unshift(result.conversation)
+
+    return result.conversation
+  }
+
+  // 删除指定消息及之前的所有消息
+  async function deleteMessagesUntil(messageId: number): Promise<number> {
+    const result = await $fetch<{
+      success: boolean
+      deletedCount: number
+    }>(`/api/messages/${messageId}/delete-until`, {
+      method: 'POST',
+    })
+
+    // 从本地消息列表中移除
+    const targetIndex = messages.value.findIndex(m => m.id === messageId)
+    if (targetIndex >= 0) {
+      messages.value.splice(0, targetIndex + 1)
+    }
+
+    return result.deletedCount
+  }
+
   // 压缩对话
   async function compressConversation(conversationId: number, modelName?: string | null, onStart?: () => void) {
     // 1. 调用压缩 API 创建压缩请求消息
@@ -566,6 +600,8 @@ export function useConversations() {
     cleanup,
     addManualMessage,
     stopStreaming,
+    forkConversation,
+    deleteMessagesUntil,
     compressConversation,
   }
 }

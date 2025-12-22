@@ -14,7 +14,7 @@ const emit = defineEmits<{
   <div v-if="assistant" class="p-3 border-b border-(--ui-border)">
     <div class="flex items-start gap-3">
       <!-- 头像 -->
-      <div class="w-10 h-10 rounded-full bg-(--ui-bg) flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
         <img
           v-if="assistant.avatar"
           :src="assistant.avatar"

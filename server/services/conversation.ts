@@ -1,7 +1,7 @@
 // 对话服务层
 import { db } from '../database'
 import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile } from '../database/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, inArray } from 'drizzle-orm'
 
 export function useConversationService() {
   // 获取用户在某个助手下的所有对话
@@ -178,6 +178,37 @@ export function useConversationService() {
     return result.length > 0
   }
 
+  // 删除指定消息及之前的所有消息
+  async function removeMessagesUntil(messageId: number, userId: number): Promise<number> {
+    // 获取消息
+    const message = await getMessageById(messageId)
+    if (!message) return 0
+
+    // 验证对话属于该用户
+    const conversation = await getById(message.conversationId)
+    if (!conversation || conversation.userId !== userId) {
+      return 0
+    }
+
+    // 获取对话的所有消息
+    const data = await getWithMessages(message.conversationId)
+    if (!data) return 0
+
+    // 找到目标消息的位置
+    const targetIndex = data.messages.findIndex(m => m.id === messageId)
+    if (targetIndex < 0) return 0
+
+    // 获取要删除的消息 ID 列表（该消息及之前的所有消息）
+    const messageIdsToDelete = data.messages.slice(0, targetIndex + 1).map(m => m.id)
+
+    // 批量删除
+    const result = await db.delete(messages)
+      .where(inArray(messages.id, messageIdsToDelete))
+      .returning()
+
+    return result.length
+  }
+
   // 根据首条消息自动生成对话标题
   function generateTitle(content: string): string {
     // 取前 20 个字符作为标题
@@ -186,6 +217,55 @@ export function useConversationService() {
       return title
     }
     return title.slice(0, 20) + '...'
+  }
+
+  // 分叉对话：从指定消息开始复制一个新对话
+  async function fork(messageId: number, userId: number): Promise<{ conversation: Conversation; messages: Message[] } | null> {
+    // 获取消息
+    const message = await getMessageById(messageId)
+    if (!message) return null
+
+    // 获取原对话并验证权限
+    const originalConversation = await getById(message.conversationId)
+    if (!originalConversation || originalConversation.userId !== userId) {
+      return null
+    }
+
+    // 获取原对话的所有消息
+    const data = await getWithMessages(message.conversationId)
+    if (!data) return null
+
+    // 找到目标消息的位置，复制该消息及之前的所有消息
+    const targetIndex = data.messages.findIndex(m => m.id === messageId)
+    if (targetIndex < 0) return null
+
+    const messagesToCopy = data.messages.slice(0, targetIndex + 1)
+    const messageNumber = targetIndex + 1
+
+    // 创建新对话，标题格式：#🔀<消息序号> <原标题>
+    const newConversation = await create({
+      userId,
+      assistantId: originalConversation.assistantId,
+      title: `#🔀${messageNumber} ${originalConversation.title}`,
+    })
+
+    // 复制消息到新对话
+    const newMessages: Message[] = []
+    for (const msg of messagesToCopy) {
+      const newMsg = await addMessage({
+        conversationId: newConversation.id,
+        role: msg.role,
+        content: msg.content,
+        files: msg.files ?? undefined,
+        modelConfigId: msg.modelConfigId ?? undefined,
+        modelName: msg.modelName ?? undefined,
+        mark: msg.mark ?? undefined,
+        status: msg.status ?? undefined,
+      })
+      newMessages.push(newMsg)
+    }
+
+    return { conversation: newConversation, messages: newMessages }
   }
 
   return {
@@ -202,6 +282,8 @@ export function useConversationService() {
     updateMessageContentAndStatus,
     getMessageById,
     removeMessage,
+    removeMessagesUntil,
     generateTitle,
+    fork,
   }
 }

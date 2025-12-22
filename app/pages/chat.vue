@@ -47,6 +47,8 @@ const {
   cleanup,
   addManualMessage,
   stopStreaming,
+  forkConversation,
+  deleteMessagesUntil,
   compressConversation,
 } = useConversations()
 
@@ -236,6 +238,29 @@ async function handleEditMessage(id: number, content: string) {
   }
 }
 
+// 分叉对话
+async function handleForkMessage(messageId: number) {
+  try {
+    const newConversation = await forkConversation(messageId)
+    // 跳转到新对话
+    await selectConversation(newConversation.id)
+    updateUrlParams(currentAssistantId.value, newConversation.id)
+    toast.add({ title: '已创建分叉对话', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '分叉失败', color: 'error' })
+  }
+}
+
+// 删除消息及以上
+async function handleDeleteUntilMessage(messageId: number) {
+  try {
+    const count = await deleteMessagesUntil(messageId)
+    toast.add({ title: `已删除 ${count} 条消息`, color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '删除失败', color: 'error' })
+  }
+}
+
 // 发送消息
 async function handleSendMessage(content: string, files?: import('~/shared/types').MessageFile[]) {
   // 如果没有当前对话，先创建一个
@@ -369,7 +394,7 @@ onUnmounted(() => {
     <!-- 主体内容 -->
     <div class="flex-1 flex overflow-hidden min-h-0">
       <!-- 左侧：助手列表（桌面端显示） -->
-      <div class="w-[240px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden md:block">
+      <div class="w-[300px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden md:block">
         <ChatAssistantList
           :assistants="assistants"
           :current-assistant-id="currentAssistantId"
@@ -393,6 +418,8 @@ onUnmounted(() => {
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
           @edit="handleEditMessage"
+          @fork="handleForkMessage"
+          @delete-until="handleDeleteUntilMessage"
           @replay="handleReplayMessage"
           @stop="handleStop"
         />

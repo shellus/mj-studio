@@ -458,7 +458,7 @@ function handleInput() {
     </div>
 
     <!-- 对话统计 -->
-    <div v-if="messages?.length" class="flex items-center gap-3 mb-2 text-xs text-(--ui-text-muted)">
+    <div v-if="messages?.length" class="flex items-center gap-3 mb-2 text-xs text-(--ui-text-muted) pl-2">
       <span>{{ conversationStats.messageCount }} 条消息</span>
       <span>{{ sizeDisplay }}</span>
       <button
@@ -515,7 +515,7 @@ function handleInput() {
     </div>
 
     <!-- 文件预览区域 -->
-    <div v-if="uploadingFiles.length > 0" class="mb-3 flex flex-wrap gap-2">
+    <div v-if="uploadingFiles.length > 0" class="mb-3 flex flex-wrap gap-2 pb-5">
       <div
         v-for="file in uploadingFiles"
         :key="file.id"
@@ -617,7 +617,7 @@ function handleInput() {
       <UButton
         v-if="isStreaming"
         color="error"
-        class="h-[48px] w-[48px] flex-shrink-0"
+        class="h-[48px] w-[48px] flex-shrink-0 flex items-center justify-center"
         @click="handleStop"
       >
         <UIcon name="i-heroicons-stop" class="w-5 h-5" />
