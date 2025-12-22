@@ -332,7 +332,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col overflow-hidden">
+  <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden">
     <!-- 移动端抽屉按钮栏 -->
     <div class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 md:hidden">
       <UButton variant="ghost" size="sm" @click="showLeftDrawer = true">
