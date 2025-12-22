@@ -126,7 +126,7 @@ function handleKeydown(e: KeyboardEvent) {
         :class="conv.id === currentConversationId ? 'bg-(--ui-bg)' : ''"
         @click="editingId !== conv.id && emit('select', conv.id)"
       >
-        <div class="flex items-start gap-2">
+        <div class="relative flex items-start gap-2">
           <!-- 选中指示器 -->
           <span
             class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
@@ -163,40 +163,36 @@ function handleKeydown(e: KeyboardEvent) {
             </div>
             <!-- 显示模式 -->
             <template v-else>
-              <div class="text-sm truncate">{{ conv.title }}</div>
+              <div class="text-sm truncate pr-6">{{ conv.title }}</div>
               <div class="text-xs text-(--ui-text-dimmed) mt-0.5">
                 {{ formatTime(conv.updatedAt) }}
               </div>
             </template>
           </div>
 
-          <!-- 操作按钮（非编辑模式时显示）-->
-          <div v-if="editingId !== conv.id" class="flex items-center gap-0.5">
-            <!-- 智能重命名按钮 -->
-            <button
-              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-bg-elevated)"
-              title="AI智能重命名"
-              @click.stop="emit('generateTitle', conv.id)"
-            >
-              <UIcon name="i-heroicons-sparkles" class="w-3.5 h-3.5" />
-            </button>
-            <!-- 重命名按钮 -->
-            <button
-              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-bg-elevated)"
-              title="重命名"
-              @click.stop="startEdit(conv)"
-            >
-              <UIcon name="i-heroicons-pencil" class="w-3.5 h-3.5" />
-            </button>
-            <!-- 删除按钮 -->
-            <button
-              class="p-1 rounded transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-(--ui-error)/20 hover:text-(--ui-error)"
-              title="删除"
-              @click.stop="handleDelete(conv.id)"
-            >
-              <UIcon name="i-heroicons-trash" class="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <!-- 操作下拉菜单（非编辑模式时显示，绝对定位在右上角）-->
+          <UDropdownMenu
+            v-if="editingId !== conv.id"
+            :items="[
+              [
+                { label: 'AI 智能重命名', icon: 'i-heroicons-sparkles', onSelect: () => emit('generateTitle', conv.id) },
+                { label: '重命名', icon: 'i-heroicons-pencil', onSelect: () => startEdit(conv) },
+              ],
+              [
+                { label: '删除', icon: 'i-heroicons-trash', color: 'error' as const, onSelect: () => handleDelete(conv.id) },
+              ],
+            ]"
+          >
+            <template #default="{ open }">
+              <button
+                class="absolute right-2 top-2 p-1 transition-opacity"
+                :class="open ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'"
+                @click.stop
+              >
+                <UIcon name="i-heroicons-ellipsis-vertical" class="w-4 h-4" />
+              </button>
+            </template>
+          </UDropdownMenu>
         </div>
       </div>
     </div>

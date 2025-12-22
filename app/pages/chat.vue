@@ -340,7 +340,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden">
+  <div class="h-full flex flex-col overflow-hidden">
     <!-- 移动端抽屉按钮栏 -->
     <div class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 md:hidden">
       <UButton variant="ghost" size="sm" @click="showLeftDrawer = true">
@@ -404,7 +404,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 右侧：助手信息 + 对话列表（桌面端显示） -->
-      <div class="w-[260px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden md:flex">
+      <div class="w-[310px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden md:flex">
         <!-- 助手信息 -->
         <ChatAssistantInfo
           :assistant="currentAssistant"
