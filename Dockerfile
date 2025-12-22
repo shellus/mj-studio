@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Build stage
 FROM node:20-alpine AS builder
 
@@ -12,14 +14,16 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies with pnpm store cache
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN pnpm build
+# Build with Nuxt cache
+RUN --mount=type=cache,target=/app/node_modules/.cache \
+    pnpm build
 
 # Production stage
 FROM node:20-alpine AS runner

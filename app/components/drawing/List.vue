@@ -137,7 +137,7 @@ function handlePageChange() {
     </div>
 
     <template v-else>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <DrawingCard
           v-for="task in tasks"
           :key="task.id"

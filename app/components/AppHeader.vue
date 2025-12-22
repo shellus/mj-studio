@@ -52,10 +52,10 @@ function handleLogout() {
 
 <template>
   <header class="border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
-    <div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="px-4 h-14 flex items-center justify-between">
       <!-- Logo -->
       <NuxtLink to="/" class="flex items-center gap-2">
-        <UIcon name="i-heroicons-sparkles" class="w-6 h-6 text-(--ui-primary)" />
+        <img src="/logo.png" alt="MJ Studio" class="w-7 h-7" />
         <span class="font-bold text-lg">MJ Studio</span>
       </NuxtLink>
 
