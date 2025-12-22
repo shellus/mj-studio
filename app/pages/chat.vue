@@ -67,6 +67,9 @@ function updateUrlParams(assistantId: number | null, conversationId: number | nu
   router.replace({ query })
 }
 
+// 是否已完成初始化（从 URL 恢复或默认初始化）
+const initialized = ref(false)
+
 // 页面加载
 onMounted(async () => {
   await Promise.all([
@@ -80,22 +83,27 @@ onMounted(async () => {
 
   if (assistantIdFromUrl && assistants.value.some(a => a.id === assistantIdFromUrl)) {
     selectAssistant(assistantIdFromUrl)
-    // 等待对话列表加载完成后选择对话
-    if (conversationIdFromUrl) {
-      await loadConversations(assistantIdFromUrl)
-      if (conversations.value.some(c => c.id === conversationIdFromUrl)) {
-        await selectConversation(conversationIdFromUrl)
-      }
+    // 加载对话列表
+    await loadConversations(assistantIdFromUrl)
+    // 如果有指定对话，选中它
+    if (conversationIdFromUrl && conversations.value.some(c => c.id === conversationIdFromUrl)) {
+      await selectConversation(conversationIdFromUrl)
     }
   }
+
+  // 标记初始化完成
+  initialized.value = true
 })
 
-// 监听当前助手变化，加载对话列表
-watch(currentAssistantId, async (id) => {
-  if (id) {
+// 监听当前助手变化，加载对话列表（仅在初始化完成后生效）
+watch(currentAssistantId, async (id, oldId) => {
+  // 初始化未完成时跳过
+  if (!initialized.value) return
+  // 助手实际变化时才加载
+  if (id && id !== oldId) {
     await loadConversations(id)
   }
-}, { immediate: true })
+})
 
 // 选择助手
 async function handleSelectAssistant(id: number) {

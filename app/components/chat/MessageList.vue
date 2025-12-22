@@ -116,29 +116,58 @@ function scrollToCompressRequest() {
 // 暴露给父组件
 defineExpose({ scrollToBottom: forceScrollToBottom, scrollToCompressRequest })
 
+// 流式渲染的内容长度记录（用于判断是否需要重新渲染，非响应式）
+const lastRenderedLength = new Map<number, number>()
+
+// 流式渲染定时器
+const streamingRenderTimer = ref<ReturnType<typeof setInterval> | null>(null)
+
 // 渲染单条消息的 Markdown
-async function renderMessage(message: Message) {
+async function renderMessage(message: Message, force = false) {
   // 用户消息不渲染 Markdown
   if (message.role === 'user') return
 
-  // 正在渲染中的跳过
-  if (renderingIds.value.has(message.id)) return
+  // 正在渲染中的跳过（除非强制渲染）
+  if (!force && renderingIds.value.has(message.id)) return
 
-  // 已有缓存且内容未变化则跳过
-  const cached = renderedMessages.value.get(message.id)
-  if (cached !== undefined) {
-    // 检查内容是否变化（流式更新时）
-    const currentContent = message.content
-    // 使用简单的长度检查来判断是否需要重新渲染
-    if (!props.isStreaming) return
+  // 检查内容长度是否变化
+  const lastLength = lastRenderedLength.get(message.id) || 0
+  const currentLength = message.content?.length || 0
+
+  // 如果内容没变化且已有缓存，跳过
+  if (!force && lastLength === currentLength && renderedMessages.value.has(message.id)) {
+    return
   }
 
   renderingIds.value.add(message.id)
   try {
     const html = await renderMarkdown(message.content)
     renderedMessages.value.set(message.id, html)
+    lastRenderedLength.set(message.id, currentLength)
   } finally {
     renderingIds.value.delete(message.id)
+  }
+}
+
+// 启动流式渲染定时器
+function startStreamingRender() {
+  if (streamingRenderTimer.value) return
+
+  streamingRenderTimer.value = setInterval(() => {
+    // 找到正在流式输出的消息并渲染
+    for (const msg of props.messages) {
+      if (msg.role === 'assistant' && msg.status === 'streaming' && msg.content) {
+        renderMessage(msg)
+      }
+    }
+  }, 150)
+}
+
+// 停止流式渲染定时器
+function stopStreamingRender() {
+  if (streamingRenderTimer.value) {
+    clearInterval(streamingRenderTimer.value)
+    streamingRenderTimer.value = null
   }
 }
 
@@ -167,13 +196,9 @@ function isMessageStopped(message: Message): boolean {
   return message.role === 'assistant' && message.status === 'stopped'
 }
 
-// 检查是否需要显示原始内容（正在流式输出或渲染中）
+// 检查是否需要显示原始内容
 function shouldShowRaw(message: Message): boolean {
   if (message.role === 'user') return true
-  // 正在流式输出的消息显示原始内容
-  if (message.status === 'created' || message.status === 'pending' || message.status === 'streaming') {
-    return true
-  }
   // 还没有渲染完成时显示原始内容
   if (!renderedMessages.value.has(message.id)) {
     return true
@@ -187,40 +212,47 @@ watch(() => props.messages.length, forceScrollToBottom)
 // 流式输出时，只有用户在底部才跟随滚动
 watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
 
-// 监听消息变化，渲染 Markdown
+// 监听消息列表变化，渲染已完成的消息（不使用 deep，只在消息数量变化时触发）
 watch(
-  () => props.messages,
-  async (messages) => {
-    for (const msg of messages) {
-      if (msg.role === 'assistant') {
-        // 正在生成的消息不渲染
-        if (msg.status === 'created' || msg.status === 'pending' || msg.status === 'streaming') {
-          continue
-        }
+  () => props.messages.length,
+  async () => {
+    for (const msg of props.messages) {
+      if (msg.role === 'assistant' && msg.content) {
         await renderMessage(msg)
       }
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 )
 
-// 流式输出结束后渲染消息
+// 监听流式状态，控制定时渲染
 watch(
   () => props.isStreaming,
   async (streaming, prevStreaming) => {
-    if (prevStreaming && !streaming) {
-      // 流式输出刚结束，找到所有未渲染的已完成消息
-      for (const msg of props.messages) {
-        if (msg.role === 'assistant' &&
-          msg.status !== 'created' && msg.status !== 'pending' && msg.status !== 'streaming') {
-          if (!renderedMessages.value.has(msg.id)) {
-            await renderMessage(msg)
+    if (streaming) {
+      // 开始流式输出，启动定时渲染
+      startStreamingRender()
+    } else {
+      // 流式输出结束，停止定时渲染
+      stopStreamingRender()
+
+      // 强制渲染最终内容
+      if (prevStreaming) {
+        for (const msg of props.messages) {
+          if (msg.role === 'assistant' && msg.content) {
+            await renderMessage(msg, true)
           }
         }
       }
     }
-  }
+  },
+  { immediate: true }
 )
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopStreamingRender()
+})
 
 // 格式化时间
 function formatTime(dateStr: string) {
@@ -352,11 +384,11 @@ function cancelDelete() {
 
       <!-- 消息内容 -->
       <div
-        class="max-w-[70%] group"
+        class="max-w-[85%] group min-w-0"
         :class="message.role === 'user' ? 'text-right' : ''"
       >
         <div
-          class="inline-block px-4 py-2 rounded-2xl"
+          class="inline-block px-4 py-2 rounded-2xl max-w-full overflow-hidden"
           :class="[
             message.role === 'user' && message.mark !== 'compress-request'
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
@@ -392,9 +424,11 @@ function cancelDelete() {
             </button>
             <div
               v-if="isCompressResponseExpanded(message)"
-              class="mt-2 whitespace-pre-wrap break-words text-(--ui-text)"
+              class="mt-2 text-(--ui-text)"
             >
-              {{ message.content }}
+              <!-- 渲染 Markdown -->
+              <div v-if="!shouldShowRaw(message)" v-html="getRenderedContent(message)" class="markdown-content" />
+              <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
             </div>
           </div>
           <!-- 用户消息：纯文本 + 文件附件 -->
@@ -443,21 +477,29 @@ function cancelDelete() {
           <div v-else class="text-sm">
             <!-- 正在加载（created/pending 状态） -->
             <template v-if="isMessageLoading(message)">
-              <div class="flex items-center gap-2 text-(--ui-text-muted)">
-                <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
-                <span>{{ message.status === 'created' ? '准备中...' : '等待响应...' }}</span>
+              <div class="flex items-center gap-1">
+                <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0s" />
+                <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0.2s" />
+                <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0.4s" />
               </div>
             </template>
-            <!-- 流式输出中显示原始文本 + 光标 -->
-            <template v-else-if="shouldShowRaw(message)">
+            <!-- 有渲染内容时显示 Markdown -->
+            <template v-else-if="!shouldShowRaw(message)">
+              <div v-html="getRenderedContent(message)" class="markdown-content" />
+              <!-- 流式输出时在末尾显示光标 -->
+              <span
+                v-if="isMessageStreaming(message)"
+                class="inline-block w-2 h-4 bg-current animate-pulse align-middle"
+              />
+            </template>
+            <!-- 还没有渲染内容时显示原始文本 -->
+            <template v-else>
               <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
               <span
                 v-if="isMessageStreaming(message)"
                 class="inline-block w-2 h-4 bg-current animate-pulse ml-0.5"
               />
             </template>
-            <!-- 渲染后的 Markdown -->
-            <div v-else v-html="getRenderedContent(message)" class="markdown-content" />
             <!-- 被中断的标记 -->
             <div
               v-if="isMessageStopped(message) && message.content"
@@ -550,3 +592,31 @@ function cancelDelete() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.loading-dot {
+  animation: loading-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes loading-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* 限制 markdown 内容宽度，防止代码块撑开页面 */
+.markdown-content {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.markdown-content :deep(pre) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+</style>

@@ -107,27 +107,30 @@ function createMarkedInstance() {
         return `<code class="px-1.5 py-0.5 rounded bg-(--ui-bg-elevated) text-sm font-mono">${text}</code>`
       },
       // 链接
-      link({ href, title, text }) {
+      link({ href, title, tokens }) {
         const titleAttr = title ? ` title="${title}"` : ''
-        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer" class="text-(--ui-primary) hover:underline">${text}</a>`
+        return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer" class="text-(--ui-primary) hover:underline">${this.parser.parseInline(tokens)}</a>`
       },
       // 段落
-      paragraph({ text }) {
-        return `<p class="mb-2 last:mb-0">${text}</p>`
+      paragraph({ tokens }) {
+        return `<p class="mb-2 last:mb-0">${this.parser.parseInline(tokens)}</p>`
       },
       // 列表
       list({ items, ordered }) {
         const tag = ordered ? 'ol' : 'ul'
         const listClass = ordered ? 'list-decimal' : 'list-disc'
-        const body = items.map(item => `<li>${item.text}</li>`).join('')
+        const body = items.map(item => {
+          const content = item.tokens ? this.parser.parse(item.tokens) : item.text
+          return `<li>${content}</li>`
+        }).join('')
         return `<${tag} class="${listClass} pl-5 mb-2 space-y-1">${body}</${tag}>`
       },
       // 引用块
-      blockquote({ text }) {
-        return `<blockquote class="border-l-4 border-(--ui-border-accented) pl-4 py-1 my-2 text-(--ui-text-muted) italic">${text}</blockquote>`
+      blockquote({ tokens }) {
+        return `<blockquote class="border-l-4 border-(--ui-border-accented) pl-4 py-1 my-2 text-(--ui-text-muted) italic">${this.parser.parse(tokens)}</blockquote>`
       },
       // 标题
-      heading({ text, depth }) {
+      heading({ tokens, depth }) {
         const sizes: Record<number, string> = {
           1: 'text-xl font-bold',
           2: 'text-lg font-bold',
@@ -136,7 +139,7 @@ function createMarkedInstance() {
           5: 'text-sm font-medium',
           6: 'text-xs font-medium',
         }
-        return `<h${depth} class="${sizes[depth]} mb-2">${text}</h${depth}>`
+        return `<h${depth} class="${sizes[depth]} mb-2">${this.parser.parseInline(tokens)}</h${depth}>`
       },
       // 分隔线
       hr() {
@@ -144,24 +147,30 @@ function createMarkedInstance() {
       },
       // 表格
       table({ header, rows }) {
-        const headerCells = header.map(cell => `<th class="px-3 py-2 text-left border border-(--ui-border) bg-(--ui-bg-elevated)">${cell.text}</th>`).join('')
+        const headerCells = header.map(cell => {
+          const content = cell.tokens ? this.parser.parseInline(cell.tokens) : cell.text
+          return `<th class="px-3 py-2 text-left border border-(--ui-border) bg-(--ui-bg-elevated)">${content}</th>`
+        }).join('')
         const bodyRows = rows.map(row => {
-          const cells = row.map(cell => `<td class="px-3 py-2 border border-(--ui-border)">${cell.text}</td>`).join('')
+          const cells = row.map(cell => {
+            const content = cell.tokens ? this.parser.parseInline(cell.tokens) : cell.text
+            return `<td class="px-3 py-2 border border-(--ui-border)">${content}</td>`
+          }).join('')
           return `<tr>${cells}</tr>`
         }).join('')
         return `<div class="overflow-x-auto my-2"><table class="min-w-full border-collapse text-sm"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table></div>`
       },
       // 加粗
-      strong({ text }) {
-        return `<strong class="font-semibold">${text}</strong>`
+      strong({ tokens }) {
+        return `<strong class="font-semibold">${this.parser.parseInline(tokens)}</strong>`
       },
       // 斜体
-      em({ text }) {
-        return `<em class="italic">${text}</em>`
+      em({ tokens }) {
+        return `<em class="italic">${this.parser.parseInline(tokens)}</em>`
       },
       // 删除线
-      del({ text }) {
-        return `<del class="line-through text-(--ui-text-muted)">${text}</del>`
+      del({ tokens }) {
+        return `<del class="line-through text-(--ui-text-muted)">${this.parser.parseInline(tokens)}</del>`
       },
     },
   })
