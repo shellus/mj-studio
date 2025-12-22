@@ -106,5 +106,9 @@ pnpm install && pnpm dev
 
 ## 文档
 
-- [**DEVELOPMENT.md**](DEVELOPMENT.md) - 开发指南：目录结构、API 格式、日志系统
-- [**docs/ERROR_SPEC.md**](docs/ERROR_SPEC.md) - 错误规范：错误分类、识别规则
+- [**CLAUDE.md**](CLAUDE.md) - 开发指南：目录结构、API 格式、日志系统
+- [**docs/对话功能需求文档.md**](docs/对话功能需求文档.md) - 对话模块完整需求
+- [**docs/流式输出系统设计和实现规范.md**](docs/流式输出系统设计和实现规范.md) - SSE 流式输出架构
+- [**docs/对话压缩逻辑.md**](docs/对话压缩逻辑.md) - 长对话压缩机制
+- [**docs/绘图任务错误规范.md**](docs/绘图任务错误规范.md) - 错误分类与识别规则
+- [**docs/日志规范需求.md**](docs/日志规范需求.md) - API 请求日志系统
