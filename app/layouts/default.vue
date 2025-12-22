@@ -3,9 +3,9 @@
 </script>
 
 <template>
-  <div class="h-screen bg-(--ui-bg) flex flex-col overflow-hidden">
-    <AppHeader class="flex-shrink-0" />
-    <main class="flex-1 min-h-0">
+  <div class="min-h-screen bg-(--ui-bg) flex flex-col">
+    <AppHeader class="h-14 flex-shrink-0" />
+    <main class="flex-1">
       <slot />
     </main>
   </div>
