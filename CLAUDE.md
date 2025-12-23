@@ -199,7 +199,7 @@ pnpm db:migrate
 - **禁止手动修改 meta 文件夹**：`_journal.json` 和 `*_snapshot.json` 由工具自动维护
 - **snapshot 文件的作用**：记录每次迁移后的完整 schema 状态，用于生成增量迁移
 - **重置迁移历史**：仅在开发阶段且未上生产时，可删除 `migrations/` 目录重新生成
-- **自动迁移**：应用启动时自动执行迁移（`server/database/index.ts`），无需手动执行
+- **自动迁移**：应用启动时通过 Nitro plugin (`server/plugins/migrate.ts`) 自动执行迁移
 
 ## UI 组件规范
 
