@@ -3,10 +3,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from './schema'
 import { existsSync, mkdirSync } from 'fs'
-import { dirname, resolve } from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { dirname } from 'path'
 
 const dbPath = './data/mj-studio.db'
 
@@ -20,8 +17,12 @@ const sqlite = new Database(dbPath)
 export const db = drizzle(sqlite, { schema })
 
 // 启动时自动执行迁移
-// 使用 __dirname 确保生产环境路径正确
-const migrationsFolder = resolve(__dirname, 'migrations')
+// 生产环境迁移文件在 /app/server/database/migrations
+// 开发环境迁移文件在 ./server/database/migrations
+const migrationsFolder = existsSync('/app/server/database/migrations')
+  ? '/app/server/database/migrations'
+  : './server/database/migrations'
+
 try {
   migrate(db, { migrationsFolder })
   console.log('[DB] 数据库迁移完成')
