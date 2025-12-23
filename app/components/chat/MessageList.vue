@@ -2,10 +2,12 @@
 import type { Message } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
 import { renderMarkdown } from '~/composables/useMarkdown'
+import { useConversationSuggestions } from '~/composables/useConversationSuggestions'
 
 const props = defineProps<{
   messages: Message[]
   isStreaming: boolean
+  assistantId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -15,7 +17,45 @@ const emit = defineEmits<{
   fork: [id: number]
   deleteUntil: [id: number]
   stop: []
+  sendSuggestion: [content: string]
 }>()
+
+// 开场白建议
+const { getSuggestions, isLoading: isSuggestionsLoading, loadSuggestions, refreshSuggestions } = useConversationSuggestions()
+
+const suggestions = computed(() => {
+  if (!props.assistantId) return []
+  return getSuggestions(props.assistantId)
+})
+
+const suggestionsLoading = computed(() => {
+  if (!props.assistantId) return false
+  return isSuggestionsLoading(props.assistantId)
+})
+
+// 是否显示开场白（空对话时显示）
+const showSuggestions = computed(() => {
+  return props.messages.length === 0 && props.assistantId
+})
+
+// 加载开场白
+watch(() => props.assistantId, (id) => {
+  if (id && props.messages.length === 0) {
+    loadSuggestions(id)
+  }
+}, { immediate: true })
+
+// 点击开场白
+function handleSuggestionClick(suggestion: string) {
+  emit('sendSuggestion', suggestion)
+}
+
+// 换一批
+function handleRefresh() {
+  if (props.assistantId) {
+    refreshSuggestions(props.assistantId)
+  }
+}
 
 const messagesContainer = ref<HTMLElement>()
 
@@ -405,11 +445,45 @@ function isEditing(messageId: number): boolean {
     class="flex-1 overflow-y-auto p-4 space-y-4"
     @scroll="handleScroll"
   >
-    <!-- 空状态 -->
-    <div v-if="messages.length === 0" class="h-full flex items-center justify-center">
-      <div class="text-center text-(--ui-text-muted)">
-        <UIcon name="i-heroicons-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-2 opacity-50" />
-        <p>开始新对话</p>
+    <!-- 空状态：开场白建议 -->
+    <div v-if="showSuggestions" class="h-full flex items-center justify-center">
+      <div class="text-center max-w-md px-4">
+        <!-- 加载中 -->
+        <template v-if="suggestionsLoading">
+          <div class="flex items-center justify-center gap-1 mb-2">
+            <span class="loading-dot w-2 h-2 rounded-full bg-(--ui-text-muted)" style="animation-delay: 0s" />
+            <span class="loading-dot w-2 h-2 rounded-full bg-(--ui-text-muted)" style="animation-delay: 0.2s" />
+            <span class="loading-dot w-2 h-2 rounded-full bg-(--ui-text-muted)" style="animation-delay: 0.4s" />
+          </div>
+          <p class="text-sm text-(--ui-text-muted)">正在生成开场白...</p>
+        </template>
+        <!-- 有建议 -->
+        <template v-else-if="suggestions.length > 0">
+          <UIcon name="i-heroicons-light-bulb" class="w-8 h-8 mx-auto mb-3 text-(--ui-text-muted) opacity-60" />
+          <p class="text-sm text-(--ui-text-muted) mb-4">试试这些话题开始对话</p>
+          <div class="space-y-2">
+            <button
+              v-for="(suggestion, idx) in suggestions"
+              :key="idx"
+              class="w-full px-4 py-2.5 text-sm text-left rounded-lg bg-(--ui-bg-elevated) hover:bg-(--ui-bg-accented) border border-(--ui-border) transition-colors"
+              @click="handleSuggestionClick(suggestion)"
+            >
+              {{ suggestion }}
+            </button>
+          </div>
+          <button
+            class="mt-4 text-xs text-(--ui-text-muted) hover:text-(--ui-text) flex items-center gap-1 mx-auto transition-colors"
+            @click="handleRefresh"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+            换一批
+          </button>
+        </template>
+        <!-- 无建议（默认空状态） -->
+        <template v-else>
+          <UIcon name="i-heroicons-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-2 text-(--ui-text-muted) opacity-50" />
+          <p class="text-(--ui-text-muted)">开始新对话</p>
+        </template>
       </div>
     </div>
 

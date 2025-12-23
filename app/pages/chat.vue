@@ -424,6 +424,7 @@ onUnmounted(() => {
           ref="messageListRef"
           :messages="messages"
           :is-streaming="isStreaming"
+          :assistant-id="currentAssistantId"
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
           @edit="handleEditMessage"
@@ -431,6 +432,7 @@ onUnmounted(() => {
           @delete-until="handleDeleteUntilMessage"
           @replay="handleReplayMessage"
           @stop="handleStop"
+          @send-suggestion="handleSendMessage"
         />
 
         <!-- 输入框 -->
