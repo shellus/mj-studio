@@ -3,6 +3,7 @@ const emit = defineEmits<{
   copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
 }>()
 
+const toast = useToast()
 const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
 
 // 批量操作loading状态
@@ -18,7 +19,7 @@ async function handleAction(taskId: number, customId: string) {
   try {
     await executeAction(task, customId)
   } catch (error: any) {
-    alert(error.message || '执行失败')
+    toast.add({ title: error.message || '执行失败', color: 'error' })
   }
 }
 
@@ -26,7 +27,7 @@ async function handleRetry(taskId: number) {
   try {
     await retryTask(taskId)
   } catch (error: any) {
-    alert(error.data?.message || error.message || '重试失败')
+    toast.add({ title: error.data?.message || error.message || '重试失败', color: 'error' })
   }
 }
 
@@ -34,7 +35,7 @@ async function handleCancel(taskId: number) {
   try {
     await cancelTask(taskId)
   } catch (error: any) {
-    alert(error.data?.message || error.message || '取消失败')
+    toast.add({ title: error.data?.message || error.message || '取消失败', color: 'error' })
   }
 }
 
@@ -42,7 +43,7 @@ async function handleDelete(taskId: number) {
   try {
     await deleteTask(taskId)
   } catch (error: any) {
-    alert(error.data?.message || error.message || '删除失败')
+    toast.add({ title: error.data?.message || error.message || '删除失败', color: 'error' })
   }
 }
 
@@ -65,7 +66,7 @@ async function blurAll() {
   try {
     await batchBlur(true, getCurrentPageTaskIds())
   } catch (error: any) {
-    alert(error.data?.message || error.message || '操作失败')
+    toast.add({ title: error.data?.message || error.message || '操作失败', color: 'error' })
   } finally {
     blurLoading.value = false
   }
@@ -77,7 +78,7 @@ async function unblurAll() {
   try {
     await batchBlur(false, getCurrentPageTaskIds())
   } catch (error: any) {
-    alert(error.data?.message || error.message || '操作失败')
+    toast.add({ title: error.data?.message || error.message || '操作失败', color: 'error' })
   } finally {
     blurLoading.value = false
   }

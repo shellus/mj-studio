@@ -25,14 +25,104 @@ export interface Conversation {
   updatedAt: string
 }
 
+// 上传中的文件状态
+export interface UploadingFile {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  status: 'uploading' | 'done' | 'error'
+  progress: number
+  result?: MessageFile
+  error?: string
+  previewUrl?: string
+}
+
+// 每个对话的输入状态
+export interface ConversationInputState {
+  content: string
+  uploadingFiles: UploadingFile[]
+  showCompressHint: boolean
+}
+
 export function useConversations() {
   const { getAuthHeader } = useAuth()
   const conversations = useState<Conversation[]>('conversations', () => [])
   const messages = useState<Message[]>('messages', () => [])
   const isLoading = useState('conversations-loading', () => false)
   const currentConversationId = useState<number | null>('currentConversationId', () => null)
-  const isStreaming = useState('chat-streaming', () => false)
+
+  // 按对话存储的输入状态
+  const inputStates = useState<Record<number, ConversationInputState>>('conversation-input-states', () => ({}))
+
+  // 按对话存储的 streaming 状态
+  const streamingStates = useState<Record<number, {
+    isStreaming: boolean
+    messageId: number
+    content: string
+    contentBuffer: string
+    displayedContent: string
+  }>>('conversation-streaming-states', () => ({}))
+
   const streamingContent = useState('chat-streaming-content', () => '')
+
+  // 当前对话是否正在流式输出
+  const isStreaming = computed(() => {
+    if (!currentConversationId.value) return false
+    return streamingStates.value[currentConversationId.value]?.isStreaming ?? false
+  })
+
+  // 获取当前对话的输入状态
+  function getInputState(conversationId: number | null): ConversationInputState {
+    if (!conversationId) {
+      return { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+    return inputStates.value[conversationId]
+  }
+
+  // 更新输入内容
+  function updateInputContent(conversationId: number | null, content: string) {
+    if (!conversationId) return
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+    inputStates.value[conversationId].content = content
+  }
+
+  // 更新上传文件列表
+  function updateUploadingFiles(conversationId: number | null, files: UploadingFile[]) {
+    if (!conversationId) return
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+    inputStates.value[conversationId].uploadingFiles = files
+  }
+
+  // 更新压缩提醒状态
+  function updateCompressHint(conversationId: number | null, show: boolean) {
+    if (!conversationId) return
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+    inputStates.value[conversationId].showCompressHint = show
+  }
+
+  // 清空输入状态
+  function clearInputState(conversationId: number | null) {
+    if (!conversationId) return
+    if (inputStates.value[conversationId]) {
+      // 释放预览 URL
+      for (const file of inputStates.value[conversationId].uploadingFiles) {
+        if (file.previewUrl) {
+          URL.revokeObjectURL(file.previewUrl)
+        }
+      }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+    }
+  }
 
   // 打字机效果相关状态
   let contentBuffer = '' // 待渲染的内容缓冲
@@ -40,12 +130,17 @@ export function useConversations() {
   let typingTimer: ReturnType<typeof setTimeout> | null = null
   const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
   let streamingMessageId = -1 // 正在流式输出的消息 ID
+  let streamingConversationId: number | null = null // 正在流式输出的对话 ID
 
   // 当前的 SSE 连接（用于停止时清理）
   let currentEventSource: { abort: () => void } | null = null
 
-  // 获取正在流式输出的消息
+  // 获取正在流式输出的消息（只在当前对话中查找）
   function getStreamingMessage(): Message | undefined {
+    // 只有当前对话是 streaming 对话时才返回消息
+    if (currentConversationId.value !== streamingConversationId) {
+      return undefined
+    }
     return messages.value.find(m => m.id === streamingMessageId)
   }
 
@@ -141,9 +236,20 @@ export function useConversations() {
   }
 
   // 订阅消息的 SSE 流
-  function subscribeToStream(messageId: number) {
-    isStreaming.value = true
+  function subscribeToStream(messageId: number, conversationId?: number) {
+    const convId = conversationId ?? currentConversationId.value
+    if (!convId) return
+
+    // 初始化该对话的 streaming 状态
+    streamingStates.value[convId] = {
+      isStreaming: true,
+      messageId,
+      content: '',
+      contentBuffer: '',
+      displayedContent: '',
+    }
     streamingMessageId = messageId
+    streamingConversationId = convId // 记录 streaming 所属的对话
     contentBuffer = ''
     displayedContent = ''
     streamingContent.value = ''
@@ -239,12 +345,16 @@ export function useConversations() {
       })
       .finally(() => {
         flushTyping()
-        isStreaming.value = false
+        // 清除该对话的 streaming 状态
+        if (convId && streamingStates.value[convId]) {
+          streamingStates.value[convId].isStreaming = false
+        }
         streamingContent.value = ''
         contentBuffer = ''
         displayedContent = ''
         currentEventSource = null
         streamingMessageId = -1
+        streamingConversationId = null
       })
   }
 
@@ -438,7 +548,17 @@ export function useConversations() {
     conversations.value = []
     messages.value = []
     currentConversationId.value = null
-    isStreaming.value = false
+    // 清理所有输入状态
+    for (const convId in inputStates.value) {
+      const state = inputStates.value[convId]
+      for (const file of state.uploadingFiles) {
+        if (file.previewUrl) {
+          URL.revokeObjectURL(file.previewUrl)
+        }
+      }
+    }
+    inputStates.value = {}
+    streamingStates.value = {}
     streamingContent.value = ''
     contentBuffer = ''
     displayedContent = ''
@@ -462,7 +582,9 @@ export function useConversations() {
   }
 
   // 停止流式输出
-  async function stopStreaming() {
+  async function stopStreaming(conversationId?: number) {
+    const convId = conversationId ?? currentConversationId.value
+
     if (streamingMessageId > 0) {
       try {
         // 调用后端停止接口
@@ -489,7 +611,10 @@ export function useConversations() {
       targetMessage.status = 'stopped'
     }
 
-    isStreaming.value = false
+    // 清除该对话的 streaming 状态
+    if (convId && streamingStates.value[convId]) {
+      streamingStates.value[convId].isStreaming = false
+    }
   }
 
   // 分叉对话：从指定消息处创建新对话
@@ -603,5 +728,11 @@ export function useConversations() {
     forkConversation,
     deleteMessagesUntil,
     compressConversation,
+    // 输入状态管理
+    getInputState,
+    updateInputContent,
+    updateUploadingFiles,
+    updateCompressHint,
+    clearInputState,
   }
 }

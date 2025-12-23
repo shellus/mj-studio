@@ -50,7 +50,16 @@ const {
   forkConversation,
   deleteMessagesUntil,
   compressConversation,
+  // 输入状态管理
+  getInputState,
+  updateInputContent,
+  updateUploadingFiles,
+  updateCompressHint,
+  clearInputState,
 } = useConversations()
+
+// 当前对话的输入状态
+const currentInputState = computed(() => getInputState(currentConversationId.value))
 
 // 模型配置
 const { configs: modelConfigs, loadConfigs } = useModelConfigs()
@@ -432,12 +441,18 @@ onUnmounted(() => {
           :disabled="!currentAssistant"
           :is-streaming="isStreaming"
           :messages="messages"
+          :content="currentInputState.content"
+          :uploading-files="currentInputState.uploadingFiles"
+          :show-compress-hint="currentInputState.showCompressHint"
           @send="handleSendMessage"
           @add-message="handleAddMessage"
           @stop="handleStop"
           @compress="handleCompress"
           @update-model="handleUpdateModel"
           @scroll-to-compress="handleScrollToCompress"
+          @update:content="updateInputContent(currentConversationId, $event)"
+          @update:uploading-files="updateUploadingFiles(currentConversationId, $event)"
+          @update:show-compress-hint="updateCompressHint(currentConversationId, $event)"
         />
       </div>
 

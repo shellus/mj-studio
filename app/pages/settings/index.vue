@@ -174,7 +174,7 @@ async function handleImport(event: Event) {
       <!-- 页面标题 -->
       <div class="mb-6 flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-(--ui-text)">模型配置</h1>
+          <h1 class="text-2xl font-bold text-(--ui-text)">设置</h1>
           <p class="text-(--ui-text-muted) text-sm mt-1">管理你的 AI 服务配置</p>
         </div>
         <div class="flex gap-2">

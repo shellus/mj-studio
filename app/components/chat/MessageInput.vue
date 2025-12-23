@@ -1,20 +1,7 @@
 <script setup lang="ts">
 import type { ModelConfig, ModelTypeConfig } from '~/composables/useTasks'
-import type { Message } from '~/composables/useConversations'
+import type { Message, UploadingFile } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
-
-// 上传中的文件状态
-interface UploadingFile {
-  id: string
-  name: string
-  size: number
-  mimeType: string
-  status: 'uploading' | 'done' | 'error'
-  progress: number
-  result?: MessageFile
-  error?: string
-  previewUrl?: string
-}
 
 const props = defineProps<{
   modelConfigs: ModelConfig[]
@@ -23,6 +10,10 @@ const props = defineProps<{
   disabled: boolean
   isStreaming?: boolean
   messages?: Message[]
+  // 受控状态
+  content: string
+  uploadingFiles: UploadingFile[]
+  showCompressHint: boolean
 }>()
 
 const emit = defineEmits<{
@@ -32,28 +23,27 @@ const emit = defineEmits<{
   stop: []
   compress: []
   scrollToCompress: []
+  // 状态更新事件
+  'update:content': [value: string]
+  'update:uploadingFiles': [files: UploadingFile[]]
+  'update:showCompressHint': [value: boolean]
 }>()
 
 const router = useRouter()
-const content = ref('')
 const textareaRef = ref<HTMLTextAreaElement>()
 const fileInputRef = ref<HTMLInputElement>()
-const showCompressHint = ref(false)
-
-// 文件上传状态
-const uploadingFiles = ref<UploadingFile[]>([])
 const isDragging = ref(false)
 
 // 已上传完成的文件
 const uploadedFiles = computed(() =>
-  uploadingFiles.value
+  props.uploadingFiles
     .filter(f => f.status === 'done' && f.result)
     .map(f => f.result!)
 )
 
 // 是否有文件正在上传
 const isUploading = computed(() =>
-  uploadingFiles.value.some(f => f.status === 'uploading')
+  props.uploadingFiles.some(f => f.status === 'uploading')
 )
 
 // 判断是否为图片类型
@@ -89,10 +79,11 @@ async function uploadFile(file: File) {
     previewUrl: isImageMimeType(file.type) ? URL.createObjectURL(file) : undefined,
   }
 
-  uploadingFiles.value.push(uploadingFile)
+  const newFiles = [...props.uploadingFiles, uploadingFile]
+  emit('update:uploadingFiles', newFiles)
 
   // 找到数组中的索引，用于响应式更新
-  const index = uploadingFiles.value.length - 1
+  const index = newFiles.length - 1
 
   try {
     // 使用 FormData 上传文件
@@ -111,8 +102,9 @@ async function uploadFile(file: File) {
     })
 
     // 响应式更新
-    uploadingFiles.value[index] = {
-      ...uploadingFiles.value[index],
+    const updatedFiles = [...props.uploadingFiles]
+    updatedFiles[index] = {
+      ...updatedFiles[index],
       status: 'done',
       progress: 100,
       result: {
@@ -122,12 +114,15 @@ async function uploadFile(file: File) {
         size: response.size,
       },
     }
+    emit('update:uploadingFiles', updatedFiles)
   } catch (error: any) {
-    uploadingFiles.value[index] = {
-      ...uploadingFiles.value[index],
+    const updatedFiles = [...props.uploadingFiles]
+    updatedFiles[index] = {
+      ...updatedFiles[index],
       status: 'error',
       error: error.message || '上传失败',
     }
+    emit('update:uploadingFiles', updatedFiles)
   }
 }
 
@@ -170,14 +165,15 @@ async function handleDrop(event: DragEvent) {
 
 // 移除文件
 function removeFile(id: string) {
-  const index = uploadingFiles.value.findIndex(f => f.id === id)
+  const index = props.uploadingFiles.findIndex(f => f.id === id)
   if (index >= 0) {
-    const file = uploadingFiles.value[index]
+    const file = props.uploadingFiles[index]
     // 释放预览 URL
     if (file.previewUrl) {
       URL.revokeObjectURL(file.previewUrl)
     }
-    uploadingFiles.value.splice(index, 1)
+    const newFiles = props.uploadingFiles.filter(f => f.id !== id)
+    emit('update:uploadingFiles', newFiles)
   }
 }
 
@@ -266,14 +262,14 @@ const needsCompressHint = computed(() => {
 
 // 监听是否需要显示压缩提醒
 watch(needsCompressHint, (needs) => {
-  if (needs && !showCompressHint.value) {
-    showCompressHint.value = true
+  if (needs && !props.showCompressHint) {
+    emit('update:showCompressHint', true)
   }
 })
 
 // 关闭压缩提醒
 function dismissCompressHint() {
-  showCompressHint.value = false
+  emit('update:showCompressHint', false)
 }
 
 // 当前选中的上游配置
@@ -379,7 +375,7 @@ function handleSelectModel(configId: number, modelName: string) {
 
 // 发送消息
 function handleSend() {
-  const text = content.value.trim()
+  const text = props.content.trim()
   const files = uploadedFiles.value
 
   // 必须有文本或文件
@@ -392,7 +388,7 @@ function handleSend() {
 
 // 添加消息（不触发AI回复）
 function handleAddMessage(role: 'user' | 'assistant') {
-  const text = content.value.trim()
+  const text = props.content.trim()
   if (!text || props.disabled) return
 
   emit('addMessage', text, role)
@@ -406,14 +402,14 @@ function handleStop() {
 
 // 清空输入框和文件
 function clearInput() {
-  content.value = ''
+  emit('update:content', '')
   // 释放所有预览 URL
-  for (const file of uploadingFiles.value) {
+  for (const file of props.uploadingFiles) {
     if (file.previewUrl) {
       URL.revokeObjectURL(file.previewUrl)
     }
   }
-  uploadingFiles.value = []
+  emit('update:uploadingFiles', [])
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
   }
@@ -427,8 +423,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-// 自动调整 textarea 高度
-function handleInput() {
+// 自动调整 textarea 高度并更新内容
+function handleInput(e: Event) {
+  const target = e.target as HTMLTextAreaElement
+  emit('update:content', target.value)
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
     textareaRef.value.style.height = Math.min(textareaRef.value.scrollHeight, 200) + 'px'
@@ -440,7 +438,7 @@ function handleInput() {
   <div class="border-t border-(--ui-border) p-4">
     <!-- 压缩提醒 -->
     <div
-      v-if="showCompressHint && needsCompressHint"
+      v-if="props.showCompressHint && needsCompressHint"
       class="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 flex items-center justify-between"
     >
       <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
@@ -515,9 +513,9 @@ function handleInput() {
     </div>
 
     <!-- 文件预览区域 -->
-    <div v-if="uploadingFiles.length > 0" class="mb-3 flex flex-wrap gap-2 pb-5">
+    <div v-if="props.uploadingFiles.length > 0" class="mb-3 flex flex-wrap gap-2 pb-5">
       <div
-        v-for="file in uploadingFiles"
+        v-for="file in props.uploadingFiles"
         :key="file.id"
         class="relative group"
       >
@@ -604,7 +602,7 @@ function handleInput() {
 
       <textarea
         ref="textareaRef"
-        v-model="content"
+        :value="props.content"
         class="flex-1 resize-none bg-(--ui-bg-elevated) border border-(--ui-border) rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-(--ui-primary) min-h-[48px] max-h-[200px]"
         :placeholder="isDragging ? '松开以上传文件' : '输入消息，Enter 发送，Shift+Enter 换行'"
         rows="1"
@@ -629,7 +627,7 @@ function handleInput() {
         <UButton
           color="primary"
           class="h-[48px] w-[48px] flex-shrink-0"
-          :disabled="(!content.trim() && uploadedFiles.length === 0) || disabled || isUploading || !selectedConfigId || !selectedModelName"
+          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || disabled || isUploading || !selectedConfigId || !selectedModelName"
           @click="handleSend"
         >
           <UIcon name="i-heroicons-paper-airplane" class="w-5 h-5" />
@@ -647,7 +645,7 @@ function handleInput() {
           <UButton
             variant="outline"
             class="h-[48px] w-[36px] flex-shrink-0"
-            :disabled="!content.trim() || disabled"
+            :disabled="!props.content.trim() || disabled"
           >
             <UIcon name="i-heroicons-plus" class="w-4 h-4" />
           </UButton>

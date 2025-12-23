@@ -20,7 +20,8 @@ const emit = defineEmits<{
 const messagesContainer = ref<HTMLElement>()
 
 // 图片预览状态
-const previewImage = ref<string | null>(null)
+const showImagePreview = ref(false)
+const previewImageUrl = ref('')
 
 // 判断是否为图片类型
 function isImageMimeType(mimeType: string): boolean {
@@ -54,12 +55,13 @@ function getFileUrl(fileName: string): string {
 
 // 打开图片预览
 function openImagePreview(fileName: string) {
-  previewImage.value = getFileUrl(fileName)
+  previewImageUrl.value = getFileUrl(fileName)
+  showImagePreview.value = true
 }
 
 // 关闭图片预览
 function closeImagePreview() {
-  previewImage.value = null
+  showImagePreview.value = false
 }
 
 // 用户是否在底部（或接近底部）
@@ -738,23 +740,16 @@ function isEditing(messageId: number): boolean {
     </UModal>
 
     <!-- 图片预览 -->
-    <div
-      v-if="previewImage"
-      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-      @click="closeImagePreview"
-    >
-      <button
-        class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
-        @click="closeImagePreview"
-      >
-        <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
-      </button>
-      <img
-        :src="previewImage"
-        class="max-w-full max-h-full object-contain rounded-lg"
-        @click.stop
-      />
-    </div>
+    <UModal v-model:open="showImagePreview" :ui="{ content: 'sm:max-w-4xl' }">
+      <template #content>
+        <div class="relative bg-(--ui-bg) flex items-center justify-center">
+          <img
+            :src="previewImageUrl"
+            class="max-h-[85vh] object-contain"
+          />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 

@@ -32,6 +32,7 @@ watch(loggedIn, (val) => {
 const navItems = [
   { label: '绘图', to: '/drawing', icon: 'i-heroicons-paint-brush' },
   { label: '对话', to: '/chat', icon: 'i-heroicons-chat-bubble-left-right' },
+  { label: '设置', to: '/settings', icon: 'i-heroicons-cog-6-tooth' },
 ]
 
 // 用户下拉菜单
@@ -39,7 +40,6 @@ const userMenuItems = computed(() => [
   { label: userProfile.value?.name || user.value?.name || user.value?.email || '用户', disabled: true },
   { type: 'separator' as const },
   { label: '用户设置', icon: 'i-heroicons-user', to: '/user' },
-  { label: '模型配置', icon: 'i-heroicons-cog-6-tooth', to: '/settings' },
   { type: 'separator' as const },
   { label: '退出登录', icon: 'i-heroicons-arrow-right-on-rectangle', click: handleLogout },
 ])
