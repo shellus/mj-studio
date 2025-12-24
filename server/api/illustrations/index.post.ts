@@ -8,6 +8,8 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const { uniqueId, prompt, model, negative } = body
+  // 显式转换为布尔值，确保默认为 false
+  const autostart = body.autostart === true
 
   // 验证必填参数
   if (!uniqueId?.trim()) {
@@ -34,7 +36,19 @@ export default defineEventHandler(async (event) => {
     return formatTaskResponse(existingTask)
   }
 
-  // 2. 任务不存在，需要创建新任务
+  // 2. 任务不存在
+  // 如果 autostart=false，不创建任务，返回空状态让前端显示"生成"按钮
+  if (!autostart) {
+    return {
+      taskId: null,
+      status: 'idle',
+      progress: null,
+      imageUrl: null,
+      error: null,
+    }
+  }
+
+  // 3. autostart=true，创建并启动任务
   // 根据 model 参数匹配用户的模型配置
   const modelConfigService = useModelConfigService()
   const matchResult = await modelConfigService.findByModelName(user.id, model, 'image')
@@ -50,7 +64,7 @@ export default defineEventHandler(async (event) => {
 
   const { config, modelTypeConfig } = matchResult
 
-  // 3. 创建任务
+  // 4. 创建任务
   const task = await taskService.createTask({
     userId: user.id,
     modelConfigId: config.id,
@@ -61,12 +75,12 @@ export default defineEventHandler(async (event) => {
     negativePrompt: negative?.trim() || null,
     images: [],
     type: 'imagine',
-    isBlurred: false, // 嵌入式插图默认不模糊
+    isBlurred: false,
     uniqueId: uniqueId.trim(),
     sourceType: 'chat',
   })
 
-  // 4. 异步提交任务
+  // 5. 提交任务（此时 autostart 一定为 true）
   taskService.submitTask(task.id).catch((err) => {
     console.error('[Illustration] 提交任务失败:', err)
   })

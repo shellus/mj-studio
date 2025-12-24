@@ -72,10 +72,13 @@ export function useConversations() {
     return streamingStates.value[currentConversationId.value]?.isStreaming ?? false
   })
 
+  // 新对话的输入状态（conversationId 为 null 时使用）
+  const newConversationInputState = ref<ConversationInputState>({ content: '', uploadingFiles: [], showCompressHint: false })
+
   // 获取当前对话的输入状态
   function getInputState(conversationId: number | null): ConversationInputState {
     if (!conversationId) {
-      return { content: '', uploadingFiles: [], showCompressHint: false }
+      return newConversationInputState.value
     }
     if (!inputStates.value[conversationId]) {
       inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
@@ -85,7 +88,10 @@ export function useConversations() {
 
   // 更新输入内容
   function updateInputContent(conversationId: number | null, content: string) {
-    if (!conversationId) return
+    if (!conversationId) {
+      newConversationInputState.value.content = content
+      return
+    }
     if (!inputStates.value[conversationId]) {
       inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
     }

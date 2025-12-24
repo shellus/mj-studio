@@ -380,7 +380,8 @@ function handleSend() {
 
   // 必须有文本或文件
   if (!text && files.length === 0) return
-  if (props.disabled || isUploading.value) return
+  // 发送时只检查上传状态，不检查 disabled（新对话时 disabled=true 但应该可以发送）
+  if (isUploading.value) return
 
   emit('send', text, files.length > 0 ? files : undefined)
   clearInput()
@@ -627,7 +628,7 @@ function handleInput(e: Event) {
         <UButton
           color="primary"
           class="h-[48px] w-[48px] flex-shrink-0"
-          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || disabled || isUploading || !selectedConfigId || !selectedModelName"
+          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || isUploading || !selectedConfigId || !selectedModelName"
           @click="handleSend"
         >
           <UIcon name="i-heroicons-paper-airplane" class="w-5 h-5" />

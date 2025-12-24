@@ -76,7 +76,7 @@ watch(isLoading, (loading) => {
 }, { immediate: true })
 
 // 调用 API 查询或创建任务
-async function fetchOrCreateTask() {
+async function fetchOrCreateTask(startTask = false) {
   if (!props.params.uniqueId || !props.params.prompt) {
     error.value = '缺少必要参数'
     status.value = 'failed'
@@ -95,14 +95,15 @@ async function fetchOrCreateTask() {
         prompt: props.params.prompt,
         model: props.params.model,
         negative: props.params.negative,
+        autostart: startTask,
       },
     })
 
     taskId.value = res.taskId
-    updateFromResponse(res)
+    updateFromResponse(res, startTask)
 
-    // 如果任务未完成，开始轮询
-    if (status.value === 'pending' || status.value === 'submitting' || status.value === 'processing') {
+    // 任务进行中时开始轮询（包括刚启动的 pending 状态）
+    if (status.value === 'submitting' || status.value === 'processing' || status.value === 'pending') {
       startPolling()
     }
   } catch (e: any) {
@@ -112,7 +113,7 @@ async function fetchOrCreateTask() {
 }
 
 // 从响应更新状态
-function updateFromResponse(res: any) {
+function updateFromResponse(res: any, wasStarted = true) {
   progress.value = res.progress
   imageUrl.value = res.imageUrl
   error.value = res.error
@@ -127,8 +128,11 @@ function updateFromResponse(res: any) {
     status.value = 'submitting'
   } else if (res.status === 'processing') {
     status.value = 'processing'
+  } else if (res.status === 'pending') {
+    // pending 状态：如果未启动任务，显示为 idle 让用户点击
+    status.value = wasStarted ? 'pending' : 'idle'
   } else {
-    status.value = 'pending'
+    status.value = 'idle'
   }
 }
 
@@ -156,11 +160,6 @@ function stopPolling() {
   }
 }
 
-// 重试
-function retry() {
-  fetchOrCreateTask()
-}
-
 // 下载图片
 function downloadImage() {
   if (!imageUrl.value) return
@@ -171,9 +170,9 @@ function downloadImage() {
   a.click()
 }
 
-// 组件挂载时自动请求
+// 组件挂载时自动请求（传递 autostart 参数）
 onMounted(() => {
-  fetchOrCreateTask()
+  fetchOrCreateTask(props.params.autostart ?? false)
 })
 
 // 组件卸载时清理
@@ -221,13 +220,13 @@ onUnmounted(() => {
           </p>
 
           <!-- 空闲状态显示生成按钮 -->
-          <UButton v-if="status === 'idle'" size="sm" @click="fetchOrCreateTask">
+          <UButton v-if="status === 'idle'" size="sm" @click="fetchOrCreateTask(true)">
             <UIcon name="i-heroicons-sparkles" class="w-4 h-4 mr-1" />
             生成插图
           </UButton>
 
           <!-- 失败状态显示重试按钮 -->
-          <UButton v-if="status === 'failed'" size="sm" variant="outline" @click="retry">
+          <UButton v-if="status === 'failed'" size="sm" variant="outline" @click="fetchOrCreateTask(true)">
             <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 mr-1" />
             重试
           </UButton>

@@ -8,6 +8,7 @@ export interface MjDrawingParams {
   prompt: string
   model?: string
   negative?: string
+  autostart?: boolean
 }
 
 // 解析 mj-drawing 代码块参数
@@ -15,6 +16,7 @@ function parseMjDrawingParams(text: string): MjDrawingParams {
   const params: MjDrawingParams = {
     uniqueId: '',
     prompt: '',
+    autostart: false,
   }
 
   const lines = text.trim().split('\n')
@@ -37,6 +39,9 @@ function parseMjDrawingParams(text: string): MjDrawingParams {
         break
       case 'negative':
         params.negative = value
+        break
+      case 'autostart':
+        params.autostart = value.toLowerCase() === 'true'
         break
     }
   }
@@ -270,12 +275,48 @@ function replaceMjDrawingBlocks(html: string): string {
   })
 }
 
+// 检测未闭合的 mj-drawing 代码块（流式输出时可能出现）
+function hasUnclosedMjDrawingBlock(content: string): boolean {
+  // 匹配 ```mj-drawing 开始标记
+  const openPattern = /```mj-drawing\s*\n/g
+  // 匹配完整的 mj-drawing 代码块
+  const completePattern = /```mj-drawing\s*\n[\s\S]*?\n```/g
+
+  const openMatches = content.match(openPattern) || []
+  const completeMatches = content.match(completePattern) || []
+
+  return openMatches.length > completeMatches.length
+}
+
+// 将未闭合的 mj-drawing 代码块替换为加载占位符
+function handleUnclosedMjDrawingBlock(content: string): string {
+  // 如果没有未闭合的代码块，直接返回
+  if (!hasUnclosedMjDrawingBlock(content)) {
+    return content
+  }
+
+  // 找到最后一个未闭合的 ```mj-drawing 并替换为占位符
+  const lastOpenIndex = content.lastIndexOf('```mj-drawing')
+  if (lastOpenIndex === -1) return content
+
+  // 截取到未闭合代码块之前的内容
+  const beforeBlock = content.slice(0, lastOpenIndex)
+  // 未闭合的代码块内容
+  const unclosedBlock = content.slice(lastOpenIndex)
+
+  // 返回前面的内容 + 加载中占位符
+  return beforeBlock + '\n\n*正在生成插图参数...*\n\n'
+}
+
 // 渲染 Markdown
 export async function renderMarkdown(content: string): Promise<string> {
   if (!content) return ''
 
   // 清理零宽字符（U+200B 等），避免影响代码块解析
-  const cleanContent = content.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+  let cleanContent = content.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+
+  // 处理未闭合的 mj-drawing 代码块（流式输出时）
+  cleanContent = handleUnclosedMjDrawingBlock(cleanContent)
 
   // 先用 marked 解析
   const html = await marked.parse(cleanContent)
