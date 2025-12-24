@@ -88,6 +88,56 @@ export function useModelConfigService() {
     return result.length > 0
   }
 
+  // 根据模型名称查找配置（用于嵌入式绘图组件）
+  async function findByModelName(
+    userId: number,
+    modelName: string | undefined,
+    category: 'image' | 'chat'
+  ): Promise<{ config: ModelConfig; modelTypeConfig: ModelTypeConfig } | undefined> {
+    const configs = await listByUser(userId)
+
+    // 遍历所有配置，查找匹配的模型
+    for (const config of configs) {
+      for (const mtc of config.modelTypeConfigs || []) {
+        // 检查分类是否匹配
+        const mtcCategory = mtc.category || 'image' // 兼容旧数据
+        if (mtcCategory !== category) continue
+
+        // 如果指定了 modelName，精确匹配
+        if (modelName) {
+          if (mtc.modelName.toLowerCase() === modelName.toLowerCase()) {
+            return { config, modelTypeConfig: mtc }
+          }
+        }
+      }
+    }
+
+    // 如果没有指定 modelName 或未找到精确匹配，返回默认配置的第一个匹配分类的模型
+    if (!modelName) {
+      const defaultConfig = await getDefault(userId)
+      if (defaultConfig) {
+        const mtc = defaultConfig.modelTypeConfigs?.find(
+          m => (m.category || 'image') === category
+        )
+        if (mtc) {
+          return { config: defaultConfig, modelTypeConfig: mtc }
+        }
+      }
+
+      // 没有默认配置，返回第一个匹配的
+      for (const config of configs) {
+        const mtc = config.modelTypeConfigs?.find(
+          m => (m.category || 'image') === category
+        )
+        if (mtc) {
+          return { config, modelTypeConfig: mtc }
+        }
+      }
+    }
+
+    return undefined
+  }
+
   return {
     listByUser,
     getById,
@@ -95,5 +145,6 @@ export function useModelConfigService() {
     create,
     update,
     remove,
+    findByModelName,
   }
 }

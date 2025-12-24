@@ -38,6 +38,8 @@ export function useTaskService() {
     images?: string[]
     type?: 'imagine' | 'blend'
     isBlurred?: boolean
+    uniqueId?: string
+    sourceType?: 'workbench' | 'chat'
   }): Promise<Task> {
     const [task] = await db.insert(tasks).values({
       userId: data.userId,
@@ -51,8 +53,17 @@ export function useTaskService() {
       type: data.type ?? 'imagine',
       status: 'pending',
       isBlurred: data.isBlurred ?? true,
+      uniqueId: data.uniqueId ?? null,
+      sourceType: data.sourceType ?? 'workbench',
     }).returning()
     return task
+  }
+
+  // 根据 uniqueId 查找任务（用于嵌入式绘图组件）
+  async function findByUniqueId(uniqueId: string, userId: number): Promise<Task | undefined> {
+    return db.query.tasks.findFirst({
+      where: and(eq(tasks.uniqueId, uniqueId), eq(tasks.userId, userId)),
+    })
   }
 
   // 更新任务状态
@@ -621,6 +632,7 @@ export function useTaskService() {
     getTask,
     getTaskWithConfig,
     getTaskWithSummary,
+    findByUniqueId,
     listTasks,
     deleteTask,
     listTrashTasks,

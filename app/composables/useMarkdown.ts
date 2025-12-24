@@ -2,6 +2,48 @@
 import { Marked } from 'marked'
 import { codeToHtml, type BundledLanguage } from 'shiki'
 
+// 绘图组件参数类型
+export interface MjDrawingParams {
+  uniqueId: string
+  prompt: string
+  model?: string
+  negative?: string
+}
+
+// 解析 mj-drawing 代码块参数
+function parseMjDrawingParams(text: string): MjDrawingParams {
+  const params: MjDrawingParams = {
+    uniqueId: '',
+    prompt: '',
+  }
+
+  const lines = text.trim().split('\n')
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':')
+    if (colonIndex === -1) continue
+
+    const key = line.slice(0, colonIndex).trim().toLowerCase()
+    const value = line.slice(colonIndex + 1).trim()
+
+    switch (key) {
+      case 'uniqueid':
+        params.uniqueId = value
+        break
+      case 'prompt':
+        params.prompt = value
+        break
+      case 'model':
+        params.model = value
+        break
+      case 'negative':
+        params.negative = value
+        break
+    }
+  }
+
+  return params
+}
+
 // Base64 编解码（浏览器兼容）
 function encodeBase64(str: string): string {
   return btoa(unescape(encodeURIComponent(str)))
@@ -95,10 +137,18 @@ function createMarkedInstance() {
   // 自定义渲染器
   marked.use({
     renderer: {
-      // 代码块 - 返回占位符，稍后替换为高亮代码
+      // 代码块 - 返回占位符，稍后替换为高亮代码或绘图组件
       code({ text, lang }) {
         const language = lang || 'text'
-        // 使用特殊标记，稍后异步替换
+
+        // 特殊处理 mj-drawing 代码块
+        if (language === 'mj-drawing') {
+          const params = parseMjDrawingParams(text)
+          // 生成绘图组件占位符（包含 JSON 数据）
+          return `<!--MJ_DRAWING:${encodeBase64(JSON.stringify(params))}-->`
+        }
+
+        // 普通代码块使用特殊标记，稍后异步替换
         const placeholder = `<!--CODE_BLOCK:${language}:${encodeBase64(text)}-->`
         return placeholder
       },
@@ -191,8 +241,8 @@ async function replaceCodeBlocks(html: string): Promise<string> {
   const replacements = await Promise.all(
     matches.map(async (match) => {
       const [fullMatch, lang, base64Code] = match
-      const code = decodeBase64(base64Code)
-      const highlighted = await highlightCode(code, lang)
+      const code = decodeBase64(base64Code!)
+      const highlighted = await highlightCode(code, lang!)
       // 包装代码块
       return {
         original: fullMatch,
@@ -210,15 +260,31 @@ async function replaceCodeBlocks(html: string): Promise<string> {
   return result
 }
 
+// 替换绘图组件占位符为 HTML 元素（供 Vue 组件识别）
+function replaceMjDrawingBlocks(html: string): string {
+  const mjDrawingRegex = /<!--MJ_DRAWING:([^-]+)-->/g
+
+  return html.replace(mjDrawingRegex, (_, base64Data) => {
+    // 生成带有 data 属性的 div，供 Vue 组件识别和替换
+    return `<div class="mj-drawing-block" data-mj-drawing="${base64Data}"></div>`
+  })
+}
+
 // 渲染 Markdown
 export async function renderMarkdown(content: string): Promise<string> {
   if (!content) return ''
 
+  // 清理零宽字符（U+200B 等），避免影响代码块解析
+  const cleanContent = content.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+
   // 先用 marked 解析
-  const html = await marked.parse(content)
+  const html = await marked.parse(cleanContent)
 
   // 替换代码块占位符
-  return replaceCodeBlocks(html)
+  const withCodeBlocks = await replaceCodeBlocks(html)
+
+  // 替换绘图组件占位符
+  return replaceMjDrawingBlocks(withCodeBlocks)
 }
 
 // Vue composable

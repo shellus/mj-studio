@@ -584,7 +584,7 @@ function isEditing(messageId: number): boolean {
               class="mt-2 text-(--ui-text)"
             >
               <!-- 渲染 Markdown -->
-              <div v-if="!shouldShowRaw(message)" v-html="getRenderedContent(message)" class="markdown-content" />
+              <ChatMarkdownContent v-if="!shouldShowRaw(message)" :html="getRenderedContent(message)" />
               <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
             </div>
           </div>
@@ -689,7 +689,7 @@ function isEditing(messageId: number): boolean {
             </template>
             <!-- 有渲染内容时显示 Markdown -->
             <template v-else-if="!shouldShowRaw(message)">
-              <div v-html="getRenderedContent(message)" class="markdown-content" />
+              <ChatMarkdownContent :html="getRenderedContent(message)" />
               <!-- 流式输出时在末尾显示光标 -->
               <span
                 v-if="isMessageStreaming(message)"

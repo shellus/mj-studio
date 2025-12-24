@@ -15,6 +15,13 @@
       "when": 1766508729208,
       "tag": "0001_violet_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1766544986805,
+      "tag": "0002_fuzzy_iron_man",
+      "breakpoints": true
     }
   ]
 }

@@ -65,6 +65,8 @@ export const tasks = sqliteTable('tasks', {
   imageUrl: text('image_url'), // 生成的图片URL
   error: text('error'), // 错误信息
   isBlurred: integer('is_blurred', { mode: 'boolean' }).notNull().default(true), // 图片模糊状态（防窥屏）
+  uniqueId: text('unique_id'), // 唯一标识（用于嵌入式绘图组件的去重和缓存）
+  sourceType: text('source_type').$type<'workbench' | 'chat'>().default('workbench'), // 任务来源：workbench=绘图工作台，chat=对话嵌入
   buttons: text('buttons', { mode: 'json' }).$type<Array<{
     customId: string
     emoji: string
