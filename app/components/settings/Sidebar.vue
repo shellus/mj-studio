@@ -1,5 +1,12 @@
 <script setup lang="ts">
+defineProps<{
+  mobile?: boolean
+}>()
+
 const route = useRoute()
+
+// 从父组件获取关闭抽屉的方法
+const closeDrawer = inject<() => void>('closeSettingsDrawer', () => {})
 
 const menuItems = [
   {
@@ -22,6 +29,10 @@ const menuItems = [
 function isActive(to: string): boolean {
   return route.path.startsWith(to)
 }
+
+function handleClick() {
+  closeDrawer()
+}
 </script>
 
 <template>
@@ -34,6 +45,7 @@ function isActive(to: string): boolean {
       :class="isActive(item.to)
         ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
         : 'text-(--ui-text-muted) hover:bg-(--ui-bg-elevated) hover:text-(--ui-text)'"
+      @click="mobile && handleClick()"
     >
       <UIcon :name="item.icon" class="w-5 h-5" />
       <span>{{ item.label }}</span>
