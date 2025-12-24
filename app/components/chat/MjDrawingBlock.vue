@@ -141,11 +141,18 @@ function startPolling() {
   if (pollTimer) return
 
   pollTimer = setInterval(async () => {
-    if (!taskId.value) return
-
     try {
-      const res = await $fetch(`/api/tasks/${taskId.value}`)
-      updateFromResponse(res)
+      const res = await $fetch('/api/illustrations', {
+        method: 'POST',
+        body: {
+          uniqueId: props.params.uniqueId,
+          prompt: props.params.prompt,
+          model: props.params.model,
+          negative: props.params.negative,
+          autostart: false,
+        },
+      })
+      updateFromResponse(res, false)
     } catch {
       // 轮询失败不处理
     }

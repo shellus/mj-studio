@@ -1,7 +1,6 @@
 // POST /api/illustrations - 查询或创建插图任务（幂等接口）
 import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
-import type { ModelTypeConfig } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
