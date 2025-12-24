@@ -443,6 +443,7 @@ onUnmounted(() => {
           :disabled="!currentAssistant"
           :is-streaming="isStreaming"
           :messages="messages"
+          :system-prompt="currentAssistant?.systemPrompt"
           :content="currentInputState.content"
           :uploading-files="currentInputState.uploadingFiles"
           :show-compress-hint="currentInputState.showCompressHint"

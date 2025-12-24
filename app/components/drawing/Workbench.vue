@@ -2,8 +2,6 @@
 import type { ModelConfig } from '~/composables/useTasks'
 import type { ImageModelType, ApiFormat, ModelTypeConfig } from '../../shared/types'
 import {
-  MODEL_TYPE_LABELS,
-  MODEL_TYPE_ICONS,
   API_FORMAT_LABELS,
   MODEL_USAGE_HINTS,
   MODELS_WITHOUT_REFERENCE_IMAGE,
@@ -28,25 +26,15 @@ const isSubmitting = ref(false)
 const selectedConfigId = ref<number | null>(null)
 const selectedModelName = ref<string | null>(null)
 
-// 选中的模型配置
-const selectedConfig = computed(() => {
-  return props.modelConfigs.find(c => c.id === selectedConfigId.value)
-})
+// 模型选择器引用
+const modelSelectorRef = ref<{
+  selectedConfig: ModelConfig | undefined
+  selectedModelTypeConfig: ModelTypeConfig | undefined
+} | null>(null)
 
-// 选中的模型类型配置（通过 modelName 查找）
+// 选中的模型类型配置（从 ModelSelector 获取）
 const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
-  if (!selectedConfig.value || selectedModelName.value === null) return undefined
-  return selectedConfig.value.modelTypeConfigs?.find(
-    (mtc: ModelTypeConfig) => mtc.modelName === selectedModelName.value
-  )
-})
-
-// 当前配置支持的模型类型列表（仅绘图模型）
-const availableModelTypes = computed((): ModelTypeConfig[] => {
-  if (!selectedConfig.value?.modelTypeConfigs) return []
-  return selectedConfig.value.modelTypeConfigs.filter(
-    (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
-  )
+  return modelSelectorRef.value?.selectedModelTypeConfig
 })
 
 // 是否支持垫图（部分模型不支持）
@@ -70,52 +58,6 @@ const currentModelHint = computed(() => {
 
 // 模型信息模态框状态
 const showModelInfoModal = ref(false)
-
-// 上游选择下拉菜单项
-const upstreamDropdownItems = computed(() => {
-  return props.modelConfigs.map(config => ({
-    label: config.name,
-    icon: 'i-heroicons-server',
-    onSelect: () => {
-      selectedConfigId.value = config.id
-    }
-  }))
-})
-
-// 当前上游显示文本
-const currentUpstreamText = computed(() => {
-  return selectedConfig.value?.name || '选择上游'
-})
-
-// 当配置列表变化时，选择默认配置
-watch(() => props.modelConfigs, (configs) => {
-  if (configs.length > 0 && !selectedConfigId.value) {
-    const defaultConfig = configs.find(c => c.isDefault) || configs[0]
-    selectedConfigId.value = defaultConfig.id
-    if (defaultConfig.modelTypeConfigs && defaultConfig.modelTypeConfigs.length > 0) {
-      const firstImageModel = defaultConfig.modelTypeConfigs.find(
-        (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
-      )
-      if (firstImageModel) {
-        selectedModelName.value = firstImageModel.modelName
-      }
-    }
-  }
-}, { immediate: true })
-
-// 当配置变化时，更新模型选择
-watch(selectedConfigId, (newId) => {
-  const config = props.modelConfigs.find(c => c.id === newId)
-  if (config?.modelTypeConfigs && config.modelTypeConfigs.length > 0) {
-    const imageModels = config.modelTypeConfigs.filter(
-      (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
-    )
-    const supportedNames = imageModels.map((mtc: ModelTypeConfig) => mtc.modelName)
-    if (!selectedModelName.value || !supportedNames.includes(selectedModelName.value)) {
-      selectedModelName.value = imageModels[0]?.modelName || null
-    }
-  }
-})
 
 // 处理图片上传
 async function handleFileChange(event: Event) {
@@ -201,69 +143,30 @@ defineExpose({
     <h2 class="text-(--ui-text) text-lg font-medium">绘图工作台</h2>
 
     <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
-      <!-- 上游选择 -->
-      <UFormField label="选择上游" class="mb-4">
-      <template #hint>
-        <NuxtLink to="/settings" class="text-(--ui-primary) text-xs hover:opacity-80">
-          管理配置
-        </NuxtLink>
-      </template>
-
-      <div v-if="modelConfigs.length === 0" class="p-4 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-center">
-        <p class="text-(--ui-text-muted) text-sm mb-3">还没有模型配置</p>
-        <NuxtLink to="/settings">
-          <UButton size="sm">添加配置</UButton>
-        </NuxtLink>
-      </div>
-
-      <UDropdownMenu v-else :items="[upstreamDropdownItems]">
-        <UButton variant="outline" class="w-full justify-between">
-          <span class="flex items-center gap-2">
-            <UIcon name="i-heroicons-server" class="w-4 h-4" />
-            {{ currentUpstreamText }}
+      <!-- 模型选择 -->
+      <UFormField label="选择模型" class="mb-4">
+        <template #label>
+          <span class="inline-flex items-center gap-1.5">
+            选择模型
+            <button
+              v-if="selectedModelTypeConfig"
+              type="button"
+              class="inline-flex items-center text-(--ui-text-muted) hover:text-(--ui-text) transition-colors"
+              @click="showModelInfoModal = true"
+            >
+              <UIcon name="i-heroicons-information-circle" class="w-3.5 h-3.5" />
+            </button>
           </span>
-          <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
-        </UButton>
-      </UDropdownMenu>
-    </UFormField>
-
-    <!-- 模型类型选择（当上游支持绘图模型时显示） -->
-    <UFormField v-if="availableModelTypes.length >= 1" class="mb-4">
-      <template #label>
-        <span class="inline-flex items-center gap-1.5">
-          选择模型
-          <button
-            type="button"
-            class="inline-flex items-center text-(--ui-text-muted) hover:text-(--ui-text) transition-colors"
-            @click="showModelInfoModal = true"
-          >
-            <UIcon name="i-heroicons-information-circle" class="w-3.5 h-3.5" />
-          </button>
-        </span>
-      </template>
-      <div class="grid grid-cols-2 gap-2">
-        <button
-          v-for="mtc in availableModelTypes"
-          :key="mtc.modelName"
-          type="button"
-          :class="[
-            'p-2 rounded-lg border transition-all text-center flex items-center justify-center gap-2',
-            selectedModelName === mtc.modelName
-              ? 'border-(--ui-primary) bg-(--ui-primary)/10'
-              : 'border-(--ui-border-accented) hover:border-(--ui-text-dimmed)'
-          ]"
-          @click="selectedModelName = mtc.modelName"
-        >
-          <UIcon
-            :name="MODEL_TYPE_ICONS[mtc.modelType] || 'i-heroicons-sparkles'"
-            :class="['w-4 h-4', selectedModelName === mtc.modelName ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
-          />
-          <span :class="['text-sm', selectedModelName === mtc.modelName ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
-            {{ MODEL_TYPE_LABELS[mtc.modelType] || mtc.modelType }}
-          </span>
-        </button>
-      </div>
-    </UFormField>
+        </template>
+        <ModelSelector
+          ref="modelSelectorRef"
+          :model-configs="modelConfigs"
+          category="image"
+          show-type-label
+          v-model:config-id="selectedConfigId"
+          v-model:model-name="selectedModelName"
+        />
+      </UFormField>
 
     <!-- 模型信息模态框 -->
     <UModal v-model:open="showModelInfoModal" title="模型信息">
