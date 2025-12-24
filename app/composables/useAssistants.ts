@@ -16,28 +16,28 @@ export interface Assistant {
 export function useAssistants() {
   const assistants = useState<Assistant[]>('assistants', () => [])
   const isLoading = useState('assistants-loading', () => false)
-  const currentAssistantId = useState<number | null>('currentAssistantId', () => null)
+  // 使用 ref 而非 useState，避免跨页面状态残留，由 URL 驱动
+  const currentAssistantId = ref<number | null>(null)
 
   // 当前选中的助手
   const currentAssistant = computed(() => {
     if (currentAssistantId.value) {
       return assistants.value.find(a => a.id === currentAssistantId.value)
     }
-    // 默认返回默认助手或第一个
-    return assistants.value.find(a => a.isDefault) || assistants.value[0]
+    return null
   })
 
-  // 加载助手列表
+  // 获取默认助手
+  function getDefaultAssistant() {
+    return assistants.value.find(a => a.isDefault) || assistants.value[0] || null
+  }
+
+  // 加载助手列表（不自动选中，由调用方决定）
   async function loadAssistants() {
     isLoading.value = true
     try {
       const result = await $fetch<Assistant[]>('/api/assistants')
       assistants.value = result
-      // 如果没有选中的助手，选中默认助手
-      if (!currentAssistantId.value && result.length > 0) {
-        const defaultAssistant = result.find(a => a.isDefault) || result[0]
-        currentAssistantId.value = defaultAssistant.id
-      }
     } catch (error) {
       console.error('加载助手列表失败:', error)
     } finally {
@@ -142,6 +142,7 @@ export function useAssistants() {
     isLoading,
     currentAssistantId,
     currentAssistant,
+    getDefaultAssistant,
     loadAssistants,
     selectAssistant,
     createAssistant,

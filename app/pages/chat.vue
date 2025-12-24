@@ -17,6 +17,7 @@ const {
   isLoading: isLoadingAssistants,
   currentAssistantId,
   currentAssistant,
+  getDefaultAssistant,
   loadAssistants,
   selectAssistant,
   createAssistant,
@@ -82,21 +83,27 @@ function updateUrlParams(assistantId: number | null, conversationId: number | nu
 // 是否已完成初始化（从 URL 恢复或默认初始化）
 const initialized = ref(false)
 
-// 页面加载
-onMounted(async () => {
+// 初始化页面状态
+async function initializePage() {
   await Promise.all([
     loadAssistants(),
     loadConfigs(),
   ])
 
-  // 从 URL 恢复状态
+  // 从 URL 恢复状态，无参数则使用默认助手
   const assistantIdFromUrl = route.query.a ? Number(route.query.a) : null
   const conversationIdFromUrl = route.query.c ? Number(route.query.c) : null
 
-  if (assistantIdFromUrl && assistants.value.some(a => a.id === assistantIdFromUrl)) {
-    selectAssistant(assistantIdFromUrl)
-    // 加载对话列表
-    await loadConversations(assistantIdFromUrl)
+  // 确定要选中的助手：URL 指定 > 默认助手
+  let targetAssistantId = assistantIdFromUrl
+  if (!targetAssistantId || !assistants.value.some(a => a.id === targetAssistantId)) {
+    const defaultAssistant = getDefaultAssistant()
+    targetAssistantId = defaultAssistant?.id || null
+  }
+
+  if (targetAssistantId) {
+    selectAssistant(targetAssistantId)
+    await loadConversations(targetAssistantId)
     // 如果有指定对话，选中它
     if (conversationIdFromUrl && conversations.value.some(c => c.id === conversationIdFromUrl)) {
       await selectConversation(conversationIdFromUrl)
@@ -105,6 +112,11 @@ onMounted(async () => {
 
   // 标记初始化完成
   initialized.value = true
+}
+
+// 页面加载
+onMounted(() => {
+  initializePage()
 })
 
 // 监听当前助手变化，加载对话列表（仅在初始化完成后生效）

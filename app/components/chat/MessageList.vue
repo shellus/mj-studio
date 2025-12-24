@@ -268,10 +268,16 @@ watch(() => props.messages.length, (newLen, oldLen) => {
 })
 // 流式输出时的滚动已移至 startStreamingRender 定时器中，避免高频滚动导致抖动
 
-// 监听消息列表变化，渲染已完成的消息（不使用 deep，只在消息数量变化时触发）
+// 监听消息列表变化，渲染已完成的消息
+// 使用 messages 数组引用作为依赖，确保切换对话时能触发重新渲染
 watch(
-  () => props.messages.length,
-  async () => {
+  () => props.messages,
+  async (newMessages, oldMessages) => {
+    // 如果是切换对话（数组引用变化），清空渲染缓存
+    if (newMessages !== oldMessages) {
+      renderedMessages.value.clear()
+      lastRenderedLength.clear()
+    }
     for (const msg of props.messages) {
       if (msg.role === 'assistant' && msg.content) {
         await renderMessage(msg)
