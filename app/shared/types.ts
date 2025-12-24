@@ -73,6 +73,7 @@ export type ApiFormat =
   | 'gemini'       // Google Gemini API 原生格式
   | 'dalle'        // OpenAI DALL-E Images API 格式
   | 'openai-chat'  // OpenAI Chat Completions API 格式
+  | 'claude'       // Anthropic Claude Messages API 格式
 
 // ==================== 任务状态类型 ====================
 

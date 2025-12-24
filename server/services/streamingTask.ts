@@ -6,6 +6,7 @@ import { useConversationService } from './conversation'
 import { useAssistantService } from './assistant'
 import { useModelConfigService } from './modelConfig'
 import { createChatService } from './chat'
+import { createClaudeChatService } from './claude'
 import {
   startStreamingSession,
   updateSessionStatus,
@@ -112,8 +113,16 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     await conversationService.updateMessageStatus(messageId, 'pending')
     updateSessionStatus(messageId, 'pending')
 
-    // 创建聊天服务
-    const chatService = createChatService(modelConfig)
+    // 从 modelTypeConfigs 中查找对应模型的 apiFormat
+    const modelTypeConfig = modelConfig.modelTypeConfigs?.find(
+      mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
+    )
+    const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+
+    // 根据 apiFormat 创建对应的聊天服务
+    const chatService = apiFormat === 'claude'
+      ? createClaudeChatService(modelConfig)
+      : createChatService(modelConfig)
 
     // 构建日志上下文
     const logContext: LogContext = {

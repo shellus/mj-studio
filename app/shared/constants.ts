@@ -61,7 +61,7 @@ export const ALL_MODEL_TYPES: ModelType[] = [...IMAGE_MODEL_TYPES, ...CHAT_MODEL
  * - 使用场景：
  *   - index.post.ts: 创建任务时验证 apiFormat 参数
  */
-export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
+export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat', 'claude']
 
 // ==================== 模型类型与 API 格式映射 ====================
 
@@ -83,21 +83,21 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   'grok-image': ['openai-chat'],
   'qwen-image': ['openai-chat'],
   'z-image': ['dalle'],
-  // 对话模型（均使用 OpenAI Chat 格式）
-  'gpt': ['openai-chat'],
-  'claude': ['openai-chat'],
-  'gemini-chat': ['openai-chat'],
-  'deepseek': ['openai-chat'],
-  'qwen-chat': ['openai-chat'],
-  'grok': ['openai-chat'],
-  'llama': ['openai-chat'],
-  'moonshot': ['openai-chat'],
-  'glm': ['openai-chat'],
-  'doubao-chat': ['openai-chat'],
-  'minimax': ['openai-chat'],
-  'hunyuan': ['openai-chat'],
-  'mixtral': ['openai-chat'],
-  'phi': ['openai-chat'],
+  // 对话模型（支持 OpenAI Chat 和 Claude 格式）
+  'gpt': ['openai-chat', 'claude'],
+  'claude': ['openai-chat', 'claude'],
+  'gemini-chat': ['openai-chat', 'claude'],
+  'deepseek': ['openai-chat', 'claude'],
+  'qwen-chat': ['openai-chat', 'claude'],
+  'grok': ['openai-chat', 'claude'],
+  'llama': ['openai-chat', 'claude'],
+  'moonshot': ['openai-chat', 'claude'],
+  'glm': ['openai-chat', 'claude'],
+  'doubao-chat': ['openai-chat', 'claude'],
+  'minimax': ['openai-chat', 'claude'],
+  'hunyuan': ['openai-chat', 'claude'],
+  'mixtral': ['openai-chat', 'claude'],
+  'phi': ['openai-chat', 'claude'],
 }
 
 /**
@@ -254,6 +254,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
   'gemini': 'Gemini API',
   'dalle': 'DALL-E API',
   'openai-chat': 'OpenAI Chat',
+  'claude': 'Claude API',
 }
 
 /**

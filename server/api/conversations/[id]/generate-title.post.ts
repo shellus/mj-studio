@@ -4,6 +4,7 @@ import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
+import { createClaudeChatService } from '../../../services/claude'
 import type { LogContext } from '../../../utils/logger'
 import { logTitleResponse } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
@@ -83,8 +84,16 @@ export default defineEventHandler(async (event) => {
 
 ${contextMessages.join('\n\n')}`
 
-  // 调用 AI 生成标题
-  const chatService = createChatService(modelConfig)
+  // 从 modelTypeConfigs 中查找对应模型的 apiFormat
+  const modelTypeConfig = modelConfig.modelTypeConfigs?.find(
+    mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
+  )
+  const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+
+  // 根据 apiFormat 创建对应的聊天服务
+  const chatService = apiFormat === 'claude'
+    ? createClaudeChatService(modelConfig)
+    : createChatService(modelConfig)
 
   // 构建日志上下文
   const logContext: LogContext = {

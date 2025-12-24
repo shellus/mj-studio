@@ -3,6 +3,7 @@ import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
+import { createClaudeChatService } from '../../../services/claude'
 import { useSuggestionsCache } from '../../../services/suggestionsCache'
 import type { LogContext } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
@@ -77,8 +78,16 @@ export default defineEventHandler(async (event) => {
   const prompt = `现在用户开始了一次新对话，当前时间是 ${timeStr}。
 ${suggestionsPrompt}`
 
-  // 调用 AI 生成
-  const chatService = createChatService(modelConfig)
+  // 从 modelTypeConfigs 中查找对应模型的 apiFormat
+  const modelTypeConfig = modelConfig.modelTypeConfigs?.find(
+    mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
+  )
+  const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+
+  // 根据 apiFormat 创建对应的聊天服务
+  const chatService = apiFormat === 'claude'
+    ? createClaudeChatService(modelConfig)
+    : createChatService(modelConfig)
 
   const logContext: LogContext = {
     type: '开场白',

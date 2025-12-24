@@ -3,7 +3,6 @@ import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConf
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import {
   IMAGE_MODEL_TYPES,
-  CHAT_MODEL_TYPES,
   MODEL_API_FORMAT_OPTIONS,
   MODEL_CATEGORY_MAP,
   DEFAULT_MODEL_NAMES,
@@ -198,17 +197,6 @@ function onChatModelNameChange(index: number) {
   }
 }
 
-// 快捷选择模型类型（对话模型）
-function onChatQuickSelect(index: number, type: ChatModelType) {
-  const config = chatModelConfigs.value[index]
-  config.modelType = type
-  config.modelName = DEFAULT_MODEL_NAMES[type]
-  const availableFormats = getAvailableFormats(type)
-  if (!availableFormats.includes(config.apiFormat)) {
-    config.apiFormat = availableFormats[0]
-  }
-}
-
 // 提交表单
 async function onSubmit(event: FormSubmitEvent<typeof form>) {
   // 合并模型配置
@@ -244,7 +232,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
-    router.push('/settings/models')
+    router.back()
   } catch (error: any) {
     toast.add({
       title: '操作失败',
@@ -263,23 +251,23 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
           <h1 class="text-2xl font-bold text-(--ui-text)">{{ pageTitle }}</h1>
           <p class="text-(--ui-text-muted) text-sm mt-1">配置 AI 服务的连接信息和支持的模型</p>
         </div>
-        <UButton variant="ghost" color="neutral" @click="router.push('/settings/models')">
-          <UIcon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1" />
-          返回列表
-        </UButton>
+        <div class="flex gap-2">
+          <UButton variant="outline" color="neutral" @click="router.back()">取消</UButton>
+          <UButton type="submit" form="model-config-form">{{ isNew ? '创建' : '保存' }}</UButton>
+        </div>
       </div>
 
       <!-- 表单 -->
-      <UForm :state="form" :validate="validate" class="space-y-6" @submit="onSubmit">
+      <UForm id="model-config-form" :state="form" :validate="validate" class="space-y-6" @submit="onSubmit">
         <!-- 基本信息卡片 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-4">
+        <div class="max-w-2xl bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-4">
           <h2 class="text-lg font-medium text-(--ui-text) mb-4">基本信息</h2>
 
           <UFormField label="配置名称" name="name" required>
             <UInput
               v-model="form.name"
               placeholder="例如：我的MJ账号"
-              class="w-full"
+              class="w-60"
             />
           </UFormField>
 
@@ -288,7 +276,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
               v-model="form.baseUrl"
               type="url"
               placeholder="https://api.example.com"
-              class="w-full"
+              class="w-120"
             />
           </UFormField>
 
@@ -320,23 +308,18 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
           <h2 class="text-lg font-medium text-(--ui-text) mb-4">模型配置</h2>
 
-          <UTabs v-model="activeTab" :items="tabItems" class="w-full">
+          <UTabs
+            v-model="activeTab"
+            :items="tabItems"
+            variant="pill"
+            color="neutral"
+            :ui="{ root: 'items-start', list: 'w-auto' }"
+          >
             <!-- 绘图模型 Tab -->
             <template #image>
-              <div class="pt-4 space-y-4">
-                <div class="flex justify-end">
-                  <UButton size="sm" variant="ghost" type="button" @click="addImageModel">
-                    <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
-                    添加绘图模型
-                  </UButton>
-                </div>
-
-                <div v-if="imageModelConfigs.length === 0" class="text-center py-8">
-                  <UIcon name="i-heroicons-paint-brush" class="w-12 h-12 text-(--ui-text-dimmed)/50 mx-auto mb-2" />
-                  <p class="text-(--ui-text-muted) text-sm">暂无绘图模型，点击上方按钮添加</p>
-                </div>
-
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div class="pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <!-- 模型卡片列表 -->
                   <div
                     v-for="(mtc, index) in imageModelConfigs"
                     :key="index"
@@ -363,25 +346,32 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           v-model="mtc.modelType"
                           :items="IMAGE_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
-                          class="w-full"
+                          class="w-40"
                           @update:model-value="onImageModelTypeChange(index)"
                         />
                       </UFormField>
 
                       <UFormField label="请求格式">
-                        <USelectMenu
-                          v-model="mtc.apiFormat"
-                          :items="getAvailableFormats(mtc.modelType as ModelType).map(f => ({ label: API_FORMAT_LABELS[f], value: f }))"
-                          value-key="value"
-                          class="w-full"
-                        />
+                        <div class="flex flex-wrap gap-1.5">
+                          <UButton
+                            v-for="f in getAvailableFormats(mtc.modelType as ModelType)"
+                            :key="f"
+                            size="xs"
+                            :variant="mtc.apiFormat === f ? 'solid' : 'outline'"
+                            :color="mtc.apiFormat === f ? 'primary' : 'neutral'"
+                            type="button"
+                            @click="mtc.apiFormat = f"
+                          >
+                            {{ API_FORMAT_LABELS[f] }}
+                          </UButton>
+                        </div>
                       </UFormField>
 
                       <UFormField label="模型名称">
                         <UInput
                           v-model="mtc.modelName"
                           :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType as ModelType] || '可选'"
-                          class="w-full"
+                          class="w-80"
                         />
                       </UFormField>
 
@@ -390,43 +380,36 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           v-model.number="mtc.estimatedTime"
                           type="number"
                           min="1"
-                          class="w-full"
+                          class="w-24"
                         />
                       </UFormField>
                     </div>
                   </div>
+
+                  <!-- 添加按钮卡片 -->
+                  <button
+                    type="button"
+                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
+                    @click="addImageModel"
+                  >
+                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
+                    <span class="text-sm text-(--ui-text-muted)">添加绘图模型</span>
+                  </button>
                 </div>
               </div>
             </template>
 
             <!-- 对话模型 Tab -->
             <template #chat>
-              <div class="pt-4 space-y-4">
-                <!-- 提示说明 -->
-                <div class="text-sm text-(--ui-text-muted) bg-(--ui-bg-muted) rounded-lg p-3">
-                  <p>输入模型名称后会自动识别模型类型，也可点击快捷按钮快速填入推荐模型。</p>
-                  <p class="mt-1 text-xs text-(--ui-text-dimmed)">模型类型仅用于标识，不影响实际调用。未识别的模型名称将标记为"自定义"。</p>
-                </div>
-
-                <div class="flex justify-end">
-                  <UButton size="sm" variant="ghost" type="button" @click="addChatModel">
-                    <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
-                    添加对话模型
-                  </UButton>
-                </div>
-
-                <div v-if="chatModelConfigs.length === 0" class="text-center py-8">
-                  <UIcon name="i-heroicons-chat-bubble-left-right" class="w-12 h-12 text-(--ui-text-dimmed)/50 mx-auto mb-2" />
-                  <p class="text-(--ui-text-muted) text-sm">暂无对话模型，点击上方按钮添加</p>
-                </div>
-
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div class="pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <!-- 模型卡片列表 -->
                   <div
                     v-for="(mtc, index) in chatModelConfigs"
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
-                    <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center justify-between mb-2">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-medium text-(--ui-text)">💬</span>
                         <span
@@ -449,51 +432,50 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       </UButton>
                     </div>
 
-                    <!-- 快捷选择按钮 -->
-                    <div class="mb-3">
-                      <span class="text-xs text-(--ui-text-muted) mb-1.5 block">快捷选择</span>
-                      <div class="flex flex-wrap gap-1.5">
-                        <UButton
-                          v-for="type in CHAT_MODEL_TYPES"
-                          :key="type"
-                          size="xs"
-                          :variant="mtc.modelType === type ? 'solid' : 'outline'"
-                          :color="mtc.modelType === type ? 'primary' : 'neutral'"
-                          type="button"
-                          @click="onChatQuickSelect(index, type)"
-                        >
-                          {{ MODEL_TYPE_LABELS[type] }}
-                        </UButton>
-                      </div>
+                    <div class="space-y-2">
+                      <!-- 请求格式选择 -->
+                      <UFormField label="请求格式">
+                        <div class="flex flex-wrap gap-1.5">
+                          <UButton
+                            v-for="f in getAvailableFormats(mtc.modelType as ModelType)"
+                            :key="f"
+                            size="xs"
+                            :variant="mtc.apiFormat === f ? 'solid' : 'outline'"
+                            :color="mtc.apiFormat === f ? 'primary' : 'neutral'"
+                            type="button"
+                            @click="mtc.apiFormat = f"
+                          >
+                            {{ API_FORMAT_LABELS[f] }}
+                          </UButton>
+                        </div>
+                      </UFormField>
+
+                      <!-- 模型名称输入 -->
+                      <UFormField label="模型名称">
+                        <UInput
+                          v-model="mtc.modelName"
+                          placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
+                          class="w-80"
+                          @input="onChatModelNameChange(index)"
+                        />
+                      </UFormField>
                     </div>
 
-                    <!-- 模型名称输入 -->
-                    <UFormField label="模型名称" class="mb-2">
-                      <UInput
-                        v-model="mtc.modelName"
-                        placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
-                        class="w-full"
-                        @input="onChatModelNameChange(index)"
-                      />
-                    </UFormField>
-
-                    <!-- 请求格式（隐藏，因为对话模型目前都是 openai-chat） -->
-                    <input type="hidden" :value="mtc.apiFormat" />
                   </div>
+
+                  <!-- 添加按钮卡片 -->
+                  <button
+                    type="button"
+                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
+                    @click="addChatModel"
+                  >
+                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
+                    <span class="text-sm text-(--ui-text-muted)">添加对话模型</span>
+                  </button>
                 </div>
               </div>
             </template>
           </UTabs>
-        </div>
-
-        <!-- 提交按钮 -->
-        <div class="flex gap-3">
-          <UButton type="submit" class="flex-1" size="lg">
-            {{ isNew ? '创建配置' : '保存修改' }}
-          </UButton>
-          <UButton type="button" variant="outline" color="neutral" class="flex-1" size="lg" @click="router.push('/settings/models')">
-            取消
-          </UButton>
         </div>
       </UForm>
   </div>
