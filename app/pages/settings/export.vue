@@ -1,0 +1,320 @@
+<script setup lang="ts">
+import type { Assistant } from '~/composables/useAssistants'
+import type { ModelConfig } from '~/composables/useTasks'
+
+const { assistants, loadAssistants, createAssistant } = useAssistants()
+const { configs, loadConfigs, createConfig } = useModelConfigs()
+const toast = useToast()
+
+// 加载状态
+const isLoading = ref(true)
+
+// 导入文件输入
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 选中状态
+const selectedAssistantIds = ref<Set<number>>(new Set())
+const selectedConfigIds = ref<Set<number>>(new Set())
+
+// 加载数据
+onMounted(async () => {
+  await Promise.all([loadAssistants(), loadConfigs()])
+  isLoading.value = false
+})
+
+// 助手选择
+const isAllAssistantsSelected = computed(() =>
+  assistants.value.length > 0 && selectedAssistantIds.value.size === assistants.value.length
+)
+const isSomeAssistantsSelected = computed(() =>
+  selectedAssistantIds.value.size > 0 && selectedAssistantIds.value.size < assistants.value.length
+)
+
+function toggleAssistant(id: number) {
+  if (selectedAssistantIds.value.has(id)) {
+    selectedAssistantIds.value.delete(id)
+  } else {
+    selectedAssistantIds.value.add(id)
+  }
+  selectedAssistantIds.value = new Set(selectedAssistantIds.value)
+}
+
+function toggleAllAssistants() {
+  if (isAllAssistantsSelected.value) {
+    selectedAssistantIds.value = new Set()
+  } else {
+    selectedAssistantIds.value = new Set(assistants.value.map(a => a.id))
+  }
+}
+
+// 模型配置选择
+const isAllConfigsSelected = computed(() =>
+  configs.value.length > 0 && selectedConfigIds.value.size === configs.value.length
+)
+const isSomeConfigsSelected = computed(() =>
+  selectedConfigIds.value.size > 0 && selectedConfigIds.value.size < configs.value.length
+)
+
+function toggleConfig(id: number) {
+  if (selectedConfigIds.value.has(id)) {
+    selectedConfigIds.value.delete(id)
+  } else {
+    selectedConfigIds.value.add(id)
+  }
+  selectedConfigIds.value = new Set(selectedConfigIds.value)
+}
+
+function toggleAllConfigs() {
+  if (isAllConfigsSelected.value) {
+    selectedConfigIds.value = new Set()
+  } else {
+    selectedConfigIds.value = new Set(configs.value.map(c => c.id))
+  }
+}
+
+// 导出选中项
+function handleExport() {
+  const selectedAssistants = assistants.value.filter(a => selectedAssistantIds.value.has(a.id))
+  const selectedConfigs = configs.value.filter(c => selectedConfigIds.value.has(c.id))
+
+  if (selectedAssistants.length === 0 && selectedConfigs.length === 0) {
+    toast.add({ title: '请先选择要导出的项目', color: 'warning' })
+    return
+  }
+
+  const exportData = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    assistants: selectedAssistants.map(a => ({
+      name: a.name,
+      description: a.description,
+      avatar: a.avatar,
+      systemPrompt: a.systemPrompt,
+      isDefault: a.isDefault,
+    })),
+    modelConfigs: selectedConfigs.map(c => ({
+      name: c.name,
+      baseUrl: c.baseUrl,
+      apiKey: c.apiKey,
+      remark: c.remark,
+      isDefault: c.isDefault,
+      modelTypeConfigs: c.modelTypeConfigs,
+    })),
+  }
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `mj-studio-export-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+
+  const parts = []
+  if (selectedAssistants.length > 0) parts.push(`${selectedAssistants.length} 个助手`)
+  if (selectedConfigs.length > 0) parts.push(`${selectedConfigs.length} 个模型配置`)
+  toast.add({ title: `已导出 ${parts.join('、')}`, color: 'success' })
+}
+
+// 触发文件选择
+function triggerImport() {
+  fileInputRef.value?.click()
+}
+
+// 处理导入
+async function handleImport(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+
+    // 验证格式
+    if (!data.version) {
+      throw new Error('无效的导入文件格式')
+    }
+
+    let assistantCount = 0
+    let configCount = 0
+
+    // 导入助手
+    if (Array.isArray(data.assistants)) {
+      for (const item of data.assistants) {
+        try {
+          await createAssistant({
+            name: item.name,
+            description: item.description || undefined,
+            avatar: item.avatar || undefined,
+            systemPrompt: item.systemPrompt || undefined,
+            isDefault: false,
+          })
+          assistantCount++
+        } catch (e) {
+          console.error('导入助手失败:', item.name, e)
+        }
+      }
+    }
+
+    // 导入模型配置
+    if (Array.isArray(data.modelConfigs)) {
+      for (const item of data.modelConfigs) {
+        if (!item.name || !item.baseUrl || !item.apiKey) continue
+        const exists = configs.value.some(c => c.name === item.name)
+        if (exists) continue
+        try {
+          await createConfig({
+            name: item.name,
+            baseUrl: item.baseUrl,
+            apiKey: item.apiKey,
+            modelTypeConfigs: item.modelTypeConfigs || [],
+            remark: item.remark,
+            isDefault: false,
+          })
+          configCount++
+        } catch (e) {
+          console.error('导入模型配置失败:', item.name, e)
+        }
+      }
+    }
+
+    const parts = []
+    if (assistantCount > 0) parts.push(`${assistantCount} 个助手`)
+    if (configCount > 0) parts.push(`${configCount} 个模型配置`)
+
+    if (parts.length > 0) {
+      toast.add({ title: `成功导入 ${parts.join('、')}`, color: 'success' })
+    } else {
+      toast.add({ title: '没有导入任何数据', color: 'warning' })
+    }
+  } catch (error: any) {
+    toast.add({ title: '导入失败', description: error.message, color: 'error' })
+  }
+
+  target.value = ''
+}
+</script>
+
+<template>
+  <SettingsLayout>
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-lg font-medium text-(--ui-text)">导入/导出</h2>
+      <div class="flex gap-2">
+        <UButton variant="outline" @click="triggerImport">
+          <UIcon name="i-heroicons-arrow-up-tray" class="w-4 h-4 mr-1" />
+          导入
+        </UButton>
+        <UButton @click="handleExport">
+          <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 mr-1" />
+          导出选中
+        </UButton>
+      </div>
+      <input
+        ref="fileInputRef"
+        type="file"
+        accept=".json"
+        class="hidden"
+        @change="handleImport"
+      />
+    </div>
+
+    <div v-if="isLoading" class="text-center py-12">
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-(--ui-text-dimmed) animate-spin" />
+    </div>
+
+    <div v-else class="space-y-6">
+      <!-- 助手区域 -->
+      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-medium text-(--ui-text)">助手</h3>
+          <UButton
+            v-if="assistants.length > 0"
+            size="xs"
+            variant="ghost"
+            @click="toggleAllAssistants"
+          >
+            {{ isAllAssistantsSelected ? '取消全选' : '全选' }}
+          </UButton>
+        </div>
+
+        <div v-if="assistants.length === 0" class="text-center py-6 text-(--ui-text-muted) text-sm">
+          暂无助手，可在对话页面创建
+        </div>
+
+        <div v-else class="space-y-2">
+          <div
+            v-for="assistant in assistants"
+            :key="assistant.id"
+            class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors"
+            :class="selectedAssistantIds.has(assistant.id)
+              ? 'bg-(--ui-primary)/10'
+              : 'hover:bg-(--ui-bg)'"
+            @click="toggleAssistant(assistant.id)"
+          >
+            <UCheckbox :model-value="selectedAssistantIds.has(assistant.id)" />
+            <div class="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden ring-1 ring-(--ui-border)">
+              <img v-if="assistant.avatar" :src="assistant.avatar" class="w-full h-full object-cover" />
+              <UIcon v-else name="i-heroicons-user-circle" class="w-full h-full text-(--ui-text-muted)" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{ assistant.name }}</div>
+              <div class="text-xs text-(--ui-text-dimmed) truncate">{{ assistant.description || '无描述' }}</div>
+            </div>
+            <UBadge v-if="assistant.isDefault" size="xs" color="primary" variant="soft">默认</UBadge>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模型配置区域 -->
+      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-medium text-(--ui-text)">模型配置</h3>
+          <UButton
+            v-if="configs.length > 0"
+            size="xs"
+            variant="ghost"
+            @click="toggleAllConfigs"
+          >
+            {{ isAllConfigsSelected ? '取消全选' : '全选' }}
+          </UButton>
+        </div>
+
+        <div v-if="configs.length === 0" class="text-center py-6 text-(--ui-text-muted) text-sm">
+          暂无模型配置
+        </div>
+
+        <div v-else class="space-y-2">
+          <div
+            v-for="config in configs"
+            :key="config.id"
+            class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors"
+            :class="selectedConfigIds.has(config.id)
+              ? 'bg-(--ui-primary)/10'
+              : 'hover:bg-(--ui-bg)'"
+            @click="toggleConfig(config.id)"
+          >
+            <UCheckbox :model-value="selectedConfigIds.has(config.id)" />
+            <UIcon name="i-heroicons-cpu-chip" class="w-5 h-5 text-(--ui-text-muted)" />
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{ config.name }}</div>
+              <div class="text-xs text-(--ui-text-dimmed) truncate">{{ config.baseUrl }}</div>
+            </div>
+            <UBadge v-if="config.isDefault" size="xs" color="primary" variant="soft">默认</UBadge>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 提示信息 -->
+    <div class="mt-6 p-4 bg-(--ui-bg-elevated) rounded-lg border border-(--ui-border)">
+      <h3 class="text-sm font-medium text-(--ui-text) mb-2">说明</h3>
+      <ul class="text-xs text-(--ui-text-muted) space-y-1">
+        <li>• 选择要导出的项目后点击"导出选中"</li>
+        <li>• 助手导出包含名称、描述、头像（Base64）和系统提示词</li>
+        <li>• 模型配置导出包含名称、API 地址、密钥和模型列表</li>
+        <li>• 导入时会创建新项目，同名模型配置会跳过</li>
+      </ul>
+    </div>
+  </SettingsLayout>
+</template>

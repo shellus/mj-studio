@@ -15,6 +15,11 @@ const menuItems = [
     to: '/settings/models',
   },
   {
+    label: '导入/导出',
+    icon: 'i-heroicons-arrow-path-rounded-square',
+    to: '/settings/export',
+  },
+  {
     label: 'Prompt 设置',
     icon: 'i-heroicons-chat-bubble-bottom-center-text',
     to: '/settings/prompts',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModelTypeConfig } from '../../../shared/types'
 
-const { configs, isLoading, loadConfigs, createConfig, updateConfig, deleteConfig } = useModelConfigs()
+const { configs, isLoading, loadConfigs, updateConfig, deleteConfig } = useModelConfigs()
 const toast = useToast()
 const router = useRouter()
 
@@ -56,98 +56,6 @@ function getModelCounts(modelTypeConfigs: ModelTypeConfig[]) {
   const chat = modelTypeConfigs.filter(c => c.category === 'chat').length
   return { image, chat }
 }
-
-// 导出配置
-function exportConfigs() {
-  if (configs.value.length === 0) {
-    toast.add({ title: '没有可导出的配置', color: 'warning' })
-    return
-  }
-
-  const exportData = configs.value.map(config => ({
-    name: config.name,
-    baseUrl: config.baseUrl,
-    apiKey: config.apiKey,
-    remark: config.remark,
-    isDefault: config.isDefault,
-    modelTypeConfigs: config.modelTypeConfigs,
-  }))
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `mj-studio-configs-${new Date().toISOString().slice(0, 10)}.json`
-  a.click()
-  URL.revokeObjectURL(url)
-
-  toast.add({ title: '配置已导出', color: 'success' })
-}
-
-// 导入配置
-const fileInputRef = ref<HTMLInputElement>()
-const isImporting = ref(false)
-
-function triggerImport() {
-  fileInputRef.value?.click()
-}
-
-async function handleImport(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-
-  isImporting.value = true
-  try {
-    const text = await file.text()
-    const importData = JSON.parse(text)
-
-    if (!Array.isArray(importData)) {
-      throw new Error('无效的配置文件格式')
-    }
-
-    let successCount = 0
-    let skipCount = 0
-
-    for (const config of importData) {
-      if (!config.name || !config.baseUrl || !config.apiKey) {
-        skipCount++
-        continue
-      }
-
-      const exists = configs.value.some(c => c.name === config.name)
-      if (exists) {
-        skipCount++
-        continue
-      }
-
-      await createConfig({
-        name: config.name,
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        modelTypeConfigs: config.modelTypeConfigs || [],
-        remark: config.remark,
-        isDefault: false,
-      })
-      successCount++
-    }
-
-    if (successCount > 0) {
-      toast.add({
-        title: `成功导入 ${successCount} 个配置`,
-        description: skipCount > 0 ? `跳过 ${skipCount} 个` : undefined,
-        color: 'success',
-      })
-    } else {
-      toast.add({ title: '没有导入任何配置', color: 'warning' })
-    }
-  } catch (error: any) {
-    toast.add({ title: '导入失败', description: error.message, color: 'error' })
-  } finally {
-    isImporting.value = false
-    input.value = ''
-  }
-}
 </script>
 
 <template>
@@ -155,21 +63,10 @@ async function handleImport(event: Event) {
     <!-- 操作栏 -->
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-lg font-medium text-(--ui-text)">模型配置</h2>
-      <div class="flex gap-2">
-        <UButton variant="outline" color="neutral" size="sm" @click="triggerImport" :loading="isImporting">
-          <UIcon name="i-heroicons-arrow-up-tray" class="w-4 h-4 mr-1" />
-          导入
-        </UButton>
-        <UButton variant="outline" color="neutral" size="sm" @click="exportConfigs">
-          <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 mr-1" />
-          导出
-        </UButton>
-        <UButton size="sm" @click="router.push('/settings/models/new')">
-          <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
-          添加
-        </UButton>
-      </div>
-      <input ref="fileInputRef" type="file" accept=".json" class="hidden" @change="handleImport" />
+      <UButton size="sm" @click="router.push('/settings/models/new')">
+        <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+        添加
+      </UButton>
     </div>
 
     <!-- 加载状态 -->
