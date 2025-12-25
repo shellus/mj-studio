@@ -65,6 +65,17 @@ const currentInputState = computed(() => getInputState(currentConversationId.val
 // 模型配置
 const { configs: modelConfigs, loadConfigs } = useModelConfigs()
 
+// 当前助手的预计首字时长（秒）
+const currentEstimatedTime = computed(() => {
+  if (!currentAssistant.value?.modelConfigId || !currentAssistant.value?.modelName) {
+    return null
+  }
+  const config = modelConfigs.value.find(c => c.id === currentAssistant.value?.modelConfigId)
+  if (!config) return null
+  const mtc = config.modelTypeConfigs?.find(m => m.modelName === currentAssistant.value?.modelName)
+  return mtc?.estimatedTime ?? null
+})
+
 // 助手编辑弹窗
 const showAssistantEditor = ref(false)
 const editingAssistant = ref<typeof currentAssistant.value>(null)
@@ -437,6 +448,7 @@ onUnmounted(() => {
           :messages="messages"
           :is-streaming="isStreaming"
           :assistant-id="currentAssistantId"
+          :estimated-time="currentEstimatedTime"
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
           @edit="handleEditMessage"

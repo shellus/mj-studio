@@ -3,11 +3,13 @@ import type { Message } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
 import { renderMarkdown } from '~/composables/useMarkdown'
 import { useConversationSuggestions } from '~/composables/useConversationSuggestions'
+import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME } from '~/shared/constants'
 
 const props = defineProps<{
   messages: Message[]
   isStreaming: boolean
   assistantId?: number | null
+  estimatedTime?: number | null  // 预计首字时长（秒）
 }>()
 
 const emit = defineEmits<{
@@ -242,6 +244,76 @@ function isMessageStreaming(message: Message): boolean {
 function isMessageStopped(message: Message): boolean {
   return message.role === 'assistant' && message.status === 'stopped'
 }
+
+// ==================== 首字倒计时逻辑 ====================
+// 倒计时：当前时间（定时更新）
+const now = ref(Date.now())
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+// 记录 loading 消息的创建时间
+const loadingMessageCreatedAt = ref<number | null>(null)
+
+// 获取正在 loading 的消息
+const loadingMessage = computed(() => {
+  return props.messages.find(m => isMessageLoading(m))
+})
+
+// 预计首字时长（秒）
+const estimatedSeconds = computed(() => {
+  return props.estimatedTime ?? DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME
+})
+
+// 计算已用时间（秒）
+const elapsedTime = computed(() => {
+  if (!loadingMessageCreatedAt.value) return 0
+  return (now.value - loadingMessageCreatedAt.value) / 1000
+})
+
+// 计算剩余倒计时（秒，保留两位小数）
+const remainingTime = computed(() => {
+  if (!loadingMessageCreatedAt.value) return null
+  const remaining = estimatedSeconds.value - elapsedTime.value
+  return remaining > 0 ? remaining.toFixed(2) : null
+})
+
+// 是否超时（倒计时归零）
+const isOvertime = computed(() => {
+  if (!loadingMessageCreatedAt.value) return false
+  return elapsedTime.value > estimatedSeconds.value
+})
+
+// 超时后显示的已用时间（秒，保留两位小数）
+const overtimeDisplay = computed(() => {
+  if (!isOvertime.value) return null
+  return elapsedTime.value.toFixed(2)
+})
+
+// 监听 loading 消息变化，启动/停止倒计时
+watch(loadingMessage, (newMsg, oldMsg) => {
+  if (newMsg && !oldMsg) {
+    // 开始倒计时
+    loadingMessageCreatedAt.value = new Date(newMsg.createdAt).getTime()
+    now.value = Date.now()
+    countdownTimer = setInterval(() => {
+      now.value = Date.now()
+    }, 50) // 50ms 更新一次，确保两位小数流畅
+  } else if (!newMsg && oldMsg) {
+    // 停止倒计时
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+    loadingMessageCreatedAt.value = null
+  }
+}, { immediate: true })
+
+// 组件卸载时清理倒计时定时器
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+})
+// ==================== 首字倒计时逻辑结束 ====================
 
 // 检查是否需要显示原始内容
 function shouldShowRaw(message: Message): boolean {
@@ -691,6 +763,8 @@ function isEditing(messageId: number): boolean {
                 <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0s" />
                 <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0.2s" />
                 <span class="loading-dot w-2 h-2 rounded-full bg-current opacity-60" style="animation-delay: 0.4s" />
+                <span v-if="remainingTime" class="ml-1 text-xs text-(--ui-text-muted) tabular-nums">{{ remainingTime }}s</span>
+                <span v-else-if="isOvertime" class="ml-1 text-xs text-(--ui-text-muted) tabular-nums">+{{ overtimeDisplay }}s</span>
               </div>
             </template>
             <!-- 有渲染内容时显示 Markdown -->

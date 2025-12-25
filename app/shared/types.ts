@@ -155,6 +155,6 @@ export interface ModelTypeConfig {
   apiFormat: ApiFormat
   /** 发送给上游的模型标识符 */
   modelName: string
-  /** 预计生成时间（秒），仅绘图模型需要，用于进度条显示 */
+  /** 预计时间（秒）：绘图模型为预计生成时间，对话模型为预计首字时长 */
   estimatedTime?: number
 }

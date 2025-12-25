@@ -138,6 +138,30 @@ export function useModelConfigService() {
     return undefined
   }
 
+  // 更新模型的预计时间（根据实际耗时自动更新）
+  async function updateEstimatedTime(
+    configId: number,
+    modelName: string,
+    actualTime: number
+  ): Promise<void> {
+    const config = await getById(configId)
+    if (!config || !config.modelTypeConfigs) return
+
+    // 找到对应的模型配置并更新 estimatedTime
+    const updatedConfigs = config.modelTypeConfigs.map(mtc => {
+      if (mtc.modelName === modelName) {
+        // 取整到秒
+        return { ...mtc, estimatedTime: Math.round(actualTime) }
+      }
+      return mtc
+    })
+
+    // 更新数据库
+    await db.update(modelConfigs)
+      .set({ modelTypeConfigs: updatedConfigs })
+      .where(eq(modelConfigs.id, configId))
+  }
+
   return {
     listByUser,
     getById,
@@ -146,5 +170,6 @@ export function useModelConfigService() {
     update,
     remove,
     findByModelName,
+    updateEstimatedTime,
   }
 }

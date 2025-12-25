@@ -144,6 +144,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     let fullContent = ''
     let firstChunkReceived = false
+    const requestStartTime = Date.now() // 记录请求开始时间
 
     for await (const chunk of generator) {
       // 检查是否被中止
@@ -154,11 +155,21 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       if (chunk.content) {
         fullContent += chunk.content
 
-        // 首个内容块：更新状态为 streaming
+        // 首个内容块：更新状态为 streaming，并更新预计首字时长
         if (!firstChunkReceived) {
           firstChunkReceived = true
           await conversationService.updateMessageStatus(messageId, 'streaming')
           updateSessionStatus(messageId, 'streaming')
+
+          // 计算首字耗时并更新模型配置的预计时间
+          const firstChunkTime = (Date.now() - requestStartTime) / 1000
+          if (assistant.modelConfigId && assistant.modelName) {
+            modelConfigService.updateEstimatedTime(
+              assistant.modelConfigId,
+              assistant.modelName,
+              firstChunkTime
+            ).catch(err => console.error('更新预计首字时长失败:', err))
+          }
         }
 
         // 追加到缓存

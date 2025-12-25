@@ -208,6 +208,55 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ImageModelType, number> = {
  */
 export const DEFAULT_FALLBACK_ESTIMATED_TIME = 60
 
+// ==================== 预计时间更新逻辑说明 ====================
+//
+// 预计时间存储在 ModelTypeConfig.estimatedTime 字段中，用户可在模型配置页面自定义。
+//
+// 【绘图模型】预计生成时间
+// - 含义：从任务创建到图片生成完成的预计耗时
+// - 显示：TaskCard.vue 进度条，根据 elapsed / estimatedTime 计算百分比
+// - 优先级：modelConfig.estimatedTime > DEFAULT_ESTIMATED_TIMES[modelType] > DEFAULT_FALLBACK_ESTIMATED_TIME
+// - 自动更新：任务成功后，用实际耗时更新 estimatedTime（server/services/task.ts updateEstimatedTime）
+//
+// 【对话模型】预计首字时长
+// - 含义：从发送消息到 AI 输出第一个字的预计耗时
+// - 显示：MessageList.vue 三个小圆圈后的倒计时（如 "2.35s"），超时后显示 "+1.23s"
+// - 优先级：modelConfig.estimatedTime > DEFAULT_CHAT_ESTIMATED_TIMES[modelType] > DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME
+// - 自动更新：首字输出后，用实际耗时更新 estimatedTime（server/services/streamingTask.ts）
+//
+// =============================================================
+
+/**
+ * 各对话模型类型的默认预计首字时长（秒）
+ * - 用途：AI 回复等待时显示倒计时
+ * - 使用场景：
+ *   - settings/[id].vue: 创建对话模型配置时自动填充预计时间
+ *   - MessageList.vue: 等待 AI 回复时显示预计首字时长倒计时
+ */
+export const DEFAULT_CHAT_ESTIMATED_TIMES: Record<ChatModelType, number> = {
+  'gpt': 2,
+  'claude': 3,
+  'gemini-chat': 2,
+  'deepseek': 3,
+  'qwen-chat': 2,
+  'grok': 2,
+  'llama': 2,
+  'moonshot': 3,
+  'glm': 2,
+  'doubao-chat': 2,
+  'minimax': 2,
+  'hunyuan': 3,
+  'mixtral': 2,
+  'phi': 2,
+}
+
+/**
+ * 默认对话模型首字时长（当无法获取具体模型配置时使用）
+ * - 使用场景：
+ *   - MessageList.vue: estimatedTime 的最终 fallback
+ */
+export const DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME = 3
+
 // ==================== UI 显示用常量 ====================
 
 /**

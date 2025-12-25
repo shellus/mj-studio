@@ -100,7 +100,10 @@ export function useConversations() {
 
   // 更新上传文件列表
   function updateUploadingFiles(conversationId: number | null, files: UploadingFile[]) {
-    if (!conversationId) return
+    if (!conversationId) {
+      newConversationInputState.value.uploadingFiles = files
+      return
+    }
     if (!inputStates.value[conversationId]) {
       inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
     }
@@ -109,7 +112,10 @@ export function useConversations() {
 
   // 更新压缩提醒状态
   function updateCompressHint(conversationId: number | null, show: boolean) {
-    if (!conversationId) return
+    if (!conversationId) {
+      newConversationInputState.value.showCompressHint = show
+      return
+    }
     if (!inputStates.value[conversationId]) {
       inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
     }
