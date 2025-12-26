@@ -10,9 +10,9 @@ const closeDrawer = inject<() => void>('closeSettingsDrawer', () => {})
 
 const menuItems = [
   {
-    label: '模型配置',
+    label: '上游配置',
     icon: 'i-heroicons-cpu-chip',
-    to: '/settings/models',
+    to: '/settings/upstreams',
   },
   {
     label: '导入/导出',

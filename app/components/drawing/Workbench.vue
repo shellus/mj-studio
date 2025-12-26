@@ -40,6 +40,18 @@ onMounted(async () => {
   }
 })
 
+// 监听用户设置加载完成，设置工作台默认模型
+watch(settingsLoaded, (loaded) => {
+  if (loaded && !selectedUpstreamId.value && !selectedAimodelId.value) {
+    const workbenchUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]
+    const workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]
+    if (workbenchUpstreamId && workbenchAimodelId) {
+      selectedUpstreamId.value = workbenchUpstreamId as number
+      selectedAimodelId.value = workbenchAimodelId as number
+    }
+  }
+}, { immediate: true })
+
 // AI 优化配置是否已设置
 const hasAiOptimizeConfig = computed(() => {
   const upstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]

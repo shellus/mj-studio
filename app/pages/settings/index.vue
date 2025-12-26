@@ -6,7 +6,7 @@ definePageMeta({
 const router = useRouter()
 
 onMounted(() => {
-  router.replace('/settings/models')
+  router.replace('/settings/upstreams')
 })
 </script>
 

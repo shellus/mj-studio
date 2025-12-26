@@ -90,7 +90,7 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
             恢复默认
           </UButton>
         </div>
-        <UTextarea v-model="form.compressPrompt" :rows="6" class="w-full" />
+        <UTextarea v-model="form.compressPrompt" :rows="8" class="w-full" />
       </div>
 
       <!-- 标题生成 Prompt -->
@@ -118,7 +118,7 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
             恢复默认
           </UButton>
         </div>
-        <UTextarea v-model="form.suggestionsPrompt" :rows="5" class="w-full" />
+        <UTextarea v-model="form.suggestionsPrompt" :rows="8" class="w-full" />
       </div>
     </div>
   </SettingsLayout>

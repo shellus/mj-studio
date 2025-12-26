@@ -145,10 +145,8 @@ export interface MessageFile {
  * 上游平台类型
  * - 用于标识上游 API 平台，便于余额查询等功能
  * - oneapi: OneAPI/NewAPI 格式，GET /api/user/self
- * - n1n: n1n 格式，GET /api/user/self
- * - yunwu: 云雾格式，暂不支持 API 查询
  */
-export type UpstreamPlatform = 'oneapi' | 'n1n' | 'yunwu'
+export type UpstreamPlatform = 'oneapi'
 
 /**
  * 上游信息缓存

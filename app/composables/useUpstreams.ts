@@ -23,7 +23,7 @@ export interface Upstream {
   apiKey: string
   apiKeys?: ApiKeyConfig[]
   remark: string | null
-  isDefault: boolean
+  sortOrder: number
   upstreamPlatform?: UpstreamPlatform | null
   userApiKey?: string | null
   upstreamInfo?: UpstreamInfo | null
@@ -33,6 +33,7 @@ export interface Upstream {
 
 // 创建/更新时的 AI 模型输入类型
 export interface AimodelInput {
+  id?: number  // 编辑时包含 ID，用于关联
   category: ModelCategory
   modelType: ModelType
   apiFormat: ApiFormat
@@ -66,7 +67,7 @@ export function useUpstreams() {
     apiKeys?: ApiKeyConfig[]
     aimodels: AimodelInput[]
     remark?: string
-    isDefault?: boolean
+    sortOrder?: number
     upstreamPlatform?: UpstreamPlatform
     userApiKey?: string
   }) {
@@ -75,6 +76,8 @@ export function useUpstreams() {
       body: data,
     })
     upstreams.value.push(upstream)
+    // 重新排序
+    upstreams.value.sort((a, b) => a.sortOrder - b.sortOrder)
     return upstream
   }
 
@@ -86,7 +89,7 @@ export function useUpstreams() {
     apiKeys: ApiKeyConfig[]
     aimodels: AimodelInput[]
     remark: string | null
-    isDefault: boolean
+    sortOrder: number
     upstreamPlatform: UpstreamPlatform | null
     userApiKey: string | null
   }>) {
@@ -95,19 +98,27 @@ export function useUpstreams() {
       body: data,
     })
 
-    // 如果设为默认，更新其他配置的默认状态
-    if (data.isDefault) {
-      upstreams.value.forEach(u => {
-        if (u.id !== id) u.isDefault = false
-      })
-    }
-
     const index = upstreams.value.findIndex(u => u.id === id)
     if (index >= 0) {
       upstreams.value[index] = updated
     }
 
+    // 重新排序
+    upstreams.value.sort((a, b) => a.sortOrder - b.sortOrder)
+
     return updated
+  }
+
+  // 移动到最前
+  async function moveToTop(id: number) {
+    const upstream = upstreams.value.find(u => u.id === id)
+    if (!upstream) return
+
+    // 找到当前最小的 sortOrder，新值设为比它小 1
+    const minSortOrder = Math.min(...upstreams.value.map(u => u.sortOrder))
+    const newSortOrder = minSortOrder > 0 ? minSortOrder - 1 : minSortOrder - 1
+
+    return updateUpstream(id, { sortOrder: newSortOrder })
   }
 
   // 删除上游配置
@@ -117,11 +128,6 @@ export function useUpstreams() {
     })
     upstreams.value = upstreams.value.filter(u => u.id !== id)
   }
-
-  // 获取默认配置
-  const defaultUpstream = computed(() => {
-    return upstreams.value.find(u => u.isDefault) || upstreams.value[0]
-  })
 
   // 根据 ID 获取上游配置
   function getUpstreamById(id: number): Upstream | undefined {
@@ -155,8 +161,8 @@ export function useUpstreams() {
     loadUpstreams,
     createUpstream,
     updateUpstream,
+    moveToTop,
     deleteUpstream,
-    defaultUpstream,
     getUpstreamById,
     getAimodelById,
     queryBalance,

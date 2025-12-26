@@ -1,27 +1,32 @@
 <script setup lang="ts">
 import type { Aimodel } from '../../../composables/useUpstreams'
 
-const { upstreams, isLoading, loadUpstreams, updateUpstream, queryBalance } = useUpstreams()
+const { upstreams, isLoading, loadUpstreams, moveToTop, queryBalance } = useUpstreams()
 const toast = useToast()
 const router = useRouter()
 
 // 余额查询中的配置 ID
 const queryingBalanceIds = ref<Set<number>>(new Set())
+// 移动到顶部中的配置 ID
+const movingToTopIds = ref<Set<number>>(new Set())
 
 onMounted(() => {
   loadUpstreams()
 })
 
-async function handleSetDefault(id: number) {
+// 移动到顶部
+async function handleMoveToTop(id: number) {
+  movingToTopIds.value.add(id)
   try {
-    await updateUpstream(id, { isDefault: true })
-    toast.add({ title: '已设为默认', color: 'success' })
+    await moveToTop(id)
   } catch (error: any) {
     toast.add({
       title: '操作失败',
       description: error.data?.message || error.message,
       color: 'error',
     })
+  } finally {
+    movingToTopIds.value.delete(id)
   }
 }
 
@@ -54,16 +59,17 @@ async function handleQueryBalance(id: number) {
   }
 }
 
-// 格式化配额
+// 格式化配额（OneAPI quota 单位为 1/500000 元）
 function formatQuota(quota?: number): string {
   if (quota === undefined || quota === null) return '未查询'
-  if (quota >= 1000000) {
-    return `${(quota / 1000000).toFixed(1)}M`
+  const amount = quota / 500000
+  if (amount >= 1000) {
+    return `¥${(amount / 1000).toFixed(1)}K`
   }
-  if (quota >= 1000) {
-    return `${(quota / 1000).toFixed(1)}K`
+  if (amount >= 1) {
+    return `¥${amount.toFixed(2)}`
   }
-  return quota.toString()
+  return `¥${amount.toFixed(4)}`
 }
 
 // 平台类型标签
@@ -79,7 +85,7 @@ const platformLabels: Record<string, string> = {
     <!-- 操作栏 -->
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-lg font-medium text-(--ui-text)">上游配置</h2>
-      <UButton size="sm" @click="router.push('/settings/models/new')">
+      <UButton size="sm" @click="router.push('/settings/upstreams/new')">
         <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
         添加
       </UButton>
@@ -94,7 +100,7 @@ const platformLabels: Record<string, string> = {
     <div v-else-if="upstreams.length === 0" class="text-center py-12">
       <UIcon name="i-heroicons-cpu-chip" class="w-16 h-16 text-(--ui-text-dimmed)/50 mx-auto mb-4" />
       <p class="text-(--ui-text-muted) mb-4">还没有上游配置</p>
-      <UButton @click="router.push('/settings/models/new')">添加第一个配置</UButton>
+      <UButton @click="router.push('/settings/upstreams/new')">添加第一个配置</UButton>
     </div>
 
     <!-- 配置列表 -->
@@ -103,31 +109,23 @@ const platformLabels: Record<string, string> = {
         v-for="upstream in upstreams"
         :key="upstream.id"
         class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
-        @click="router.push(`/settings/models/${upstream.id}`)"
+        @click="router.push(`/settings/upstreams/${upstream.id}`)"
       >
         <!-- 标题行 -->
         <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2 min-w-0">
-            <h3 class="text-(--ui-text) font-medium truncate">{{ upstream.name }}</h3>
-            <span
-              v-if="upstream.isDefault"
-              class="px-2 py-0.5 rounded-full text-xs font-medium bg-(--ui-success)/20 text-(--ui-success) shrink-0"
-            >
-              默认
-            </span>
-          </div>
+          <h3 class="text-(--ui-text) font-medium truncate min-w-0">{{ upstream.name }}</h3>
           <div class="flex gap-1 shrink-0" @click.stop>
             <UButton
-              v-if="!upstream.isDefault"
               size="xs"
               variant="ghost"
               color="neutral"
-              title="设为默认"
-              @click="handleSetDefault(upstream.id)"
+              title="置顶"
+              :loading="movingToTopIds.has(upstream.id)"
+              @click="handleMoveToTop(upstream.id)"
             >
-              <UIcon name="i-heroicons-star" class="w-4 h-4" />
+              <UIcon name="i-heroicons-arrow-up-circle" class="w-4 h-4" />
             </UButton>
-            <UButton size="xs" variant="ghost" color="neutral" @click="router.push(`/settings/models/${upstream.id}`)">
+            <UButton size="xs" variant="ghost" color="neutral" @click="router.push(`/settings/upstreams/${upstream.id}`)">
               <UIcon name="i-heroicons-pencil" class="w-4 h-4" />
             </UButton>
           </div>

@@ -34,7 +34,6 @@ const form = reactive({
   baseUrl: '',
   apiKey: '', // 保留用于兼容，实际使用 apiKeys
   remark: '',
-  isDefault: false,
   upstreamPlatform: undefined as UpstreamPlatform | undefined,
   userApiKey: '',
 })
@@ -100,7 +99,6 @@ async function loadUpstreamData() {
         baseUrl: upstream.baseUrl,
         apiKey: upstream.apiKey,
         remark: upstream.remark || '',
-        isDefault: upstream.isDefault,
         upstreamPlatform: upstream.upstreamPlatform || undefined,
         userApiKey: upstream.userApiKey || '',
       })
@@ -118,6 +116,7 @@ async function loadUpstreamData() {
         imageAimodels.value = upstream.aimodels
           .filter(m => !m.category || m.category === 'image')
           .map(m => ({
+            id: m.id,  // 保留 ID
             category: 'image' as ModelCategory,
             modelType: m.modelType,
             apiFormat: m.apiFormat,
@@ -128,6 +127,7 @@ async function loadUpstreamData() {
         chatAimodels.value = upstream.aimodels
           .filter(m => m.category === 'chat')
           .map(m => ({
+            id: m.id,  // 保留 ID
             category: 'chat' as ModelCategory,
             modelType: m.modelType,
             apiFormat: m.apiFormat,
@@ -138,11 +138,10 @@ async function loadUpstreamData() {
       }
     } else {
       toast.add({ title: '配置不存在', color: 'error' })
-      router.push('/settings/models')
+      router.push('/settings/upstreams')
     }
   } else {
     // 新建时设置默认值
-    form.isDefault = upstreams.value.length === 0
     apiKeys.value = [{ name: 'default', key: '' }]
   }
 }
@@ -260,8 +259,6 @@ function removeApiKey(index: number) {
 const upstreamPlatformOptions = [
   { label: '不查询', value: undefined },
   { label: 'OneAPI/NewAPI', value: 'oneapi' },
-  { label: 'n1n', value: 'n1n' },
-  { label: '云雾（暂不支持）', value: 'yunwu' },
 ]
 
 // 获取可用的 Key 名称列表（用于模型配置选择）
@@ -301,7 +298,6 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         apiKeys: validApiKeys,
         aimodels: allAimodels,
         remark: form.remark,
-        isDefault: form.isDefault,
         upstreamPlatform: form.upstreamPlatform,
         userApiKey: form.userApiKey || undefined,
       })
@@ -314,7 +310,6 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         apiKeys: validApiKeys,
         aimodels: allAimodels,
         remark: form.remark || null,
-        isDefault: form.isDefault,
         upstreamPlatform: form.upstreamPlatform || null,
         userApiKey: form.userApiKey || null,
       })
@@ -342,6 +337,16 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       <div class="flex gap-2">
         <UButton variant="outline" color="neutral" @click="router.back()">取消</UButton>
         <UButton type="submit" form="upstream-form">{{ isNew ? '创建' : '保存' }}</UButton>
+      </div>
+    </div>
+
+    <!-- 模型ID说明 -->
+    <div v-if="!isNew" class="mb-4 p-3 rounded-lg bg-(--ui-warning)/10 border border-(--ui-warning)/20">
+      <div class="flex items-start gap-2">
+        <UIcon name="i-heroicons-information-circle" class="w-5 h-5 text-(--ui-warning) shrink-0 mt-0.5" />
+        <p class="text-sm text-(--ui-text-muted)">
+          模型 ID 用于关联到任务和消息记录。删除模型采用软删除，不会导致历史关联失效。
+        </p>
       </div>
     </div>
 
@@ -433,11 +438,6 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
               class="w-full"
             />
           </UFormField>
-
-          <label class="flex items-center gap-3 cursor-pointer">
-            <UCheckbox v-model="form.isDefault" />
-            <span class="text-(--ui-text-muted)">设为默认配置</span>
-          </label>
         </div>
 
         <!-- 模型配置卡片 -->
@@ -458,13 +458,18 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                   <!-- 模型卡片列表 -->
                   <div
                     v-for="(aimodel, index) in imageAimodels"
-                    :key="index"
+                    :key="aimodel.id || index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
                     <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm font-medium text-(--ui-text) truncate">
-                        🎨 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
-                      </span>
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-(--ui-text) truncate">
+                          🎨 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
+                        </span>
+                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
+                          ID:{{ aimodel.id }}
+                        </span>
+                      </div>
                       <UButton
                         size="xs"
                         variant="ghost"
@@ -552,7 +557,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                   <!-- 模型卡片列表 -->
                   <div
                     v-for="(aimodel, index) in chatAimodels"
-                    :key="index"
+                    :key="aimodel.id || index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
                     <div class="flex items-center justify-between mb-2">
@@ -565,6 +570,9 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                             : 'bg-(--ui-bg-accented) text-(--ui-text-muted)'"
                         >
                           {{ getInferredModelType(aimodel.modelName).label }}
+                        </span>
+                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
+                          ID:{{ aimodel.id }}
                         </span>
                       </div>
                       <UButton

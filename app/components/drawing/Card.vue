@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
-import { encodeTaskId } from '~/utils/sqids'
 import type { ImageModelType, ApiFormat } from '../../shared/types'
 import {
   TASK_CARD_MODEL_DISPLAY,
@@ -27,23 +26,21 @@ const isActioning = ref(false)
 
 const toast = useToast()
 
-// 任务ID（编码后的短字符串）
-const taskSqid = computed(() => encodeTaskId(props.task.id))
-
 // 复制任务ID
 async function copyTaskId() {
+  const taskId = String(props.task.id)
   try {
-    await navigator.clipboard.writeText(taskSqid.value)
-    toast.add({ title: '已复制', description: `ID:${taskSqid.value}`, color: 'success' })
+    await navigator.clipboard.writeText(taskId)
+    toast.add({ title: '已复制', description: `ID:${taskId}`, color: 'success' })
   } catch {
     // fallback for older browsers
     const textarea = document.createElement('textarea')
-    textarea.value = taskSqid.value
+    textarea.value = taskId
     document.body.appendChild(textarea)
     textarea.select()
     document.execCommand('copy')
     document.body.removeChild(textarea)
-    toast.add({ title: '已复制', description: `ID:${taskSqid.value}`, color: 'success' })
+    toast.add({ title: '已复制', description: `ID:${taskId}`, color: 'success' })
   }
 }
 
@@ -452,7 +449,7 @@ async function showErrorDetail() {
             class="font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded cursor-pointer hover:bg-(--ui-bg-inverted)/20 select-none"
             title="点击复制"
             @click="copyTaskId"
-          >ID:{{ taskSqid }}</span>
+          >ID:{{ task.id }}</span>
           <TimeAgo :time="task.createdAt" />
         </div>
         <span v-if="duration">耗时 {{ duration }}</span>
@@ -481,7 +478,7 @@ async function showErrorDetail() {
         <div class="space-y-3 text-sm">
           <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">任务ID</span>
-            <span class="font-mono text-(--ui-text)">{{ taskSqid }}</span>
+            <span class="font-mono text-(--ui-text)">{{ task.id }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">上游</span>

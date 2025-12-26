@@ -175,14 +175,15 @@ function handleSelectModel(upstreamId: number, aimodelId: number) {
   isOpen.value = false
 }
 
-// 当配置列表变化时，选择默认配置
+// 当配置列表变化时，选择第一个配置（已按 sortOrder 排序）
 watch(() => props.upstreams, (upstreams) => {
   if (props.noAutoSelect) return
   if (upstreams.length > 0 && !selectedUpstreamId.value) {
-    const defaultUpstream = upstreams.find(u => u.isDefault) || upstreams[0]
-    const filteredModels = filterModelsByCategory(defaultUpstream.aimodels || [])
+    // upstreams 已按 sortOrder 排序，直接选择第一个
+    const firstUpstream = upstreams[0]
+    const filteredModels = filterModelsByCategory(firstUpstream.aimodels || [])
     if (filteredModels.length > 0) {
-      handleSelectModel(defaultUpstream.id, filteredModels[0].id)
+      handleSelectModel(firstUpstream.id, filteredModels[0].id)
     }
   }
 }, { immediate: true })
@@ -264,7 +265,7 @@ defineExpose({
             <span class="text-xs font-medium text-(--ui-text-muted)">{{ group.upstreamName }}</span>
             <button
               class="p-1 hover:bg-(--ui-bg-accented) rounded text-(--ui-text-muted) hover:text-(--ui-text)"
-              @click.stop="router.push(`/settings/models/${group.upstreamId}`)"
+              @click.stop="router.push(`/settings/upstreams/${group.upstreamId}`)"
             >
               <UIcon name="i-heroicons-cog-6-tooth" class="w-3.5 h-3.5" />
             </button>

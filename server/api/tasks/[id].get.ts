@@ -1,6 +1,5 @@
-// GET /api/tasks/[id] - 查询任务状态（支持数字ID或sqid）
+// GET /api/tasks/[id] - 查询任务状态
 import { useTaskService } from '../../services/task'
-import { decodeTaskId } from '../../utils/sqids'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -15,18 +14,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 支持数字ID或sqid
-  let taskId = parseInt(id, 10)
+  const taskId = parseInt(id, 10)
   if (isNaN(taskId)) {
-    // 尝试解码sqid
-    const decoded = decodeTaskId(id)
-    if (decoded === null) {
-      throw createError({
-        statusCode: 400,
-        message: '无效的任务ID',
-      })
-    }
-    taskId = decoded
+    throw createError({
+      statusCode: 400,
+      message: '无效的任务ID',
+    })
   }
 
   const taskService = useTaskService()

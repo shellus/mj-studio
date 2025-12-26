@@ -18,6 +18,8 @@ const form = reactive({
   aiOptimizeModelName: '',
   embeddedUpstreamId: 0,
   embeddedAimodelId: 0,
+  workbenchUpstreamId: 0,
+  workbenchAimodelId: 0,
 })
 
 // 保存状态
@@ -44,6 +46,8 @@ function syncFormFromSettings() {
   form.aiOptimizeModelName = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME] ?? ''
   form.embeddedUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID] ?? 0
   form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] ?? 0
+  form.workbenchUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID] ?? 0
+  form.workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID] ?? 0
 }
 
 // 保存设置
@@ -61,6 +65,8 @@ async function saveSettings() {
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]: form.aiOptimizeModelName,
       [USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID]: form.embeddedUpstreamId,
       [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: form.embeddedAimodelId,
+      [USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]: form.workbenchUpstreamId,
+      [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: form.workbenchAimodelId,
     })
     toast.add({ title: '设置已保存', color: 'success' })
   } catch (error: any) {
@@ -98,6 +104,16 @@ const embeddedUpstreamId = computed({
 const embeddedAimodelId = computed({
   get: () => form.embeddedAimodelId || null,
   set: (val: number | null) => { form.embeddedAimodelId = val || 0 },
+})
+
+// 工作台默认模型选择（绘图模型）
+const workbenchUpstreamId = computed({
+  get: () => form.workbenchUpstreamId || null,
+  set: (val: number | null) => { form.workbenchUpstreamId = val || 0 },
+})
+const workbenchAimodelId = computed({
+  get: () => form.workbenchAimodelId || null,
+  set: (val: number | null) => { form.workbenchAimodelId = val || 0 },
 })
 </script>
 
@@ -154,6 +170,22 @@ const embeddedAimodelId = computed({
               align-right
               v-model:upstream-id="embeddedUpstreamId"
               v-model:aimodel-id="embeddedAimodelId"
+            />
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-(--ui-text)">工作台默认模型</span>
+              <p class="text-xs text-(--ui-text-muted) mt-1">绘图工作台的默认选择</p>
+            </div>
+            <ModelSelector
+              :upstreams="upstreams"
+              category="image"
+              show-type-label
+              no-auto-select
+              align-right
+              v-model:upstream-id="workbenchUpstreamId"
+              v-model:aimodel-id="workbenchAimodelId"
             />
           </div>
         </div>

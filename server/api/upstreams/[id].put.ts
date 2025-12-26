@@ -5,6 +5,7 @@ import type { ModelCategory, ModelType, ApiFormat } from '../../database/schema'
 import { IMAGE_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
 
 interface AimodelInput {
+  id?: number  // 有 ID 表示更新，无 ID 表示新建
   category: ModelCategory
   modelType: ModelType
   apiFormat: ApiFormat
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, baseUrl, apiKey, apiKeys, aimodels, remark, isDefault, upstreamPlatform, userApiKey } = body
+  const { name, baseUrl, apiKey, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
 
   // 构建更新数据
   const updateData: Record<string, any> = {}
@@ -61,8 +62,8 @@ export default defineEventHandler(async (event) => {
     updateData.remark = remark?.trim() || null
   }
 
-  if (isDefault !== undefined) {
-    updateData.isDefault = isDefault
+  if (sortOrder !== undefined) {
+    updateData.sortOrder = sortOrder
   }
 
   if (upstreamPlatform !== undefined) {
@@ -99,10 +100,11 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // 同步 aimodels（删除旧的，创建新的）
+    // 同步 aimodels（智能同步：有 ID 更新，无 ID 创建，不在列表软删除）
     await aimodelService.syncByUpstream(
       upstreamId,
       (aimodels as AimodelInput[]).map(m => ({
+        id: m.id,  // 传递 ID
         category: m.category,
         modelType: m.modelType,
         apiFormat: m.apiFormat,

@@ -401,6 +401,25 @@ pnpm db:migrate
 - **snapshot 文件的作用**：记录每次迁移后的完整 schema 状态，用于生成增量迁移
 - **自动迁移**：应用启动时通过 Nitro plugin (`server/plugins/migrate.ts`) 自动执行迁移
 
+### 处理需要交互的迁移（重命名/删除列）
+
+`drizzle-kit generate` 在检测到列重命名时会提示用户选择，这在 CI/CD 或非交互环境下无法工作。
+
+**解决方案**：使用 `--custom` 生成空迁移后手动编写 SQL
+
+```bash
+# 1. 生成空迁移文件（会同时生成 snapshot）
+pnpm drizzle-kit generate --custom --name=my-migration
+
+# 2. 手动编辑生成的 SQL 文件
+# 3. 确保 SQL 与 schema.ts 的变更一致
+```
+
+**注意**：
+- 手动编写 SQL 时必须确保与 schema.ts 的变更完全匹配
+- 如果需要数据迁移（如列值转换），在 SQL 中添加 UPDATE 语句
+- 复杂的数据迁移可在 `server/plugins/migrate.ts` 中处理（在 SQL 迁移之后执行）
+
 ## UI 组件规范
 
 本项目使用 **Nuxt UI 4**，遵循以下规范：
@@ -426,7 +445,6 @@ pnpm db:migrate
 
 - 添加新模型类型时，需同步更新 `app/shared/types.ts` 和 `app/shared/constants.ts` 中的相关定义
 - 测试超时设置为 120 秒（MJ 生图需要较长时间）
-- 使用 Sqids 对数据库 ID 进行编码，配置在 `app/shared/constants.ts`
 
 ## 参考链接
 

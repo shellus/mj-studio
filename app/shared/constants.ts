@@ -430,25 +430,6 @@ export const PROGRESS_UPDATE_INTERVAL_MS = 500
  */
 export const PROGRESS_TIME_BUFFER_RATIO = 1.1
 
-// ==================== Sqids 配置 ====================
-
-/**
- * Sqids 编码使用的字符表
- * - 移除了容易混淆的字符：0O1lI
- * - 使用场景：
- *   - server/utils/sqids.ts: Sqids 实例化配置
- *   - app/utils/sqids.ts: Sqids 实例化配置
- */
-export const SQIDS_ALPHABET = 'wNEBY3eVubF4xJRZSvPprtKQdck79C2Hhs6g8yWfUAzTaXGMjmnqD5'
-
-/**
- * Sqids 编码最小长度
- * - 使用场景：
- *   - server/utils/sqids.ts: Sqids 实例化配置
- *   - app/utils/sqids.ts: Sqids 实例化配置
- */
-export const SQIDS_MIN_LENGTH = 6
-
 // ==================== 模型名称匹配规则 ====================
 
 /**
@@ -594,6 +575,9 @@ export const USER_SETTING_KEYS = {
   // 绘图设置（嵌入式绘画）
   DRAWING_EMBEDDED_UPSTREAM_ID: 'drawing.embeddedUpstreamId',
   DRAWING_EMBEDDED_AIMODEL_ID: 'drawing.embeddedAimodelId',
+  // 绘图设置（工作台默认模型）
+  DRAWING_WORKBENCH_UPSTREAM_ID: 'drawing.workbenchUpstreamId',
+  DRAWING_WORKBENCH_AIMODEL_ID: 'drawing.workbenchAimodelId',
 } as const
 
 export type UserSettingKey = typeof USER_SETTING_KEYS[keyof typeof USER_SETTING_KEYS]
@@ -642,4 +626,7 @@ export const USER_SETTING_DEFAULTS: Record<UserSettingKey, string | number | boo
   [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]: '',
   [USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: 0,
+  // 绘图工作台默认模型（0 表示未设置，使用系统默认）
+  [USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]: 0,
+  [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: 0,
 }

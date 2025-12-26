@@ -1,7 +1,7 @@
 // 上游配置服务层
 import { db } from '../database'
 import { upstreams, aimodels, type Upstream, type NewUpstream, type Aimodel, type ApiKeyConfig, type UpstreamInfo } from '../database/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, asc, isNull } from 'drizzle-orm'
 
 // 包含 aimodels 的上游配置类型
 export interface UpstreamWithModels extends Upstream {
@@ -9,17 +9,21 @@ export interface UpstreamWithModels extends Upstream {
 }
 
 export function useUpstreamService() {
-  // 获取用户的所有上游配置（包含 aimodels）
+  // 获取用户的所有上游配置（包含 aimodels，按 sortOrder 排序）
   async function listByUser(userId: number): Promise<UpstreamWithModels[]> {
     const upstreamList = await db.query.upstreams.findMany({
       where: eq(upstreams.userId, userId),
+      orderBy: [asc(upstreams.sortOrder), asc(upstreams.id)],
     })
 
-    // 关联查询每个 upstream 的 aimodels
+    // 关联查询每个 upstream 的 aimodels（排除已软删除的）
     const result: UpstreamWithModels[] = []
     for (const upstream of upstreamList) {
       const models = await db.query.aimodels.findMany({
-        where: eq(aimodels.upstreamId, upstream.id),
+        where: and(
+          eq(aimodels.upstreamId, upstream.id),
+          isNull(aimodels.deletedAt),
+        ),
       })
       result.push({ ...upstream, aimodels: models })
     }
@@ -34,7 +38,10 @@ export function useUpstreamService() {
     if (!upstream) return undefined
 
     const models = await db.query.aimodels.findMany({
-      where: eq(aimodels.upstreamId, id),
+      where: and(
+        eq(aimodels.upstreamId, id),
+        isNull(aimodels.deletedAt),
+      ),
     })
     return { ...upstream, aimodels: models }
   }
@@ -46,19 +53,6 @@ export function useUpstreamService() {
     })
   }
 
-  // 获取用户的默认配置（包含 aimodels）
-  async function getDefault(userId: number): Promise<UpstreamWithModels | undefined> {
-    const upstream = await db.query.upstreams.findFirst({
-      where: and(eq(upstreams.userId, userId), eq(upstreams.isDefault, true)),
-    })
-    if (!upstream) return undefined
-
-    const models = await db.query.aimodels.findMany({
-      where: eq(aimodels.upstreamId, upstream.id),
-    })
-    return { ...upstream, aimodels: models }
-  }
-
   // 创建配置
   async function create(data: {
     userId: number
@@ -67,17 +61,10 @@ export function useUpstreamService() {
     apiKey: string
     apiKeys?: ApiKeyConfig[]
     remark?: string
-    isDefault?: boolean
+    sortOrder?: number
     upstreamPlatform?: string
     userApiKey?: string
   }): Promise<Upstream> {
-    // 如果设为默认，先取消其他默认
-    if (data.isDefault) {
-      await db.update(upstreams)
-        .set({ isDefault: false })
-        .where(eq(upstreams.userId, data.userId))
-    }
-
     // 如果没有提供 apiKeys，从 apiKey 创建默认的
     const apiKeys = data.apiKeys || [{ name: 'default', key: data.apiKey }]
 
@@ -88,7 +75,7 @@ export function useUpstreamService() {
       apiKey: data.apiKey,
       apiKeys,
       remark: data.remark ?? null,
-      isDefault: data.isDefault ?? false,
+      sortOrder: data.sortOrder ?? 999,
       upstreamPlatform: data.upstreamPlatform as any,
       userApiKey: data.userApiKey ?? null,
     }).returning()
@@ -103,17 +90,10 @@ export function useUpstreamService() {
     apiKey: string
     apiKeys: ApiKeyConfig[]
     remark: string | null
-    isDefault: boolean
+    sortOrder: number
     upstreamPlatform: string | null
     userApiKey: string | null
   }>): Promise<Upstream | undefined> {
-    // 如果设为默认，先取消其他默认
-    if (data.isDefault) {
-      await db.update(upstreams)
-        .set({ isDefault: false })
-        .where(eq(upstreams.userId, userId))
-    }
-
     const [updated] = await db.update(upstreams)
       .set(data as any)
       .where(and(eq(upstreams.id, id), eq(upstreams.userId, userId)))
@@ -122,10 +102,12 @@ export function useUpstreamService() {
     return updated
   }
 
-  // 删除配置（级联删除 aimodels）
+  // 删除配置（软删除 aimodels，硬删除 upstream）
   async function remove(id: number, userId: number): Promise<boolean> {
-    // 先删除关联的 aimodels
-    await db.delete(aimodels).where(eq(aimodels.upstreamId, id))
+    // 先软删除关联的 aimodels
+    await db.update(aimodels)
+      .set({ deletedAt: new Date() })
+      .where(eq(aimodels.upstreamId, id))
 
     const result = await db.delete(upstreams)
       .where(and(eq(upstreams.id, id), eq(upstreams.userId, userId)))
@@ -170,7 +152,6 @@ export function useUpstreamService() {
     listByUser,
     getById,
     getByIdSimple,
-    getDefault,
     create,
     update,
     remove,

@@ -1,7 +1,7 @@
 // AI 模型服务层
 import { db } from '../database'
 import { aimodels, upstreams, type Aimodel, type NewAimodel, type ModelCategory, type ModelType, type ApiFormat } from '../database/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 
 export function useAimodelService() {
   // 获取上游的所有模型
@@ -156,9 +156,10 @@ export function useAimodelService() {
       ))
   }
 
-  // 删除模型
+  // 删除模型（软删除）
   async function remove(id: number): Promise<boolean> {
-    const result = await db.delete(aimodels)
+    const result = await db.update(aimodels)
+      .set({ deletedAt: new Date() })
       .where(eq(aimodels.id, id))
       .returning()
 
@@ -174,8 +175,9 @@ export function useAimodelService() {
     return result.length
   }
 
-  // 同步上游的模型配置（删除旧的，创建新的）
+  // 同步上游的模型配置（智能同步：更新已有、创建新的、软删除移除的）
   async function syncByUpstream(upstreamId: number, models: Array<{
+    id?: number
     category: ModelCategory
     modelType: ModelType
     apiFormat: ApiFormat
@@ -183,13 +185,50 @@ export function useAimodelService() {
     estimatedTime?: number
     keyName?: string
   }>): Promise<Aimodel[]> {
-    // 删除旧模型
-    await removeByUpstream(upstreamId)
+    // 获取现有的所有模型（包括已软删除的）
+    const existing = await db.query.aimodels.findMany({
+      where: eq(aimodels.upstreamId, upstreamId),
+    })
 
-    // 创建新模型
-    if (models.length === 0) return []
+    const existingIds = new Set(existing.map(m => m.id))
+    const inputIds = new Set(models.filter(m => m.id).map(m => m.id!))
 
-    return createMany(models.map(m => ({ ...m, upstreamId })))
+    // 1. 更新已有模型
+    for (const model of models.filter(m => m.id)) {
+      await db.update(aimodels)
+        .set({
+          category: model.category,
+          modelType: model.modelType,
+          apiFormat: model.apiFormat,
+          modelName: model.modelName,
+          estimatedTime: model.estimatedTime ?? 60,
+          keyName: model.keyName ?? 'default',
+          deletedAt: null,  // 如果之前被软删除，恢复它
+        })
+        .where(eq(aimodels.id, model.id!))
+    }
+
+    // 2. 创建新模型
+    const newModels = models.filter(m => !m.id)
+    if (newModels.length > 0) {
+      await createMany(newModels.map(m => ({ ...m, upstreamId })))
+    }
+
+    // 3. 软删除不在列表中的模型（排除已经软删除的）
+    const toDelete = existing.filter(m => !inputIds.has(m.id) && !m.deletedAt)
+    for (const model of toDelete) {
+      await db.update(aimodels)
+        .set({ deletedAt: new Date() })
+        .where(eq(aimodels.id, model.id))
+    }
+
+    // 返回最新的模型列表（排除软删除的）
+    return db.query.aimodels.findMany({
+      where: and(
+        eq(aimodels.upstreamId, upstreamId),
+        isNull(aimodels.deletedAt),
+      ),
+    })
   }
 
   return {

@@ -42,7 +42,7 @@ export const upstreams = sqliteTable('upstreams', {
   apiKey: text('api_key').notNull(), // API密钥（主Key）
   apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>(), // 多Key配置
   remark: text('remark'), // 备注说明
-  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // 是否默认
+  sortOrder: integer('sort_order').notNull().default(999), // 排序顺序，0 表示置顶
   upstreamPlatform: text('upstream_platform').$type<UpstreamPlatform>(), // 上游平台类型（用于余额查询）
   userApiKey: text('user_api_key'), // 用户在该平台的 Key（用于余额查询等）
   upstreamInfo: text('upstream_info', { mode: 'json' }).$type<UpstreamInfo>(), // 上游信息缓存（余额、用户信息等）
@@ -63,6 +63,7 @@ export const aimodels = sqliteTable('aimodels', {
   estimatedTime: integer('estimated_time').notNull().default(60), // 预计时间（秒）
   keyName: text('key_name').notNull().default('default'), // 使用的 Key 名称
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除：null=正常，有值=已删除
 })
 
 export type Aimodel = typeof aimodels.$inferSelect

@@ -36,6 +36,20 @@
       "when": 1766736838044,
       "tag": "0004_safe_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1766740479829,
+      "tag": "0006_replace-isdefault-with-sortorder",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1766744172360,
+      "tag": "0006_add-aimodels-soft-delete",
+      "breakpoints": true
     }
   ]
 }
