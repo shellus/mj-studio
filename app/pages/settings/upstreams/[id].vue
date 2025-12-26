@@ -173,6 +173,7 @@ function addChatModel() {
     modelType: 'gpt' as any, // 保留字段但使用默认值
     apiFormat: 'openai-chat' as any,
     modelName: '',
+    estimatedTime: 5, // 默认5秒
   })
 }
 
@@ -611,6 +612,15 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
                           class="w-60"
                           @input="onChatModelNameChange(index)"
+                        />
+                      </UFormField>
+
+                      <UFormField label="预计时间(秒)">
+                        <UInput
+                          v-model.number="aimodel.estimatedTime"
+                          type="number"
+                          min="1"
+                          class="w-24"
                         />
                       </UFormField>
 

@@ -2,6 +2,7 @@
 // 适配流式输出系统规范：消息 ID 提前生成、SSE 独立订阅、后端独立状态机
 import type { MessageMark, MessageStatus, MessageFile } from '~/shared/types'
 import { useAuth } from './useAuth'
+import { useUpstreams } from './useUpstreams'
 
 export interface Message {
   id: number
@@ -48,6 +49,7 @@ export interface ConversationInputState {
 
 export function useConversations() {
   const { getAuthHeader } = useAuth()
+  const { upstreams } = useUpstreams()
   const conversations = useState<Conversation[]>('conversations', () => [])
   const messages = useState<Message[]>('messages', () => [])
   const isLoading = useState('conversations-loading', () => false)
@@ -325,6 +327,18 @@ export function useConversations() {
                   targetMessage.status = parsed.status || 'completed'
                 }
                 flushTyping()
+
+                // 如果后端返回了更新后的预计时间，更新本地 upstreams 状态
+                if (parsed.estimatedTime !== undefined && parsed.upstreamId && parsed.aimodelId) {
+                  const upstream = upstreams.value.find(u => u.id === parsed.upstreamId)
+                  if (upstream) {
+                    const aimodel = upstream.aimodels.find(m => m.id === parsed.aimodelId)
+                    if (aimodel) {
+                      aimodel.estimatedTime = parsed.estimatedTime
+                    }
+                  }
+                }
+
                 streamDone = true
                 break
               }

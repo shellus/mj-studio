@@ -147,13 +147,15 @@ export function useAimodelService() {
     upstreamId: number,
     modelName: string,
     actualTime: number
-  ): Promise<void> {
+  ): Promise<number> {
+    const newEstimatedTime = Math.round(actualTime)
     await db.update(aimodels)
-      .set({ estimatedTime: Math.round(actualTime) })
+      .set({ estimatedTime: newEstimatedTime })
       .where(and(
         eq(aimodels.upstreamId, upstreamId),
         eq(aimodels.modelName, modelName),
       ))
+    return newEstimatedTime
   }
 
   // 删除模型（软删除）

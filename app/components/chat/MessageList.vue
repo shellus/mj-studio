@@ -281,17 +281,18 @@ const isOvertime = computed(() => {
   return elapsedTime.value > estimatedSeconds.value
 })
 
-// 超时后显示的已用时间（秒，保留两位小数）
+// 超时后显示的超出时间（秒，保留两位小数）
 const overtimeDisplay = computed(() => {
   if (!isOvertime.value) return null
-  return elapsedTime.value.toFixed(2)
+  return (elapsedTime.value - estimatedSeconds.value).toFixed(2)
 })
 
 // 监听 loading 消息变化，启动/停止倒计时
 watch(loadingMessage, (newMsg, oldMsg) => {
   if (newMsg && !oldMsg) {
-    // 开始倒计时
-    loadingMessageCreatedAt.value = new Date(newMsg.createdAt).getTime()
+    // 开始倒计时：使用当前时间作为起点，而不是消息的 createdAt
+    // 因为消息的 createdAt 是后端时间戳，会比前端当前时间早（网络延迟+处理时间）
+    loadingMessageCreatedAt.value = Date.now()
     now.value = Date.now()
     countdownTimer = setInterval(() => {
       now.value = Date.now()

@@ -151,6 +151,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     let fullContent = ''
     let firstChunkReceived = false
     const requestStartTime = Date.now() // 记录请求开始时间
+    let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
 
     for await (const chunk of generator) {
       // 检查是否被中止
@@ -170,11 +171,15 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           // 计算首字耗时并更新模型配置的预计时间
           const firstChunkTime = (Date.now() - requestStartTime) / 1000
           if (assistant.upstreamId && assistant.modelName) {
-            aimodelService.updateEstimatedTime(
-              assistant.upstreamId,
-              assistant.modelName,
-              firstChunkTime
-            ).catch(err => console.error('更新预计首字时长失败:', err))
+            try {
+              updatedEstimatedTime = await aimodelService.updateEstimatedTime(
+                assistant.upstreamId,
+                assistant.modelName,
+                firstChunkTime
+              )
+            } catch (err) {
+              console.error('更新预计首字时长失败:', err)
+            }
           }
         }
 
@@ -197,8 +202,16 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       const contentToSave = cachedContent || fullContent
       await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
 
-      // 广播完成信号
-      await broadcastToSubscribers(messageId, { done: true, status: 'stopped' })
+      // 广播完成信号（包含更新后的预计时间）
+      await broadcastToSubscribers(messageId, {
+        done: true,
+        status: 'stopped',
+        ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
+          estimatedTime: updatedEstimatedTime,
+          upstreamId: assistant.upstreamId,
+          aimodelId: assistant.aimodelId,
+        } : {}),
+      })
       return
     }
 
@@ -206,8 +219,16 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     await conversationService.updateMessageContentAndStatus(messageId, fullContent, 'completed', responseMark)
     endStreamingSession(messageId)
 
-    // 广播完成信号
-    await broadcastToSubscribers(messageId, { done: true, status: 'completed' })
+    // 广播完成信号（包含更新后的预计时间）
+    await broadcastToSubscribers(messageId, {
+      done: true,
+      status: 'completed',
+      ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
+        estimatedTime: updatedEstimatedTime,
+        upstreamId: assistant.upstreamId,
+        aimodelId: assistant.aimodelId,
+      } : {}),
+    })
 
   } catch (error: any) {
     // 错误处理：保存错误信息
