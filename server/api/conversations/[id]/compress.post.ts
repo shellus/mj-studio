@@ -72,6 +72,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: '可压缩的消息太少' })
   }
 
+  // 构建待压缩的消息内容
+  const messagesContent = messagesToCompress
+    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+    .join('\n\n')
+
+  // 替换占位符
+  const finalPrompt = compressPrompt.replace('{messages}', messagesContent)
+
   // 计算 sortId
   // 压缩请求的 sortId = 待压缩消息最后一条的 sortId + 1
   const lastCompressMsg = messagesToCompress[messagesToCompress.length - 1]
@@ -81,7 +89,7 @@ export default defineEventHandler(async (event) => {
   const compressRequest = await conversationService.addMessage({
     conversationId,
     role: 'user',
-    content: compressPrompt,
+    content: finalPrompt,
     mark: 'compress-request',
     sortId: compressRequestSortId,
   })

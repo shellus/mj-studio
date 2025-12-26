@@ -91,6 +91,10 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
           </UButton>
         </div>
         <UTextarea v-model="form.compressPrompt" :rows="8" class="w-full" />
+        <div class="mt-2 p-2 rounded bg-(--ui-bg-muted) text-xs text-(--ui-text-muted)">
+          <p class="font-medium mb-1">可用占位符：</p>
+          <p><code class="px-1 py-0.5 rounded bg-(--ui-bg-accented)">{messages}</code> - 待压缩的历史消息内容</p>
+        </div>
       </div>
 
       <!-- 标题生成 Prompt -->
@@ -105,6 +109,10 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
           </UButton>
         </div>
         <UTextarea v-model="form.generateTitlePrompt" :rows="3" class="w-full" />
+        <div class="mt-2 p-2 rounded bg-(--ui-bg-muted) text-xs text-(--ui-text-muted)">
+          <p class="font-medium mb-1">可用占位符：</p>
+          <p><code class="px-1 py-0.5 rounded bg-(--ui-bg-accented)">{context}</code> - 对话上下文（前2条+后2条消息）</p>
+        </div>
       </div>
 
       <!-- 开场白建议 Prompt -->
@@ -119,6 +127,10 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
           </UButton>
         </div>
         <UTextarea v-model="form.suggestionsPrompt" :rows="8" class="w-full" />
+        <div class="mt-2 p-2 rounded bg-(--ui-bg-muted) text-xs text-(--ui-text-muted)">
+          <p class="font-medium mb-1">可用占位符：</p>
+          <p><code class="px-1 py-0.5 rounded bg-(--ui-bg-accented)">{time}</code> - 当前时间（格式：2025年12月26日星期四 15:30）</p>
+        </div>
       </div>
     </div>
   </SettingsLayout>

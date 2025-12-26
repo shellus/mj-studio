@@ -88,10 +88,9 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // 构建提示词
-  const prompt = `${titlePrompt}
-
-${contextMessages.join('\n\n')}`
+  // 替换占位符
+  const contextContent = contextMessages.join('\n\n')
+  const prompt = titlePrompt.replace('{context}', contextContent)
 
   // 使用 aimodel 中的 apiFormat 和 keyName
   const apiFormat = aimodel.apiFormat

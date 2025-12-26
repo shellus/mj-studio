@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
   const suggestionsPrompt = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_SUGGESTIONS)
   const suggestionsCount = await settingsService.get<number>(user.id, USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT)
 
-  // 构建提示词
+  // 构建时间字符串
   const now = new Date()
   const timeStr = now.toLocaleString('zh-CN', {
     year: 'numeric',
@@ -84,8 +84,8 @@ export default defineEventHandler(async (event) => {
     weekday: 'long',
   })
 
-  const prompt = `现在用户开始了一次新对话，当前时间是 ${timeStr}。
-${suggestionsPrompt}`
+  // 替换占位符
+  const prompt = suggestionsPrompt.replace('{time}', timeStr)
 
   // 使用 aimodel 中的 apiFormat 和 keyName
   const apiFormat = aimodel.apiFormat

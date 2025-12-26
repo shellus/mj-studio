@@ -584,25 +584,31 @@ export type UserSettingKey = typeof USER_SETTING_KEYS[keyof typeof USER_SETTING_
 
 /**
  * 默认对话压缩 Prompt
+ * 占位符：{messages} - 待压缩的历史消息内容
  */
-export const DEFAULT_COMPRESS_PROMPT = `请将以上对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
+export const DEFAULT_COMPRESS_PROMPT = `请将以下对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
 1. 讨论的主要话题和结论
 2. 重要的技术细节、代码片段或配置信息
 3. 用户的关键需求和偏好
 4. 待解决的问题或后续任务
 
+{messages}
+
 直接输出摘要内容，不要加标题或格式说明。`
 
 /**
  * 默认标题生成 Prompt
+ * 占位符：{context} - 对话上下文（前2条+后2条消息）
  */
-export const DEFAULT_GENERATE_TITLE_PROMPT = `请根据以下对话内容，生成一个简洁的对话标题（10-20个字），直接输出标题，不要加引号或其他格式。`
+export const DEFAULT_GENERATE_TITLE_PROMPT = `请根据以下对话内容，生成一个简洁的对话标题（10-20个字），直接输出标题，不要加引号或其他格式。
+
+{context}`
 
 /**
  * 默认开场白建议 Prompt
- * 注意：实际使用时会在前面添加时间信息
+ * 占位符：{time} - 当前时间
  */
-export const DEFAULT_SUGGESTIONS_PROMPT = `请根据你的角色定位，为用户提供开场白建议，帮助用户快速开始对话。
+export const DEFAULT_SUGGESTIONS_PROMPT = `现在用户开始了一次新对话，当前时间是 {time}。请根据你的角色定位，为用户提供开场白建议，帮助用户快速开始对话。
 要求：
 1. 每条建议简洁明了，10-30 字
 2. 建议应该多样化，覆盖不同场景
