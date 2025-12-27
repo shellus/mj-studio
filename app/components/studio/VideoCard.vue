@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
-import type { ImageModelType, ApiFormat } from '../../shared/types'
+import type { VideoModelType } from '../../shared/types'
 import {
   TASK_CARD_MODEL_DISPLAY,
   API_FORMAT_LABELS,
+  DEFAULT_VIDEO_ESTIMATED_TIMES,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
@@ -14,15 +15,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  action: [customId: string]
   remove: []
   retry: []
   cancel: []
   blur: [isBlurred: boolean]
-  copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
+  copyToPanel: [prompt: string | null, images: string[]]
 }>()
-
-const isActioning = ref(false)
 
 const toast = useToast()
 
@@ -33,7 +31,6 @@ async function copyTaskId() {
     await navigator.clipboard.writeText(taskId)
     toast.add({ title: '已复制', description: `ID:${taskId}`, color: 'success' })
   } catch {
-    // fallback for older browsers
     const textarea = document.createElement('textarea')
     textarea.value = taskId
     document.body.appendChild(textarea)
@@ -44,7 +41,7 @@ async function copyTaskId() {
   }
 }
 
-// 图片模糊状态（防窥屏）- 从任务数据初始化
+// 视频模糊状态 - 从任务数据初始化
 const isBlurred = ref(props.task.isBlurred ?? true)
 
 // 监听外部状态变化（用于批量切换）
@@ -88,9 +85,9 @@ const statusInfo = computed(() => {
   }
 })
 
-// 获取模型显示信息（使用共享常量 TASK_CARD_MODEL_DISPLAY）
+// 获取模型显示信息
 const modelInfo = computed(() => {
-  const modelType = props.task.modelType as ImageModelType
+  const modelType = props.task.modelType as VideoModelType
   const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
   return {
@@ -103,16 +100,19 @@ const modelInfo = computed(() => {
 // 是否显示加载动画
 const isLoading = computed(() => ['pending', 'submitting', 'processing'].includes(props.task.status))
 
-// 获取当前任务的预计时间（秒）（使用共享常量 DEFAULT_FALLBACK_ESTIMATED_TIME）
+// 获取当前任务的预计时间（秒）
 const estimatedTime = computed(() => {
-  return props.task.upstream?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
+  const modelType = props.task.modelType as VideoModelType
+  return props.task.upstream?.estimatedTime
+    ?? DEFAULT_VIDEO_ESTIMATED_TIMES[modelType]
+    ?? DEFAULT_FALLBACK_ESTIMATED_TIME
 })
 
 // 进度条：当前时间（定时更新）
 const now = ref(Date.now())
 let progressTimer: ReturnType<typeof setInterval> | null = null
 
-// 启动/停止进度条计时器（使用共享常量 PROGRESS_UPDATE_INTERVAL_MS）
+// 启动/停止进度条计时器
 watch(isLoading, (loading) => {
   if (loading) {
     now.value = Date.now()
@@ -129,7 +129,7 @@ onUnmounted(() => {
   if (progressTimer) clearInterval(progressTimer)
 })
 
-// 进度百分比（使用共享常量 PROGRESS_TIME_BUFFER_RATIO 作为时长缓冲系数）
+// 进度百分比
 const progressPercent = computed(() => {
   if (!isLoading.value) return 0
   const start = new Date(props.task.createdAt).getTime()
@@ -152,64 +152,6 @@ const duration = computed(() => {
   return `${minutes}分${remainSeconds}秒`
 })
 
-// 按钮列表（处理null）
-const buttons = computed(() => props.task.buttons ?? [])
-
-// 下拉菜单项（分组：放大、变体、重绘）
-const dropdownItems = computed(() => {
-  const items: any[][] = []
-
-  // 放大 U1-U4
-  const upscaleButtons = buttons.value.filter(btn => btn.label.startsWith('U'))
-  if (upscaleButtons.length > 0) {
-    items.push([
-      { label: '放大', type: 'label' },
-      ...upscaleButtons.map(btn => ({
-        label: btn.label,
-        icon: 'i-heroicons-arrows-pointing-out',
-        onSelect: () => handleAction(btn.customId)
-      }))
-    ])
-  }
-
-  // 变体 V1-V4
-  const variationButtons = buttons.value.filter(btn => btn.label.startsWith('V'))
-  if (variationButtons.length > 0) {
-    items.push([
-      { label: '变体', type: 'label' },
-      ...variationButtons.map(btn => ({
-        label: btn.label,
-        icon: 'i-heroicons-sparkles',
-        onSelect: () => handleAction(btn.customId)
-      }))
-    ])
-  }
-
-  // 重绘
-  const rerollButton = buttons.value.find(btn => btn.emoji === '🔄')
-  if (rerollButton) {
-    items.push([
-      {
-        label: '重绘',
-        icon: 'i-heroicons-arrow-path',
-        onSelect: () => handleAction(rerollButton.customId)
-      }
-    ])
-  }
-
-  return items
-})
-
-// 执行按钮动作
-async function handleAction(customId: string) {
-  isActioning.value = true
-  try {
-    emit('action', customId)
-  } finally {
-    isActioning.value = false
-  }
-}
-
 // 删除确认
 const showDeleteConfirm = ref(false)
 
@@ -222,11 +164,12 @@ function confirmDelete() {
   emit('remove')
 }
 
-// 查看大图
-const showImagePreview = ref(false)
+// 视频预览
+const showVideoPreview = ref(false)
+const videoRef = ref<HTMLVideoElement | null>(null)
 
-// 点击图片切换模糊状态
-function handleImageClick() {
+// 点击视频区域切换模糊状态
+function handleVideoClick() {
   toggleBlur(!isBlurred.value)
 }
 
@@ -239,19 +182,19 @@ const hasRefImages = computed(() => props.task.images && props.task.images.lengt
 // 任务详情
 const showTaskDetail = ref(false)
 
-// 下载图片
-function downloadImage() {
-  if (!props.task.imageUrl) return
+// 下载视频
+function downloadVideo() {
+  if (!props.task.resourceUrl) return
   const a = document.createElement('a')
-  a.href = props.task.imageUrl
-  a.download = `mj-${props.task.id}.png`
+  a.href = props.task.resourceUrl
+  a.download = `video-${props.task.id}.mp4`
   a.target = '_blank'
   a.click()
 }
 
 // 错误详情
 const showErrorDetailModal = ref(false)
-const errorLogs = ref<{ request: any; response: any } | null>(null)
+const errorLogs = ref<{ requests: any[]; responses: any[] } | null>(null)
 const loadingErrorLogs = ref(false)
 
 async function showErrorDetail() {
@@ -259,10 +202,9 @@ async function showErrorDetail() {
   showErrorDetailModal.value = true
 
   try {
-    const logs = await $fetch(`/api/tasks/${props.task.id}/logs`)
+    const logs = await $fetch<{ requests: any[]; responses: any[] }>(`/api/tasks/${props.task.id}/logs`)
     errorLogs.value = logs
   } catch (error: any) {
-    // 日志不存在时不显示详情（可能是网络错误/超时等无响应情况）
     if (error?.statusCode === 404) {
       errorLogs.value = null
       toast.add({ title: '无详情', description: '此错误无响应日志', color: 'warning' })
@@ -276,23 +218,28 @@ async function showErrorDetail() {
 
 <template>
   <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl border border-(--ui-border) overflow-hidden">
-    <!-- 图片预览 -->
-    <div class="aspect-square relative" :class="task.imageUrl && !isBlurred ? 'checkerboard-bg' : 'bg-(--ui-bg-muted)'">
-      <img
-        v-if="task.imageUrl"
-        :src="task.imageUrl"
-        :alt="task.prompt ?? ''"
+    <!-- 视频预览 -->
+    <div class="aspect-square relative bg-(--ui-bg-muted)">
+      <!-- 已生成的视频 -->
+      <video
+        v-if="task.resourceUrl"
+        ref="videoRef"
+        :src="task.resourceUrl"
         class="w-full h-full object-contain cursor-pointer transition-all duration-300"
         :class="isBlurred ? 'blur-xl scale-105' : ''"
-        @click="handleImageClick"
+        controls
+        preload="metadata"
+        @click.stop="handleVideoClick"
       />
+
+      <!-- 生成中状态 -->
       <div
         v-else
         class="w-full h-full flex items-center justify-center p-4"
       >
         <div class="text-center">
           <!-- 竖线加载动画 -->
-          <DrawingLoader
+          <StudioLoader
             v-if="statusInfo.showBars"
             :class="['w-12 h-12 mb-2', statusInfo.color]"
           />
@@ -318,10 +265,10 @@ async function showErrorDetail() {
         </div>
       </div>
 
-      <!-- 取消按钮（进行中状态，底部居中显示） -->
+      <!-- 取消按钮（进行中状态） -->
       <div
         v-if="['pending', 'submitting', 'processing'].includes(task.status)"
-        class="absolute bottom-16 left-0 right-0 flex justify-center"
+        class="absolute bottom-12 left-0 right-0 flex justify-center"
       >
         <button
           class="bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white/80 text-sm hover:bg-(--ui-warning)/70 transition-colors"
@@ -334,7 +281,7 @@ async function showErrorDetail() {
 
       <!-- 状态角标 -->
       <div
-        v-if="task.imageUrl && task.status !== 'success'"
+        v-if="task.resourceUrl && task.status !== 'success'"
         class="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm"
       >
         <span :class="['text-xs', statusInfo.color]">{{ statusInfo.text }}</span>
@@ -344,32 +291,22 @@ async function showErrorDetail() {
       <div class="absolute top-2 left-2 flex gap-1">
         <!-- 下载按钮 -->
         <button
-          v-if="task.imageUrl"
+          v-if="task.resourceUrl"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-          title="下载图片"
-          @click="downloadImage"
+          title="下载视频"
+          @click="downloadVideo"
         >
           <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 text-white" />
         </button>
-        <!-- 放大查看按钮 -->
+        <!-- 全屏查看按钮 -->
         <button
-          v-if="task.imageUrl"
+          v-if="task.resourceUrl"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-          title="放大查看"
-          @click="showImagePreview = true"
+          title="全屏查看"
+          @click="showVideoPreview = true"
         >
-          <UIcon name="i-heroicons-magnifying-glass-plus" class="w-4 h-4 text-white" />
+          <UIcon name="i-heroicons-arrows-pointing-out" class="w-4 h-4 text-white" />
         </button>
-        <!-- MJ操作按钮 -->
-        <UDropdownMenu v-if="modelInfo.type === 'midjourney' && buttons.length > 0" :items="dropdownItems">
-          <button
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-            title="MJ操作"
-            :disabled="isActioning"
-          >
-            <UIcon name="i-heroicons-squares-plus" class="w-4 h-4 text-white" />
-          </button>
-        </UDropdownMenu>
         <!-- 重试按钮 -->
         <button
           v-if="task.status === 'failed' || task.status === 'cancelled'"
@@ -391,7 +328,7 @@ async function showErrorDetail() {
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="复制到工作台"
-          @click="emit('copyToPanel', task.prompt, task.negativePrompt, task.images)"
+          @click="emit('copyToPanel', task.prompt, task.images)"
         >
           <UIcon name="i-heroicons-document-duplicate" class="w-4 h-4 text-white" />
         </button>
@@ -405,12 +342,18 @@ async function showErrorDetail() {
         </button>
       </div>
 
-      <!-- 模型标签 -->
-      <div
-        class="absolute bottom-2 left-2 px-2 py-1 rounded-full text-xs text-white font-medium"
-        :class="modelInfo.color"
-      >
-        {{ modelInfo.label }}
+      <!-- 模型标签 + 视频标识 -->
+      <div class="absolute bottom-2 left-2 flex gap-1.5">
+        <div
+          class="px-2 py-1 rounded-full text-xs text-white font-medium"
+          :class="modelInfo.color"
+        >
+          {{ modelInfo.label }}
+        </div>
+        <div class="px-2 py-1 rounded-full text-xs text-white font-medium bg-indigo-500/80">
+          <UIcon name="i-heroicons-video-camera" class="w-3 h-3 inline mr-0.5" />
+          视频
+        </div>
       </div>
 
       <!-- 参考图角标 -->
@@ -421,7 +364,7 @@ async function showErrorDetail() {
         @click="showRefImages = true"
       >
         <UIcon name="i-heroicons-photo" class="w-3.5 h-3.5" />
-        <span>参考图 {{ task.images.length }}</span>
+        <span>参考图</span>
       </button>
 
       <!-- 进度条（进行中状态显示） -->
@@ -456,10 +399,9 @@ async function showErrorDetail() {
       </div>
 
       <!-- 提示词 -->
-      <p class="text-(--ui-text-muted) text-sm line-clamp-2 mb-3" :title="task.prompt ?? ''">
-        <span class="text-(--ui-text-dimmed)">提示词：</span>{{ task.prompt || '图片混合' }}
+      <p class="text-(--ui-text-muted) text-sm line-clamp-2" :title="task.prompt ?? ''">
+        <span class="text-(--ui-text-dimmed)">提示词：</span>{{ task.prompt || '无' }}
       </p>
-
     </div>
 
     <!-- 删除确认 Modal -->
@@ -481,6 +423,10 @@ async function showErrorDetail() {
             <span class="font-mono text-(--ui-text)">{{ task.id }}</span>
           </div>
           <div class="flex justify-between">
+            <span class="text-(--ui-text-muted)">任务类型</span>
+            <span class="text-(--ui-text)">视频生成</span>
+          </div>
+          <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">上游</span>
             <span class="text-(--ui-text)">{{ task.upstream?.name || '未知' }}</span>
           </div>
@@ -495,10 +441,6 @@ async function showErrorDetail() {
           <div v-if="task.modelName" class="flex justify-between">
             <span class="text-(--ui-text-muted)">模型名称</span>
             <span class="text-(--ui-text) font-mono text-xs">{{ task.modelName }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">任务类型</span>
-            <span class="text-(--ui-text)">{{ task.type === 'blend' ? '图片混合' : '文生图' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">状态</span>
@@ -528,28 +470,29 @@ async function showErrorDetail() {
       </template>
     </UModal>
 
-    <!-- 大图预览 Modal -->
-    <UModal v-model:open="showImagePreview" :ui="{ content: 'sm:max-w-4xl' }">
+    <!-- 视频全屏预览 Modal -->
+    <UModal v-model:open="showVideoPreview" :ui="{ content: 'sm:max-w-4xl' }">
       <template #content>
-        <div class="relative bg-(--ui-bg) flex items-center justify-center">
-          <img
-            v-if="task.imageUrl"
-            :src="task.imageUrl"
-            :alt="task.prompt ?? ''"
-            class="max-h-[85vh]"
+        <div class="relative bg-black flex items-center justify-center">
+          <video
+            v-if="task.resourceUrl"
+            :src="task.resourceUrl"
+            class="max-h-[85vh] w-full"
+            controls
+            autoplay
           />
           <!-- 关闭按钮 -->
           <button
             class="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-            @click="showImagePreview = false"
+            @click="showVideoPreview = false"
           >
             <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-white" />
           </button>
           <!-- 下载按钮 -->
           <button
             class="absolute top-3 left-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-            title="下载图片"
-            @click="downloadImage"
+            title="下载视频"
+            @click="downloadVideo"
           >
             <UIcon name="i-heroicons-arrow-down-tray" class="w-5 h-5 text-white" />
           </button>
@@ -584,43 +527,48 @@ async function showErrorDetail() {
       <template #body>
         <!-- 加载中 -->
         <div v-if="loadingErrorLogs" class="text-center py-8">
-          <DrawingLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
+          <StudioLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
           <p class="text-(--ui-text-muted) text-sm">加载中...</p>
         </div>
 
         <!-- 日志内容 -->
-        <div v-else-if="errorLogs" class="space-y-4">
-          <!-- 请求信息 -->
-          <div v-if="errorLogs.request">
-            <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">请求</h4>
-            <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
+        <div v-else-if="errorLogs" class="space-y-4 max-h-[70vh] overflow-y-auto">
+          <!-- 遍历所有请求/响应对 -->
+          <div v-for="(response, index) in errorLogs.responses" :key="index" class="space-y-3">
+            <h4 class="text-sm font-medium text-(--ui-text-muted)">
+              请求 {{ index + 1 }} / {{ errorLogs.responses.length }}
+              <span class="text-xs text-(--ui-text-dimmed) ml-2">{{ response.timestamp }}</span>
+            </h4>
+
+            <!-- 请求信息 -->
+            <div v-if="errorLogs.requests[index]" class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
               <div class="flex items-center gap-2 text-sm">
-                <span class="font-mono text-(--ui-info)">{{ errorLogs.request.method }}</span>
-                <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.request.url }}</span>
+                <span class="font-mono text-(--ui-info)">{{ errorLogs.requests[index].method }}</span>
+                <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.requests[index].url }}</span>
               </div>
             </div>
-          </div>
 
-          <!-- 响应信息 -->
-          <div v-if="errorLogs.response">
-            <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">响应</h4>
+            <!-- 响应信息 -->
             <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-3">
               <!-- 状态码 -->
               <div class="flex items-center gap-2 text-sm">
                 <span class="text-(--ui-text-muted)">状态码</span>
                 <span
                   class="font-mono font-medium"
-                  :class="errorLogs.response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
+                  :class="response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
                 >
-                  {{ errorLogs.response.status }} {{ errorLogs.response.statusText }}
+                  {{ response.status }} {{ response.statusText }}
                 </span>
               </div>
               <!-- 响应体 -->
               <div>
                 <span class="text-(--ui-text-muted) text-sm block mb-1">响应内容</span>
-                <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-64 text-(--ui-text)">{{ JSON.stringify(errorLogs.response.data, null, 2) }}</pre>
+                <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-48 text-(--ui-text)">{{ JSON.stringify(response.data, null, 2) }}</pre>
               </div>
             </div>
+
+            <!-- 分隔线 -->
+            <hr v-if="index < errorLogs.responses.length - 1" class="border-(--ui-border)" />
           </div>
         </div>
 
@@ -633,25 +581,3 @@ async function showErrorDetail() {
     </UModal>
   </div>
 </template>
-
-<style scoped>
-.checkerboard-bg {
-  background-image:
-    linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
-    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
-    linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
-  background-size: 16px 16px;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-  background-color: #fff;
-}
-
-:root.dark .checkerboard-bg {
-  background-image:
-    linear-gradient(45deg, #3a3a3a 25%, transparent 25%),
-    linear-gradient(-45deg, #3a3a3a 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #3a3a3a 75%),
-    linear-gradient(-45deg, transparent 75%, #3a3a3a 75%);
-  background-color: #2a2a2a;
-}
-</style>

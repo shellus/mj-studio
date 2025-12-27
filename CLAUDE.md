@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-MJ-Studio 是一个多模型 AI 工作台，支持 AI 绘图（Midjourney、DALL-E、Gemini、Flux 等）和 AI 对话（GPT、Claude、DeepSeek 等）。基于 Nuxt 4 + Drizzle ORM + SQLite 构建。
+MJ-Studio 是一个多模型 AI 工作台，支持 AI 绘图（Midjourney、DALL-E、Gemini、Flux 等）、AI 视频生成（即梦、Veo 等）和 AI 对话（GPT、Claude、DeepSeek 等）。基于 Nuxt 4 + Drizzle ORM + SQLite 构建。
 
 ## 常用命令
 
@@ -27,10 +27,10 @@ vitest run tests/xxx.test.ts  # 运行单个测试文件
 
 ```
 app/                          # 前端代码
-├── pages/                    # 页面（drawing.vue、chat.vue、settings/）
+├── pages/                    # 页面（studio.vue、chat.vue、settings/）
 ├── components/               # UI 组件
 │   ├── chat/                 # 对话相关组件
-│   ├── drawing/              # 绘图相关组件
+│   ├── studio/               # 创作工作台组件（绘图/视频）
 │   └── settings/             # 设置相关组件
 ├── composables/              # 组合式函数
 └── shared/                   # 前后端共享类型和常量
@@ -38,7 +38,7 @@ server/                       # 后端代码
 ├── api/                      # API 路由
 ├── services/                 # 业务逻辑
 └── database/                 # 数据库 schema 和迁移
-data/                         # SQLite 数据库、上传的图片
+data/                         # SQLite 数据库、上传的图片/视频
 logs/                         # API 请求/响应日志
 docs/                         # 详细设计文档
 ```
@@ -64,10 +64,10 @@ docs/                         # 详细设计文档
 | `MarkdownContent.vue` | Markdown 渲染（处理 mj-drawing 代码块） |
 | `MjDrawingBlock.vue` | 嵌入式绘图组件（对话中渲染绘图参数） |
 
-### 绘图组件 (`drawing/`)
+### 创作工作台组件 (`studio/`)
 | 组件 | 用途 |
 |-----|-----|
-| `Workbench.vue` | 绘图工作台（提示词、负面提示词、参考图、模型选择） |
+| `Workbench.vue` | 创作工作台（提示词、负面提示词、参考图、模型选择） |
 | `List.vue` | 任务列表（分页、筛选、搜索、批量操作） |
 | `Card.vue` | 任务卡片（结果展示、操作按钮、进度条） |
 | `Loader.vue` | 加载动画 |
@@ -101,8 +101,17 @@ docs/                         # 详细设计文档
 ### 前后端共享类型系统
 
 类型和常量定义在 `app/shared/` 目录，前后端共用：
-- `types.ts`: 核心类型定义（ModelType、ApiFormat、TaskStatus、MessageRole 等）
-- `constants.ts`: 常量和映射表（MODEL_TYPE_LABELS、API_FORMAT_LABELS 等）
+- `types.ts`: 核心类型定义（ModelCategory、ModelType、ApiFormat、TaskType、TaskStatus 等）
+- `constants.ts`: 常量和映射表（MODEL_TYPE_LABELS、API_FORMAT_LABELS、CATEGORY_LABELS 等）
+
+**模型分类**：
+- `image`: 绘图模型（Midjourney、DALL-E、Gemini、Flux 等）
+- `video`: 视频模型（即梦、Veo 等）
+- `chat`: 对话模型（GPT、Claude、DeepSeek 等）
+
+**任务类型**：
+- `image`: 图片生成任务
+- `video`: 视频生成任务
 
 数据库 schema (`server/database/schema.ts`) 从 shared 导入类型，确保类型一致性。
 
@@ -116,10 +125,11 @@ docs/                         # 详细设计文档
 
 ### API 格式路由
 
-绘图任务根据 `apiFormat` 字段选择处理方式：
+任务根据 `apiFormat` 字段选择处理方式：
 - `mj-proxy`: 异步轮询模式（Midjourney）
 - `gemini`, `dalle`, `openai-chat`: 同步请求模式
 - `koukoutu`: 异步轮询模式（抠抠图）
+- `video-unified`: 视频统一格式（即梦、Veo）
 
 ## API 格式详解
 
@@ -132,6 +142,7 @@ docs/                         # 详细设计文档
 | DALL-E (Flux) | `POST /v1/images/edits` | 同左 | multipart/form-data 文件上传 | Base64 |
 | OpenAI Chat | `POST /v1/chat/completions` | 同左 | Base64 Data URL | URL (从 Markdown 解析) |
 | 抠抠图 | - | `POST /v1/create` | multipart/form-data 文件上传 | URL（异步轮询） |
+| Video Unified | `POST /v1/video/create` | 同左 | Base64 / URL | URL（异步轮询） |
 
 ### MJ-Proxy 格式
 
@@ -181,19 +192,33 @@ docs/                         # 详细设计文档
 - 参数：`model_key`（默认 `background-removal`）、`output_format`（webp/png）
 - 返回：`state` 0=处理中、1=成功、-1=失败，成功时 `result_file` 为图片 URL
 
-## 图片处理规范
+### 视频统一格式
+
+统一的视频生成 API 格式（即梦、Veo）：
+- `POST /v1/video/create` - 创建视频任务
+- `POST /v1/video/query` - 轮询任务状态
+- 参数：`model`、`prompt`、`aspect_ratio`、`image`（可选参考图）
+- 返回：`status`、`video_url`（成功时）、`error`（失败时）
+
+## 资源处理规范
 
 ### 核心原则
 
 1. **前端提交**：使用本地 URL（`/api/images/xxx`），不直接提交 Base64
-2. **数据库存储**：存储本地 URL，不存储 Base64
+2. **数据库存储**：`resourceUrl` 字段存储本地 URL，不存储 Base64
 3. **上游请求**：后端按需将本地 URL 转换为 Base64 发送给上游 API
-4. **结果本地化**：上游返回的图片（URL 或 Base64）必须下载/保存到本地，返回本地 URL
+4. **结果本地化**：上游返回的资源（图片/视频 URL 或 Base64）必须下载/保存到本地，返回本地 URL
 
-### 图片上传流程
+### 字段说明
+
+- `tasks.resourceUrl`: 任务产物的本地 URL（图片或视频），替代原来的 `imageUrl`
+- `tasks.taskType`: 任务类型（`image` 或 `video`）
+- `task_video`: 视频任务扩展表，存储视频特有参数（宽高比、分辨率等）
+
+### 资源上传流程
 
 ```
-前端选择图片
+前端选择图片/视频
     ↓
 POST /api/images/upload (multipart/form-data)
     ↓
@@ -203,9 +228,9 @@ POST /api/images/upload (multipart/form-data)
     ↓
 后端读取本地文件，按需转换为 Base64 调用上游
     ↓
-上游返回结果图片
+上游返回结果（图片/视频）
     ↓
-后端本地化（下载/保存），返回本地 URL
+后端本地化（下载/保存），更新 resourceUrl
 ```
 
 ### 各上游 API 的图片格式要求

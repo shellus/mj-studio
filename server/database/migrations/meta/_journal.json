@@ -15,6 +15,13 @@
       "when": 1766800781226,
       "tag": "0001_tearful_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1766861577981,
+      "tag": "0002_video-support",
+      "breakpoints": true
     }
   ]
 }

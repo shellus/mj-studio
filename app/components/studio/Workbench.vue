@@ -1,0 +1,159 @@
+<script setup lang="ts">
+import type { Upstream } from '~/composables/useUpstreams'
+import type { ImageModelType, VideoModelType, ApiFormat } from '../../shared/types'
+
+const props = defineProps<{
+  upstreams: Upstream[]
+}>()
+
+const emit = defineEmits<{
+  submitImage: [prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
+  submitVideo: [data: {
+    prompt: string
+    images: string[]
+    upstreamId: number
+    aimodelId: number
+    modelType: VideoModelType
+    apiFormat: ApiFormat
+    modelName: string
+    videoParams: {
+      aspectRatio?: string
+      size?: string
+      enhancePrompt?: boolean
+      enableUpsample?: boolean
+      imageMode?: 'reference' | 'frames' | 'components'
+    }
+  }]
+}>()
+
+// 当前标签页
+const activeTab = ref('image')
+
+// 标签页配置
+const tabs = [
+  { label: '图片', value: 'image', icon: 'i-heroicons-photo' },
+  { label: '视频', value: 'video', icon: 'i-heroicons-video-camera' },
+]
+
+// 检查是否有视频模型配置
+const hasVideoModels = computed(() => {
+  return props.upstreams.some(u =>
+    u.aimodels?.some(m => m.category === 'video' && !m.deletedAt)
+  )
+})
+
+// 图片表单引用
+const imageFormRef = ref<{
+  setContent: (prompt: string | null, negativePrompt: string | null, images: string[]) => void
+} | null>(null)
+
+// 视频表单引用
+const videoFormRef = ref<{
+  setContent: (prompt: string | null, images: string[]) => void
+} | null>(null)
+
+// 处理图片表单提交
+function handleImageSubmit(
+  prompt: string,
+  negativePrompt: string,
+  images: string[],
+  upstreamId: number,
+  aimodelId: number,
+  modelType: ImageModelType,
+  apiFormat: ApiFormat,
+  modelName: string
+) {
+  emit('submitImage', prompt, negativePrompt, images, upstreamId, aimodelId, modelType, apiFormat, modelName)
+}
+
+// 处理视频表单提交
+function handleVideoSubmit(data: {
+  prompt: string
+  images: string[]
+  upstreamId: number
+  aimodelId: number
+  modelType: VideoModelType
+  apiFormat: ApiFormat
+  modelName: string
+  videoParams: {
+    aspectRatio?: string
+    size?: string
+    enhancePrompt?: boolean
+    enableUpsample?: boolean
+    imageMode?: 'reference' | 'frames' | 'components'
+  }
+}) {
+  emit('submitVideo', data)
+}
+
+// 设置面板内容（供外部调用）
+function setContent(newPrompt: string | null, newNegativePrompt: string | null, images: string[]) {
+  if (activeTab.value === 'video' && videoFormRef.value) {
+    videoFormRef.value.setContent(newPrompt, images)
+  } else if (imageFormRef.value) {
+    imageFormRef.value.setContent(newPrompt, newNegativePrompt, images)
+  }
+}
+
+// 暴露给父组件
+defineExpose({
+  setContent,
+})
+</script>
+
+<template>
+  <div class="space-y-4">
+    <h2 class="text-(--ui-text) text-lg font-medium">创作工作台</h2>
+
+    <!-- 标签页切换 -->
+    <div class="flex gap-2 mb-4">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        :class="[
+          'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+          activeTab === tab.value
+            ? 'bg-(--ui-primary) text-white'
+            : 'bg-(--ui-bg-elevated) text-(--ui-text-muted) hover:text-(--ui-text) hover:bg-(--ui-bg-accented)',
+          tab.value === 'video' && !hasVideoModels ? 'opacity-50 cursor-not-allowed' : ''
+        ]"
+        :disabled="tab.value === 'video' && !hasVideoModels"
+        @click="activeTab = tab.value"
+      >
+        <UIcon :name="tab.icon" class="w-4 h-4" />
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- 图片表单 -->
+    <StudioImageForm
+      v-if="activeTab === 'image'"
+      ref="imageFormRef"
+      :upstreams="upstreams"
+      @submit="handleImageSubmit"
+    />
+
+    <!-- 视频表单 -->
+    <StudioVideoForm
+      v-else-if="activeTab === 'video'"
+      ref="videoFormRef"
+      :upstreams="upstreams"
+      @submit="handleVideoSubmit"
+    />
+
+    <!-- 没有视频模型配置时的提示 -->
+    <div
+      v-if="activeTab === 'video' && !hasVideoModels"
+      class="bg-(--ui-bg-elevated) rounded-2xl p-8 border border-(--ui-border) text-center"
+    >
+      <UIcon name="i-heroicons-video-camera" class="w-12 h-12 text-(--ui-text-dimmed) mx-auto mb-3" />
+      <p class="text-(--ui-text-muted) mb-4">暂无视频模型配置</p>
+      <NuxtLink to="/settings/upstreams">
+        <UButton variant="soft">
+          <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+          添加视频模型
+        </UButton>
+      </NuxtLink>
+    </div>
+  </div>
+</template>

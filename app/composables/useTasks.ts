@@ -1,5 +1,5 @@
 // 任务状态管理
-import type { ModelType, ApiFormat } from '../shared/types'
+import type { ModelType, ApiFormat, TaskType } from '../shared/types'
 
 // 精简的上游配置（用于任务列表/详情）
 export interface TaskUpstreamSummary {
@@ -13,6 +13,7 @@ export interface Task {
   userId: number
   upstreamId: number
   aimodelId: number
+  taskType: TaskType  // 任务类型：image | video
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
@@ -24,7 +25,7 @@ export interface Task {
   status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'
   upstreamTaskId: string | null
   progress: string | null
-  imageUrl: string | null
+  resourceUrl: string | null
   error: string | null
   isBlurred: boolean
   buttons: Array<{
@@ -59,6 +60,7 @@ export function useTasks() {
 
   // 筛选状态
   const sourceType = useState<'workbench' | 'chat' | 'all'>('tasks-sourceType', () => 'workbench')
+  const taskType = useState<TaskType | 'all'>('tasks-taskType', () => 'all')
   const keyword = useState('tasks-keyword', () => '')
 
   // 加载任务列表（支持分页和筛选）
@@ -74,6 +76,7 @@ export function useTasks() {
           page: currentPage.value,
           pageSize: pageSize.value,
           sourceType: sourceType.value,
+          taskType: taskType.value !== 'all' ? taskType.value : undefined,
           keyword: keyword.value || undefined,
         },
       })
@@ -260,6 +263,7 @@ export function useTasks() {
     pageSize,
     total,
     sourceType,
+    taskType,
     keyword,
     loadTasks,
     addTask,

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ChatModelType, ApiKeyConfig, UpstreamPlatform } from '../../../shared/types'
+import type { ModelCategory, ImageModelType, VideoModelType, ModelType, ApiFormat, ChatModelType, ApiKeyConfig, UpstreamPlatform } from '../../../shared/types'
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import type { AimodelInput } from '../../../composables/useUpstreams'
 import {
   IMAGE_MODEL_TYPES,
+  VIDEO_MODEL_TYPES,
   MODEL_API_FORMAT_OPTIONS,
   DEFAULT_MODEL_NAMES,
   DEFAULT_ESTIMATED_TIMES,
+  DEFAULT_VIDEO_ESTIMATED_TIMES,
   MODEL_TYPE_LABELS,
   API_FORMAT_LABELS,
   inferChatModelType,
@@ -47,6 +49,9 @@ const imageAimodels = ref<AimodelInput[]>([])
 // 对话模型配置
 const chatAimodels = ref<AimodelInput[]>([])
 
+// 视频模型配置
+const videoAimodels = ref<AimodelInput[]>([])
+
 // 当前 Tab
 const activeTab = ref('image')
 
@@ -57,6 +62,12 @@ const tabItems: TabsItem[] = [
     value: 'image',
     icon: 'i-heroicons-paint-brush',
     slot: 'image',
+  },
+  {
+    label: '视频模型',
+    value: 'video',
+    icon: 'i-heroicons-video-camera',
+    slot: 'video',
   },
   {
     label: '对话模型',
@@ -111,13 +122,24 @@ async function loadUpstreamData() {
         apiKeys.value = [{ name: 'default', key: upstream.apiKey }]
       }
 
-      // 分离绘图模型和对话模型
+      // 分离绘图模型、视频模型和对话模型
       if (upstream.aimodels) {
         imageAimodels.value = upstream.aimodels
           .filter(m => !m.category || m.category === 'image')
           .map(m => ({
             id: m.id,  // 保留 ID
             category: 'image' as ModelCategory,
+            modelType: m.modelType,
+            apiFormat: m.apiFormat,
+            modelName: m.modelName,
+            estimatedTime: m.estimatedTime,
+            keyName: m.keyName,
+          }))
+        videoAimodels.value = upstream.aimodels
+          .filter(m => m.category === 'video')
+          .map(m => ({
+            id: m.id,  // 保留 ID
+            category: 'video' as ModelCategory,
             modelType: m.modelType,
             apiFormat: m.apiFormat,
             modelName: m.modelName,
@@ -177,6 +199,17 @@ function addChatModel() {
   })
 }
 
+// 添加视频模型
+function addVideoModel() {
+  videoAimodels.value.push({
+    category: 'video',
+    modelType: '' as any,
+    apiFormat: '' as any,
+    modelName: '',
+    estimatedTime: 120,
+  })
+}
+
 // 移除模型配置
 function removeImageModel(index: number) {
   imageAimodels.value.splice(index, 1)
@@ -184,6 +217,10 @@ function removeImageModel(index: number) {
 
 function removeChatModel(index: number) {
   chatAimodels.value.splice(index, 1)
+}
+
+function removeVideoModel(index: number) {
+  videoAimodels.value.splice(index, 1)
 }
 
 // 当模型类型变化时，更新默认值
@@ -212,6 +249,20 @@ function onChatModelTypeChange(index: number) {
   }
 
   aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+}
+
+function onVideoModelTypeChange(index: number) {
+  const aimodel = videoAimodels.value[index]
+  if (!aimodel) return
+
+  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
+
+  if (!availableFormats.includes(aimodel.apiFormat)) {
+    aimodel.apiFormat = availableFormats[0] || 'video-unified'
+  }
+
+  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+  aimodel.estimatedTime = DEFAULT_VIDEO_ESTIMATED_TIMES[aimodel.modelType as VideoModelType] || 120
 }
 
 // 获取推断的模型类型显示
@@ -279,6 +330,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
   // 合并模型配置
   const allAimodels: AimodelInput[] = [
     ...imageAimodels.value.map(m => ({ ...m, category: 'image' as ModelCategory })),
+    ...videoAimodels.value.map(m => ({ ...m, category: 'video' as ModelCategory })),
     ...chatAimodels.value.map(m => ({ ...m, category: 'chat' as ModelCategory })),
   ]
 
@@ -565,6 +617,105 @@ async function confirmDelete() {
                   >
                     <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
                     <span class="text-sm text-(--ui-text-muted)">添加绘图模型</span>
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- 视频模型 Tab -->
+            <template #video>
+              <div class="pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <!-- 模型卡片列表 -->
+                  <div
+                    v-for="(aimodel, index) in videoAimodels"
+                    :key="aimodel.id || index"
+                    class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-(--ui-text) truncate">
+                          🎬 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
+                        </span>
+                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
+                          ID:{{ aimodel.id }}
+                        </span>
+                      </div>
+                      <UButton
+                        size="xs"
+                        variant="ghost"
+                        color="error"
+                        type="button"
+                        @click="removeVideoModel(index)"
+                      >
+                        <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+                      </UButton>
+                    </div>
+
+                    <div class="space-y-2">
+                      <UFormField label="模型类型">
+                        <USelectMenu
+                          v-model="aimodel.modelType"
+                          :items="VIDEO_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
+                          value-key="value"
+                          class="w-40"
+                          @update:model-value="onVideoModelTypeChange(index)"
+                        />
+                      </UFormField>
+
+                      <UFormField label="请求格式">
+                        <div class="flex flex-wrap gap-1.5">
+                          <UButton
+                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
+                            :key="f"
+                            size="xs"
+                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
+                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
+                            type="button"
+                            @click="aimodel.apiFormat = f"
+                          >
+                            {{ API_FORMAT_LABELS[f] }}
+                          </UButton>
+                        </div>
+                      </UFormField>
+
+                      <UFormField label="模型名称">
+                        <UInput
+                          v-model="aimodel.modelName"
+                          :placeholder="DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || '可选'"
+                          class="w-60"
+                        />
+                      </UFormField>
+
+                      <UFormField label="预计时间(秒)">
+                        <UInput
+                          v-model.number="aimodel.estimatedTime"
+                          type="number"
+                          min="1"
+                          class="w-24"
+                        />
+                      </UFormField>
+
+                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
+                        <USelectMenu
+                          v-model="aimodel.keyName"
+                          :items="availableKeyNames"
+                          value-key="value"
+                          placeholder="default"
+                          class="w-32"
+                        />
+                      </UFormField>
+                    </div>
+                  </div>
+
+                  <!-- 添加按钮卡片 -->
+                  <button
+                    type="button"
+                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
+                    @click="addVideoModel"
+                  >
+                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
+                    <span class="text-sm text-(--ui-text-muted)">添加视频模型</span>
                   </button>
                 </div>
               </div>

@@ -9,10 +9,10 @@
 
 /**
  * 模型分类
- * - 用于区分绘图模型和对话模型
+ * - 用于区分绘图模型、对话模型和视频模型
  * - 使用场景：模型配置表单、模型列表筛选
  */
-export type ModelCategory = 'image' | 'chat'
+export type ModelCategory = 'image' | 'chat' | 'video'
 
 // ==================== 绘图相关类型 ====================
 
@@ -56,11 +56,22 @@ export type ChatModelType =
   | 'mixtral'      // Mistral Mixtral
   | 'phi'          // Microsoft Phi
 
+// ==================== 视频相关类型 ====================
+
+/**
+ * 支持的视频模型类型
+ * - 用于标识不同的视频生成服务
+ * - 使用场景：任务创建、模型配置、任务卡片显示
+ */
+export type VideoModelType =
+  | 'jimeng-video'  // 即梦视频
+  | 'veo'           // Google Veo
+
 /**
  * 所有模型类型的联合
  * - 使用场景：模型配置表单中选择模型类型
  */
-export type ModelType = ImageModelType | ChatModelType
+export type ModelType = ImageModelType | ChatModelType | VideoModelType
 
 // ==================== API 格式类型 ====================
 
@@ -70,18 +81,28 @@ export type ModelType = ImageModelType | ChatModelType
  * - 使用场景：任务创建时选择请求格式、服务层路由
  */
 export type ApiFormat =
-  | 'mj-proxy'     // MJ-Proxy 格式，用于 Midjourney
-  | 'gemini'       // Google Gemini API 原生格式
-  | 'dalle'        // OpenAI DALL-E Images API 格式
-  | 'openai-chat'  // OpenAI Chat Completions API 格式
-  | 'claude'       // Anthropic Claude Messages API 格式
-  | 'koukoutu'     // 抠抠图 API 格式（异步轮询）
+  | 'mj-proxy'       // MJ-Proxy 格式，用于 Midjourney
+  | 'gemini'         // Google Gemini API 原生格式
+  | 'dalle'          // OpenAI DALL-E Images API 格式
+  | 'openai-chat'    // OpenAI Chat Completions API 格式
+  | 'claude'         // Anthropic Claude Messages API 格式
+  | 'koukoutu'       // 抠抠图 API 格式（异步轮询）
+  | 'video-unified'  // 视频统一格式（/v1/video/create），用于即梦、Veo
+
+// ==================== 任务类型 ====================
+
+/**
+ * 任务类型
+ * - 用于区分图片任务和视频任务
+ * - 使用场景：任务创建、任务列表筛选、卡片渲染
+ */
+export type TaskType = 'image' | 'video'
 
 // ==================== 任务状态类型 ====================
 
 /**
  * 任务状态
- * - 用于追踪绘图任务的生命周期
+ * - 用于追踪任务的生命周期（图片和视频共用）
  * - 使用场景：任务列表显示、状态轮询、进度条控制
  */
 export type TaskStatus =

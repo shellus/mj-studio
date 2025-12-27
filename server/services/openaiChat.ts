@@ -97,7 +97,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
         }
       }
 
-      return { success: true, imageUrl }
+      return { success: true, resourceUrl: imageUrl }
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {
@@ -170,7 +170,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
         }
       }
 
-      return { success: true, imageUrl }
+      return { success: true, resourceUrl: imageUrl }
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {

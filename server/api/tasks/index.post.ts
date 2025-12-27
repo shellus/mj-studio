@@ -1,17 +1,29 @@
-// POST /api/tasks - 创建生图任务
+// POST /api/tasks - 创建任务（图片/视频）
 import { useTaskService } from '../../services/task'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
-import type { ModelType, ApiFormat } from '../../database/schema'
-import { IMAGE_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
+import type { ModelType, ApiFormat, TaskType } from '../../database/schema'
+import { IMAGE_MODEL_TYPES, VIDEO_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
   const { user } = await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, negativePrompt, images = [], type = 'imagine', upstreamId, aimodelId, modelType, apiFormat, modelName } = body
+  const {
+    taskType = 'image',  // 任务类型：image | video
+    prompt,
+    negativePrompt,
+    images = [],
+    type = 'imagine',
+    upstreamId,
+    aimodelId,
+    modelType,
+    apiFormat,
+    modelName,
+    videoParams,  // 视频任务扩展参数
+  } = body
 
   // 验证上游配置
   if (!upstreamId) {
@@ -29,11 +41,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 验证模型类型（使用共享常量 IMAGE_MODEL_TYPES）
-  if (!modelType || !IMAGE_MODEL_TYPES.includes(modelType)) {
+  // 验证模型类型
+  const validModelTypes = taskType === 'video' ? VIDEO_MODEL_TYPES : IMAGE_MODEL_TYPES
+  if (!modelType || !validModelTypes.includes(modelType)) {
     throw createError({
       statusCode: 400,
-      message: '请选择模型类型',
+      message: '请选择有效的模型类型',
     })
   }
 
@@ -42,6 +55,14 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       message: '请选择API格式',
+    })
+  }
+
+  // 验证 taskType 与 apiFormat 的兼容性
+  if (taskType === 'video' && apiFormat !== 'video-unified') {
+    throw createError({
+      statusCode: 400,
+      message: '视频任务仅支持 video-unified 格式',
     })
   }
 
@@ -75,14 +96,22 @@ export default defineEventHandler(async (event) => {
         message: '抠抠图需要上传图片',
       })
     }
-  } else if (!prompt && type === 'imagine') {
+  } else if (!prompt && type === 'imagine' && taskType === 'image') {
     throw createError({
       statusCode: 400,
       message: '请输入提示词',
     })
   }
 
-  // blend模式仅支持mj-proxy格式
+  // 视频任务必须有提示词
+  if (taskType === 'video' && !prompt) {
+    throw createError({
+      statusCode: 400,
+      message: '视频任务需要输入提示词',
+    })
+  }
+
+  // blend模式仅支持mj-proxy格式（图片任务专用）
   if (type === 'blend' && apiFormat !== 'mj-proxy') {
     throw createError({
       statusCode: 400,
@@ -100,14 +129,17 @@ export default defineEventHandler(async (event) => {
   const taskService = useTaskService()
   const userSettingsService = useUserSettingsService()
 
-  // 获取用户的 blurByDefault 设置
-  const blurByDefault = await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
+  // 获取用户的 blurByDefault 设置（仅图片任务使用）
+  const blurByDefault = taskType === 'image'
+    ? await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
+    : false
 
   // 1. 先保存到数据库
   const task = await taskService.createTask({
     userId: user.id,
     upstreamId,
     aimodelId,
+    taskType,
     modelType,
     apiFormat,
     modelName: modelName || aimodel.modelName,
@@ -115,7 +147,8 @@ export default defineEventHandler(async (event) => {
     negativePrompt,
     images: images,
     type,
-    isBlurred: blurByDefault,
+    isBlurred: blurByDefault ?? true,
+    videoParams: taskType === 'video' ? videoParams : undefined,
   })
 
   // 2. 异步提交到对应的生成服务（不阻塞响应）
@@ -127,6 +160,6 @@ export default defineEventHandler(async (event) => {
   return {
     success: true,
     taskId: task.id,
-    message: '任务已创建，正在提交到生成服务',
+    message: taskType === 'video' ? '视频任务已创建，正在提交到生成服务' : '任务已创建，正在提交到生成服务',
   }
 })

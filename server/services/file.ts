@@ -1,6 +1,6 @@
 // 文件存储服务 - 管理文件的下载、存储和访问
 import { createHash } from 'crypto'
-import { existsSync, mkdirSync, writeFileSync, readFileSync, statSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, statSync, createReadStream, type ReadStream } from 'fs'
 import { join } from 'path'
 
 // 文件存储目录
@@ -220,6 +220,43 @@ export function readFile(fileName: string): { buffer: Buffer; mimeType: string; 
     return { buffer, mimeType, size: stats.size }
   } catch (error) {
     console.error('[File] 读取文件失败:', error)
+    return null
+  }
+}
+
+// 获取文件信息（不读取内容）
+export function getFileInfo(fileName: string): { mimeType: string; size: number; path: string } | null {
+  try {
+    const filePath = join(UPLOAD_DIR, fileName)
+    if (!existsSync(filePath)) {
+      return null
+    }
+
+    const mimeType = getMimeType(fileName)
+    const stats = statSync(filePath)
+
+    return { mimeType, size: stats.size, path: filePath }
+  } catch (error) {
+    console.error('[File] 获取文件信息失败:', error)
+    return null
+  }
+}
+
+// 创建文件流（用于 Range 请求）
+export function createFileStream(fileName: string, start?: number, end?: number): ReadStream | null {
+  try {
+    const filePath = join(UPLOAD_DIR, fileName)
+    if (!existsSync(filePath)) {
+      return null
+    }
+
+    const options: { start?: number; end?: number } = {}
+    if (start !== undefined) options.start = start
+    if (end !== undefined) options.end = end
+
+    return createReadStream(filePath, options)
+  } catch (error) {
+    console.error('[File] 创建文件流失败:', error)
     return null
   }
 }

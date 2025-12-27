@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { TaskType } from '../../shared/types'
+
 const emit = defineEmits<{
   copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
 }>()
 
 const toast = useToast()
-const { tasks, isLoading, currentPage, pageSize, total, sourceType, keyword, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
+const { tasks, isLoading, currentPage, pageSize, total, sourceType, taskType, keyword, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
 
 // 批量操作loading状态
 const blurLoading = ref(false)
@@ -14,6 +16,13 @@ const sourceOptions = [
   { label: '绘图工作台', value: 'workbench' },
   { label: '对话插图', value: 'chat' },
   { label: '全部', value: 'all' },
+]
+
+// 任务类型筛选选项
+const taskTypeOptions: { label: string; value: TaskType | 'all' }[] = [
+  { label: '全部', value: 'all' },
+  { label: '图片', value: 'image' },
+  { label: '视频', value: 'video' },
 ]
 
 // 关键词搜索（防抖）
@@ -31,6 +40,12 @@ function handleSearchInput() {
 
 // 切换来源筛选
 function handleSourceChange() {
+  currentPage.value = 1
+  loadTasks()
+}
+
+// 切换任务类型筛选
+function handleTaskTypeChange() {
   currentPage.value = 1
   loadTasks()
 }
@@ -83,7 +98,7 @@ function handleBlur(taskId: number, isBlurred: boolean) {
 
 // 获取当前页有图片的任务ID
 function getCurrentPageTaskIds() {
-  return tasks.value.filter(t => t.imageUrl).map(t => t.id)
+  return tasks.value.filter(t => t.resourceUrl).map(t => t.id)
 }
 
 // 模糊当前页
@@ -122,7 +137,7 @@ function handlePageChange() {
       <h2 class="text-(--ui-text) text-lg font-medium">生成任务</h2>
       <div class="flex items-center gap-3">
         <!-- 模糊全部/取消模糊 -->
-        <div v-if="tasks.some(t => t.imageUrl)" class="flex items-center gap-1">
+        <div v-if="tasks.some(t => t.resourceUrl)" class="flex items-center gap-1">
           <UButton
             size="xs"
             variant="ghost"
@@ -168,6 +183,15 @@ function handlePageChange() {
         size="sm"
         @update:model-value="handleSourceChange"
       />
+      <!-- 任务类型筛选 -->
+      <USelectMenu
+        v-model="taskType"
+        :items="taskTypeOptions"
+        value-key="value"
+        class="w-24"
+        size="sm"
+        @update:model-value="handleTaskTypeChange"
+      />
       <!-- 关键词搜索 -->
       <UInput
         v-model="searchInput"
@@ -197,17 +221,29 @@ function handlePageChange() {
 
     <template v-else>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <DrawingCard
-          v-for="task in tasks"
-          :key="task.id"
-          :task="task"
-          @action="handleAction(task.id, $event)"
-          @remove="handleDelete(task.id)"
-          @retry="handleRetry(task.id)"
-          @cancel="handleCancel(task.id)"
-          @blur="handleBlur(task.id, $event)"
-          @copy-to-panel="(prompt, negativePrompt, images) => emit('copyToPanel', prompt, negativePrompt, images)"
-        />
+        <template v-for="task in tasks" :key="task.id">
+          <!-- 视频任务使用 VideoCard -->
+          <StudioVideoCard
+            v-if="task.taskType === 'video'"
+            :task="task"
+            @remove="handleDelete(task.id)"
+            @retry="handleRetry(task.id)"
+            @cancel="handleCancel(task.id)"
+            @blur="handleBlur(task.id, $event)"
+            @copy-to-panel="(prompt, images) => emit('copyToPanel', prompt, null, images)"
+          />
+          <!-- 图片任务使用 Card -->
+          <StudioCard
+            v-else
+            :task="task"
+            @action="handleAction(task.id, $event)"
+            @remove="handleDelete(task.id)"
+            @retry="handleRetry(task.id)"
+            @cancel="handleCancel(task.id)"
+            @blur="handleBlur(task.id, $event)"
+            @copy-to-panel="(prompt, negativePrompt, images) => emit('copyToPanel', prompt, negativePrompt, images)"
+          />
+        </template>
       </div>
 
       <!-- 分页 -->

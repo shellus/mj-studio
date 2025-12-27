@@ -83,6 +83,8 @@ function filterModelsByCategory(aimodels: Aimodel[]): Aimodel[] {
   return aimodels.filter(m => {
     if (props.category === 'image') {
       return m.category === 'image' || (!m.category && isImageModelType(m.modelType))
+    } else if (props.category === 'video') {
+      return m.category === 'video'
     } else {
       return m.category === 'chat' ||
         (!m.category && m.apiFormat === 'openai-chat' && !isImageModelType(m.modelType))
@@ -217,7 +219,7 @@ defineExpose({
     <!-- 空状态 -->
     <div v-if="upstreams.length === 0" class="text-xs text-(--ui-text-muted) flex items-center">
       <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 mr-1" />
-      请先在设置中添加{{ category === 'chat' ? '对话' : '绘图' }}模型
+      请先在设置中添加{{ category === 'chat' ? '对话' : category === 'video' ? '视频' : '绘图' }}模型
     </div>
 
     <!-- 触发按钮 -->

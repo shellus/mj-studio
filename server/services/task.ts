@@ -1,12 +1,13 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
-import { tasks, upstreams, aimodels, type Task, type TaskStatus, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
+import { tasks, upstreams, aimodels, taskVideo, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat, type TaskVideo, type NewTaskVideo } from '../database/schema'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
 import { createKoukoutuService } from './koukoutu'
+import { createVideoUnifiedService, type VideoCreateParams } from './videoUnified'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
@@ -14,6 +15,7 @@ import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassi
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
+import type { VideoModelType } from '../../app/shared/types'
 
 // 存储每个任务的 AbortController，用于取消请求
 const taskAbortControllers = new Map<number, AbortController>()
@@ -48,11 +50,21 @@ export function useTaskService() {
     }).filter(Boolean) as string[]
   }
 
+  // 视频任务参数类型
+  interface VideoParams {
+    aspectRatio?: string
+    size?: string            // 即梦专用
+    enhancePrompt?: boolean  // Veo 专用
+    enableUpsample?: boolean // Veo 专用
+    imageMode?: 'reference' | 'frames' | 'components' // Veo 专用
+  }
+
   // 创建任务（仅保存到数据库）
   async function createTask(data: {
     userId: number
     upstreamId: number
     aimodelId: number
+    taskType?: TaskType
     modelType: ModelType
     apiFormat: ApiFormat
     modelName: string
@@ -63,11 +75,15 @@ export function useTaskService() {
     isBlurred?: boolean
     uniqueId?: string
     sourceType?: 'workbench' | 'chat'
+    videoParams?: VideoParams
   }): Promise<Task> {
+    const taskType = data.taskType ?? 'image'
+
     const [task] = await db.insert(tasks).values({
       userId: data.userId,
       upstreamId: data.upstreamId,
       aimodelId: data.aimodelId,
+      taskType,
       modelType: data.modelType,
       apiFormat: data.apiFormat,
       modelName: data.modelName,
@@ -80,6 +96,19 @@ export function useTaskService() {
       uniqueId: data.uniqueId ?? null,
       sourceType: data.sourceType ?? 'workbench',
     }).returning()
+
+    // 如果是视频任务，创建扩展记录
+    if (taskType === 'video' && data.videoParams) {
+      await db.insert(taskVideo).values({
+        taskId: task.id,
+        aspectRatio: data.videoParams.aspectRatio ?? null,
+        size: data.videoParams.size ?? null,
+        enhancePrompt: data.videoParams.enhancePrompt ?? null,
+        enableUpsample: data.videoParams.enableUpsample ?? null,
+        imageMode: data.videoParams.imageMode ?? null,
+      })
+    }
+
     return task
   }
 
@@ -95,7 +124,7 @@ export function useTaskService() {
     status: TaskStatus
     upstreamTaskId: string | null
     progress: string | null
-    imageUrl: string | null
+    resourceUrl: string | null
     error: string | null
     buttons: Task['buttons']
     isBlurred: boolean
@@ -163,6 +192,7 @@ export function useTaskService() {
     page?: number
     pageSize?: number
     sourceType?: 'workbench' | 'chat' | 'all'
+    taskType?: TaskType | 'all'
     keyword?: string
   } = {}): Promise<{
     tasks: Array<Task & { upstream?: TaskUpstreamSummary }>
@@ -173,6 +203,7 @@ export function useTaskService() {
     const page = options.page ?? 1
     const pageSize = options.pageSize ?? 20
     const sourceType = options.sourceType ?? 'workbench'
+    const taskTypeFilter = options.taskType ?? 'all'
     const keyword = options.keyword
 
     // 构建筛选条件
@@ -181,6 +212,11 @@ export function useTaskService() {
     // 来源筛选
     if (sourceType !== 'all') {
       conditions.push(eq(tasks.sourceType, sourceType))
+    }
+
+    // 任务类型筛选
+    if (taskTypeFilter !== 'all') {
+      conditions.push(eq(tasks.taskType, taskTypeFilter))
     }
 
     // 关键词筛选（搜索 prompt 和 uniqueId）
@@ -382,6 +418,9 @@ export function useTaskService() {
         case 'koukoutu':
           await submitToKoukoutu(task, upstream, aimodel)
           break
+        case 'video-unified':
+          await submitToVideoUnified(task, upstream, aimodel)
+          break
         default:
           await updateTask(taskId, {
             status: 'failed',
@@ -411,8 +450,8 @@ export function useTaskService() {
     if (result.imageBase64) {
       const dataUrl = `data:${result.mimeType || 'image/png'};base64,${result.imageBase64}`
       fileName = saveBase64Image(dataUrl)
-    } else if (result.imageUrl) {
-      fileName = await downloadFile(result.imageUrl, logPrefix)
+    } else if (result.resourceUrl) {
+      fileName = await downloadFile(result.resourceUrl, logPrefix)
     }
 
     if (!fileName) {
@@ -426,7 +465,7 @@ export function useTaskService() {
     await updateTask(task.id, {
       status: 'success',
       progress: '100%',
-      imageUrl: getFileUrl(fileName),
+      resourceUrl: getFileUrl(fileName),
     })
 
     // 更新预计时间
@@ -584,18 +623,64 @@ export function useTaskService() {
     }
   }
 
-  // 同步任务状态（MJ 和抠抠图需要轮询）
+  // 提交到视频统一格式 API（异步轮询）
+  async function submitToVideoUnified(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
+    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel), task.modelType as VideoModelType)
+
+    try {
+      // 获取视频任务的扩展参数
+      const videoInfo = await db.query.taskVideo.findFirst({
+        where: eq(taskVideo.taskId, task.id),
+      })
+
+      // 构建请求参数
+      const params: VideoCreateParams = {
+        model: task.modelName,
+        prompt: task.prompt ?? '',
+      }
+
+      // 添加视频扩展参数
+      if (videoInfo) {
+        if (videoInfo.aspectRatio) params.aspect_ratio = videoInfo.aspectRatio
+        if (videoInfo.size) params.size = videoInfo.size
+        if (videoInfo.enhancePrompt !== null) params.enhance_prompt = videoInfo.enhancePrompt
+        if (videoInfo.enableUpsample !== null) params.enable_upsample = videoInfo.enableUpsample
+      }
+
+      // 参考图（转换为 Base64）
+      if (task.images && task.images.length > 0) {
+        params.images = convertImagesToBase64(task.images)
+      }
+
+      const result = await videoService.create(params, task.id)
+
+      // 更新上游任务ID和状态
+      await updateTask(task.id, {
+        status: 'processing',
+        upstreamTaskId: result.id,
+      })
+    } catch (error: any) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: classifyFetchError(error),
+      })
+    }
+  }
+
+  // 同步任务状态（MJ、抠抠图、视频需要轮询）
   async function syncTaskStatus(taskId: number): Promise<Task | undefined> {
     const data = await getTaskWithConfig(taskId)
     if (!data) return undefined
 
     const { task, upstream, aimodel } = data
 
-    // 只有 MJ 和抠抠图需要轮询
+    // 根据 apiFormat 选择轮询方式
     if (task.apiFormat === 'koukoutu') {
       return await syncKoukoutuStatus(task, upstream, aimodel)
     } else if (task.apiFormat === 'mj-proxy') {
       return await syncMJStatus(task, upstream, aimodel)
+    } else if (task.apiFormat === 'video-unified') {
+      return await syncVideoUnifiedStatus(task, upstream, aimodel)
     }
 
     return task
@@ -614,7 +699,7 @@ export function useTaskService() {
       const result = await koukoutu.query(task.upstreamTaskId)
 
       let status: TaskStatus = task.status
-      let imageUrl: string | null = null
+      let resourceUrl: string | null = null
 
       if (result.data.state === 1) {
         // 成功
@@ -622,7 +707,7 @@ export function useTaskService() {
         if (result.data.result_file) {
           const fileName = await downloadFile(result.data.result_file, logPrefix)
           if (fileName) {
-            imageUrl = getFileUrl(fileName)
+            resourceUrl = getFileUrl(fileName)
           }
           await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
         }
@@ -635,7 +720,7 @@ export function useTaskService() {
       return await updateTask(task.id, {
         status,
         progress: status === 'success' ? '100%' : null,
-        imageUrl,
+        resourceUrl,
         error: status === 'failed' ? '抠图处理失败' : null,
       })
     } catch (error: any) {
@@ -667,11 +752,11 @@ export function useTaskService() {
       }
 
       // 处理图片URL：成功时下载到本地
-      let imageUrl = mjTask.imageUrl || null
-      if (status === 'success' && imageUrl && !imageUrl.startsWith('/api/images/')) {
-        const fileName = await downloadFile(imageUrl, logPrefix)
+      let resourceUrl = mjTask.imageUrl || null
+      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/images/')) {
+        const fileName = await downloadFile(resourceUrl, logPrefix)
         if (fileName) {
-          imageUrl = getFileUrl(fileName)
+          resourceUrl = getFileUrl(fileName)
         }
         // 下载失败时保留原始URL
 
@@ -698,13 +783,68 @@ export function useTaskService() {
       return await updateTask(task.id, {
         status,
         progress: mjTask.progress || null,
-        imageUrl,
+        resourceUrl,
         error,
         buttons: mjTask.buttons || null,
       })
     } catch (error: any) {
       // 查询失败不更新状态，仅记录错误
       console.error('同步任务状态失败:', error.message)
+      return task
+    }
+  }
+
+  // 同步视频统一格式任务状态
+  async function syncVideoUnifiedStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
+    if (!task.upstreamTaskId) {
+      return task
+    }
+
+    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel), task.modelType as VideoModelType)
+    const logPrefix = `[Task] #${task.id}`
+
+    try {
+      const result = await videoService.query(task.upstreamTaskId, task.id)
+
+      // 状态已在 videoUnified 服务中归一化
+      const status: TaskStatus = result.status
+
+      // 处理视频 URL：成功时下载到本地
+      let resourceUrl = result.video_url || null
+      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/')) {
+        const fileName = await downloadFile(resourceUrl, logPrefix)
+        if (fileName) {
+          resourceUrl = getFileUrl(fileName)
+        }
+        // 下载失败时保留原始 URL
+
+        // 更新预计时间
+        await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
+      }
+
+      // 更新视频扩展表中的增强提示词
+      if (result.enhanced_prompt) {
+        await db.update(taskVideo)
+          .set({ enhancedPrompt: result.enhanced_prompt })
+          .where(eq(taskVideo.taskId, task.id))
+      }
+
+      // 计算进度显示
+      let progress: string | null = null
+      if (status === 'success') {
+        progress = '100%'
+      } else if (result.progress !== undefined && result.progress > 0) {
+        progress = `${Math.round(result.progress)}%`
+      }
+
+      return await updateTask(task.id, {
+        status,
+        progress,
+        resourceUrl,
+        error: result.error || (status === 'failed' ? '视频生成失败' : null),
+      })
+    } catch (error: any) {
+      console.error('同步视频任务状态失败:', error.message)
       return task
     }
   }

@@ -46,10 +46,10 @@ const { loggedIn } = useAuth()
 
         <!-- CTA -->
         <div class="flex justify-center gap-4">
-          <NuxtLink v-if="loggedIn" to="/drawing">
+          <NuxtLink v-if="loggedIn" to="/studio">
             <UButton size="lg" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
               <UIcon name="i-heroicons-paint-brush" class="w-5 h-5 mr-2" />
-              开始绘图
+              开始创作
             </UButton>
           </NuxtLink>
           <NuxtLink v-else to="/login">

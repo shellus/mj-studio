@@ -112,8 +112,8 @@ function formatDeletedTime(deletedAt: string | null) {
           <!-- 图片预览 -->
           <div class="aspect-square rounded-lg overflow-hidden bg-(--ui-bg) mb-3">
             <img
-              v-if="task.imageUrl"
-              :src="task.imageUrl"
+              v-if="task.resourceUrl"
+              :src="task.resourceUrl"
               alt="生成的图片"
               class="w-full h-full object-cover"
             />

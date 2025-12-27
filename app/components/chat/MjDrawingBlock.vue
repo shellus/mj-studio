@@ -13,7 +13,7 @@ const props = defineProps<{
 // 任务状态
 const status = ref<'idle' | 'pending' | 'submitting' | 'processing' | 'success' | 'failed'>('idle')
 const progress = ref<string | null>(null)
-const imageUrl = ref<string | null>(null)
+const resourceUrl = ref<string | null>(null)
 const taskId = ref<number | null>(null)
 const error = ref<string | null>(null)
 const createdAt = ref<Date | null>(null)
@@ -119,7 +119,7 @@ async function fetchOrCreateTask(startTask = false) {
 // 从响应更新状态
 function updateFromResponse(res: any, wasStarted = true) {
   progress.value = res.progress
-  imageUrl.value = res.imageUrl
+  resourceUrl.value = res.resourceUrl
   error.value = res.error
   if (res.isBlurred !== undefined) {
     isBlurred.value = res.isBlurred
@@ -176,9 +176,9 @@ function stopPolling() {
 
 // 下载图片
 function downloadImage() {
-  if (!imageUrl.value) return
+  if (!resourceUrl.value) return
   const a = document.createElement('a')
-  a.href = imageUrl.value
+  a.href = resourceUrl.value
   a.download = `illustration-${props.params.uniqueId}.png`
   a.target = '_blank'
   a.click()
@@ -211,7 +211,7 @@ async function regenerate() {
 
   status.value = 'pending'
   error.value = null
-  imageUrl.value = null
+  resourceUrl.value = null
   createdAt.value = new Date()
 
   try {
@@ -259,8 +259,8 @@ onUnmounted(() => {
     >
       <!-- 成功时显示图片 -->
       <img
-        v-if="status === 'success' && imageUrl"
-        :src="imageUrl"
+        v-if="status === 'success' && resourceUrl"
+        :src="resourceUrl"
         :alt="params.prompt"
         class="w-full h-full object-contain cursor-pointer transition-all duration-300"
         :class="isBlurred ? 'blur-xl scale-105' : 'hover:opacity-90'"
@@ -275,7 +275,7 @@ onUnmounted(() => {
         <!-- 上半部分：图标 + 状态 + 按钮 -->
         <div class="flex-1 flex flex-col items-center justify-center">
           <!-- 竖线加载动画 -->
-          <DrawingLoader
+          <StudioLoader
             v-if="statusInfo.showBars"
             :class="['w-10 h-10', statusInfo.color]"
           />
@@ -318,7 +318,7 @@ onUnmounted(() => {
 
       <!-- 左上角按钮组（成功时显示） -->
       <div
-        v-if="status === 'success' && imageUrl"
+        v-if="status === 'success' && resourceUrl"
         class="absolute top-2 left-2 flex gap-1 transition-opacity"
         :class="showActions ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'"
       >
@@ -384,7 +384,7 @@ onUnmounted(() => {
     <UModal v-model:open="showPreview" :ui="{ content: 'sm:max-w-4xl' }">
       <template #content>
         <div class="relative bg-(--ui-bg) flex items-center justify-center">
-          <img :src="imageUrl!" :alt="params.prompt" class="max-h-[85vh] object-contain" />
+          <img :src="resourceUrl!" :alt="params.prompt" class="max-h-[85vh] object-contain" />
           <button
             class="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
             @click="showPreview = false"

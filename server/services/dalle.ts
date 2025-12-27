@@ -93,7 +93,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       return {
         success: true,
-        imageUrl: imageData.url,
+        resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
     } catch (error: any) {
@@ -186,7 +186,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       return {
         success: true,
-        imageUrl: imageData.url,
+        resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
     } catch (error: any) {
@@ -257,7 +257,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       return {
         success: true,
-        imageUrl: imageData.url,
+        resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
     } catch (error: any) {

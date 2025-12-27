@@ -41,7 +41,7 @@ watch(user, (val) => {
 
 // 导航项
 const navItems = [
-  { label: '绘图', to: '/drawing', icon: 'i-heroicons-paint-brush' },
+  { label: '创作', to: '/studio', icon: 'i-heroicons-paint-brush' },
   { label: '对话', to: '/chat', icon: 'i-heroicons-chat-bubble-left-right' },
   { label: '设置', to: '/settings', icon: 'i-heroicons-cog-6-tooth' },
 ]

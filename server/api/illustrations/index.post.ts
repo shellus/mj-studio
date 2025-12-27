@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
       taskId: null,
       status: 'idle',
       progress: null,
-      imageUrl: null,
+      resourceUrl: null,
       error: null,
     }
   }
@@ -128,7 +128,7 @@ function formatTaskResponse(task: any) {
     taskId: task.id,
     status: task.status,
     progress: task.progress,
-    imageUrl: task.imageUrl,
+    resourceUrl: task.resourceUrl,
     error: task.error,
     isBlurred: task.isBlurred,
   }

@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
     taskId: task.id,
     status: task.status,
     progress: task.progress,
-    imageUrl: task.imageUrl,
+    resourceUrl: task.resourceUrl,
     error: task.error,
   }
 })

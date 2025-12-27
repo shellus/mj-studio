@@ -5,7 +5,7 @@
  * 修改常量时需同步检查所有使用位置。
  */
 
-import type { ModelType, ImageModelType, ChatModelType, ApiFormat, ModelCategory } from './types'
+import type { ModelType, ImageModelType, ChatModelType, VideoModelType, ApiFormat, ModelCategory } from './types'
 
 // ==================== 模型类型列表 ====================
 
@@ -51,18 +51,28 @@ export const CHAT_MODEL_TYPES: ChatModelType[] = [
 ]
 
 /**
- * 所有模型类型列表（绘图 + 对话）
+ * 所有视频模型类型列表
+ * - 使用场景：
+ *   - settings.vue: 模型配置表单的模型类型下拉选项（视频分类）
+ */
+export const VIDEO_MODEL_TYPES: VideoModelType[] = [
+  'jimeng-video',
+  'veo',
+]
+
+/**
+ * 所有模型类型列表（绘图 + 对话 + 视频）
  * - 使用场景：
  *   - settings.vue: 检查是否已添加所有模型类型
  */
-export const ALL_MODEL_TYPES: ModelType[] = [...IMAGE_MODEL_TYPES, ...CHAT_MODEL_TYPES]
+export const ALL_MODEL_TYPES: ModelType[] = [...IMAGE_MODEL_TYPES, ...CHAT_MODEL_TYPES, ...VIDEO_MODEL_TYPES]
 
 /**
  * 所有 API 格式列表
  * - 使用场景：
  *   - index.post.ts: 创建任务时验证 apiFormat 参数
  */
-export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat', 'claude', 'koukoutu']
+export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat', 'claude', 'koukoutu', 'video-unified']
 
 // ==================== 模型类型与 API 格式映射 ====================
 
@@ -100,6 +110,9 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   'hunyuan': ['openai-chat', 'claude'],
   'mixtral': ['openai-chat', 'claude'],
   'phi': ['openai-chat', 'claude'],
+  // 视频模型
+  'jimeng-video': ['video-unified'],
+  'veo': ['video-unified'],
 }
 
 /**
@@ -135,6 +148,9 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
   'hunyuan': 'chat',
   'mixtral': 'chat',
   'phi': 'chat',
+  // 视频模型
+  'jimeng-video': 'video',
+  'veo': 'video',
 }
 
 // ==================== 默认模型名称 ====================
@@ -176,6 +192,9 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'hunyuan': 'hunyuan-t1',
   'mixtral': 'mixtral-8x22b',
   'phi': 'phi-4',
+  // 视频模型
+  'jimeng-video': 'jimeng-video-3.0',
+  'veo': 'veo3.1-fast',
 }
 
 // ==================== 默认预计时间 ====================
@@ -207,6 +226,18 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ImageModelType, number> = {
  *   - TaskCard.vue: estimatedTime computed 的最终 fallback
  */
 export const DEFAULT_FALLBACK_ESTIMATED_TIME = 60
+
+/**
+ * 各视频模型类型的默认预计生成时间（秒）
+ * - 用途：初次创建配置时的默认值，进度条显示的 fallback
+ * - 使用场景：
+ *   - settings.vue: 创建视频模型配置时自动填充预计时间
+ *   - VideoCard.vue: 计算进度条百分比时的 fallback
+ */
+export const DEFAULT_VIDEO_ESTIMATED_TIMES: Record<VideoModelType, number> = {
+  'jimeng-video': 120,
+  'veo': 180,
+}
 
 // ==================== 预计时间更新逻辑说明 ====================
 //
@@ -294,6 +325,9 @@ export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'hunyuan': '混元',
   'mixtral': 'Mixtral',
   'phi': 'Phi',
+  // 视频模型
+  'jimeng-video': '即梦视频',
+  'veo': 'Veo',
 }
 
 /**
@@ -311,6 +345,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
   'openai-chat': 'OpenAI Chat',
   'claude': 'Claude API',
   'koukoutu': '抠抠图 API',
+  'video-unified': '视频统一格式',
 }
 
 /**
@@ -322,6 +357,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
 export const CATEGORY_LABELS: Record<ModelCategory, string> = {
   'image': '绘图',
   'chat': '对话',
+  'video': '视频',
 }
 
 /**
@@ -347,9 +383,11 @@ export const MODEL_TYPE_ICONS: Record<ImageModelType, string> = {
  * 任务卡片中模型类型的显示配置（简短标签 + 颜色）
  * - 用途：任务卡片左下角的模型标签
  * - 使用场景：
- *   - TaskCard.vue: 模型标签的文本和背景色
+ *   - Card.vue: 图片任务卡片模型标签的文本和背景色
+ *   - VideoCard.vue: 视频任务卡片模型标签的文本和背景色
  */
-export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType, { label: string; color: string }> = {
+export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType | VideoModelType, { label: string; color: string }> = {
+  // 图片模型
   'midjourney': { label: 'MJ', color: 'bg-purple-500/80' },
   'gemini': { label: 'Gemini', color: 'bg-blue-500/80' },
   'flux': { label: 'Flux', color: 'bg-orange-500/80' },
@@ -360,6 +398,9 @@ export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType, { label: string; co
   'qwen-image': { label: '通义', color: 'bg-violet-500/80' },
   'z-image': { label: 'Z-Image', color: 'bg-indigo-500/80' },
   'koukoutu': { label: '抠图', color: 'bg-pink-500/80' },
+  // 视频模型
+  'jimeng-video': { label: '即梦', color: 'bg-teal-500/80' },
+  'veo': { label: 'Veo', color: 'bg-rose-500/80' },
 }
 
 /**

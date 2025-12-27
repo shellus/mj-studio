@@ -1,5 +1,5 @@
 // 任务日志服务 - 记录完整请求和响应数据
-import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'fs'
+import { appendFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
 const LOGS_DIR = 'logs'
@@ -59,7 +59,8 @@ export function logRequest(taskId: number, data: {
         Authorization: data.headers.Authorization ? '[REDACTED]' : undefined,
       } : undefined,
     }
-    writeFileSync(join(dir, 'request.json'), JSON.stringify(logData, null, 2))
+    // 追加模式写入，每条记录一行 JSON
+    appendFileSync(join(dir, 'requests.jsonl'), JSON.stringify(logData) + '\n')
   } catch (e) {
     console.error('[Logger] 写入请求日志失败:', e)
   }
@@ -78,7 +79,8 @@ export function logResponse(taskId: number, data: {
       timestamp,
       ...data,
     }
-    writeFileSync(join(dir, 'response.json'), JSON.stringify(logData, null, 2))
+    // 追加模式写入，每条记录一行 JSON
+    appendFileSync(join(dir, 'responses.jsonl'), JSON.stringify(logData) + '\n')
   } catch (e) {
     console.error('[Logger] 写入响应日志失败:', e)
   }
@@ -86,36 +88,58 @@ export function logResponse(taskId: number, data: {
 
 // 读取任务日志
 export function readTaskLogs(taskId: number, createdAt: Date): {
-  request: any
-  response: any
+  requests: any[]
+  responses: any[]
 } | null {
   const dir = findLogDir(taskId, createdAt)
   if (!dir) return null
 
-  let request = null
-  let response = null
+  let requests: any[] = []
+  let responses: any[] = []
 
-  const requestPath = join(dir, 'request.json')
-  const responsePath = join(dir, 'response.json')
+  // 新格式：JSONL 文件
+  const requestsPath = join(dir, 'requests.jsonl')
+  const responsesPath = join(dir, 'responses.jsonl')
 
-  if (existsSync(requestPath)) {
+  // 旧格式：单个 JSON 文件（兼容）
+  const legacyRequestPath = join(dir, 'request.json')
+  const legacyResponsePath = join(dir, 'response.json')
+
+  // 优先读取新格式
+  if (existsSync(requestsPath)) {
     try {
-      request = JSON.parse(readFileSync(requestPath, 'utf-8'))
+      const lines = readFileSync(requestsPath, 'utf-8').trim().split('\n')
+      requests = lines.filter(l => l).map(l => JSON.parse(l))
+    } catch (e) {
+      console.error('[Logger] 读取请求日志失败:', e)
+    }
+  } else if (existsSync(legacyRequestPath)) {
+    // 兼容旧格式
+    try {
+      requests = [JSON.parse(readFileSync(legacyRequestPath, 'utf-8'))]
     } catch (e) {
       console.error('[Logger] 读取请求日志失败:', e)
     }
   }
 
-  if (existsSync(responsePath)) {
+  if (existsSync(responsesPath)) {
     try {
-      response = JSON.parse(readFileSync(responsePath, 'utf-8'))
+      const lines = readFileSync(responsesPath, 'utf-8').trim().split('\n')
+      responses = lines.filter(l => l).map(l => JSON.parse(l))
+    } catch (e) {
+      console.error('[Logger] 读取响应日志失败:', e)
+    }
+  } else if (existsSync(legacyResponsePath)) {
+    // 兼容旧格式
+    try {
+      responses = [JSON.parse(readFileSync(legacyResponsePath, 'utf-8'))]
     } catch (e) {
       console.error('[Logger] 读取响应日志失败:', e)
     }
   }
 
-  // 至少要有 response 才返回（没有响应的错误不显示详情按钮）
-  if (!response) return null
+  // 至少要有 response 才返回
+  if (responses.length === 0) return null
 
-  return { request, response }
+  return { requests, responses }
 }

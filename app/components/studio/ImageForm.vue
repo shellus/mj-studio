@@ -223,10 +223,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h2 class="text-(--ui-text) text-lg font-medium">绘图工作台</h2>
-
-    <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
       <!-- 模型选择 -->
       <UFormField label="选择模型" class="mb-4">
         <template #label>
@@ -371,18 +368,17 @@ defineExpose({
       />
     </UFormField>
 
-      <!-- 提交按钮 -->
-      <UButton
-        block
-        size="lg"
-        :loading="isSubmitting"
-        :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedUpstreamId || selectedAimodelId === null || upstreams.length === 0"
-        class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-        @click="handleSubmit"
-      >
-        <UIcon name="i-heroicons-sparkles" class="w-5 h-5 mr-2" />
-        开始生成
-      </UButton>
-    </div>
+    <!-- 提交按钮 -->
+    <UButton
+      block
+      size="lg"
+      :loading="isSubmitting"
+      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedUpstreamId || selectedAimodelId === null || upstreams.length === 0"
+      class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+      @click="handleSubmit"
+    >
+      <UIcon name="i-heroicons-sparkles" class="w-5 h-5 mr-2" />
+      开始生成
+    </UButton>
   </div>
 </template>

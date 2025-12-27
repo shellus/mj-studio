@@ -1,9 +1,9 @@
 // 统一的图像生成结果类型
 export interface GenerateResult {
   success: boolean
-  imageUrl?: string       // 远程图片URL
+  resourceUrl?: string    // 远程资源URL（图片或视频）
   imageBase64?: string    // base64图片数据
-  mimeType?: string       // 图片MIME类型
+  mimeType?: string       // 资源MIME类型
   error?: string          // 错误信息
 }
 
