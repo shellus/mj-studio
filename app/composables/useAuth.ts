@@ -6,6 +6,7 @@ export interface AuthUser {
   id: number
   email: string
   name: string | null
+  avatar?: string | null
 }
 
 // 全局状态

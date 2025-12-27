@@ -1,28 +1,44 @@
 <script setup lang="ts">
-import type { FormSubmitEvent, FormError } from '@nuxt/ui'
-
 definePageMeta({
   middleware: 'auth',
 })
 
+const { updateUser } = useAuth()
 const toast = useToast()
 
 // 用户数据
 const isLoading = ref(true)
 const isSaving = ref(false)
+const currentEmail = ref('')
 
 const formData = reactive({
   name: '',
   avatar: '',
 })
 
+// 修改密码相关
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+const isChangingPassword = ref(false)
+
+// 修改邮箱相关
+const emailForm = reactive({
+  newEmail: '',
+  password: '',
+})
+const isChangingEmail = ref(false)
+
 // 加载用户信息
 async function loadUser() {
   isLoading.value = true
   try {
-    const user = await $fetch('/api/user')
-    formData.name = user.name || ''
-    formData.avatar = user.avatar || ''
+    const userData = await $fetch('/api/user')
+    formData.name = userData.name || ''
+    formData.avatar = userData.avatar || ''
+    currentEmail.value = userData.email || ''
   } catch (error: any) {
     toast.add({
       title: '加载失败',
@@ -37,11 +53,6 @@ async function loadUser() {
 onMounted(() => {
   loadUser()
 })
-
-// 表单验证
-function validate(state: typeof formData): FormError[] {
-  return []
-}
 
 // 处理头像上传
 async function handleAvatarUpload(e: Event) {
@@ -68,18 +79,23 @@ function clearAvatar() {
   formData.avatar = ''
 }
 
-// 保存设置
-async function onSubmit(event: FormSubmitEvent<typeof formData>) {
+// 保存个人信息
+async function saveProfile() {
   isSaving.value = true
   try {
     await $fetch('/api/user', {
       method: 'PUT',
       body: {
-        name: event.data.name?.trim() || null,
-        avatar: event.data.avatar || null,
+        name: formData.name?.trim() || null,
+        avatar: formData.avatar || null,
       },
     })
-    toast.add({ title: '设置已保存', color: 'success' })
+    // 更新全局用户状态，让导航栏同步更新
+    updateUser({
+      name: formData.name?.trim() || null,
+      avatar: formData.avatar || null,
+    })
+    toast.add({ title: '个人信息已保存', color: 'success' })
   } catch (error: any) {
     toast.add({
       title: '保存失败',
@@ -88,6 +104,77 @@ async function onSubmit(event: FormSubmitEvent<typeof formData>) {
     })
   } finally {
     isSaving.value = false
+  }
+}
+
+// 修改密码
+async function changePassword() {
+  if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+    toast.add({ title: '请填写当前密码和新密码', color: 'error' })
+    return
+  }
+
+  if (passwordForm.newPassword.length < 6) {
+    toast.add({ title: '新密码长度不能少于6位', color: 'error' })
+    return
+  }
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    toast.add({ title: '两次输入的新密码不一致', color: 'error' })
+    return
+  }
+
+  isChangingPassword.value = true
+  try {
+    await $fetch('/api/user/password', {
+      method: 'PUT',
+      body: {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      },
+    })
+
+    toast.add({ title: '密码修改成功', color: 'success' })
+    // 清空表单
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+  } catch (error: any) {
+    toast.add({ title: '修改失败', description: error.data?.message || error.message, color: 'error' })
+  } finally {
+    isChangingPassword.value = false
+  }
+}
+
+// 修改邮箱
+async function changeEmail() {
+  if (!emailForm.newEmail || !emailForm.password) {
+    toast.add({ title: '请填写新邮箱和密码', color: 'error' })
+    return
+  }
+
+  isChangingEmail.value = true
+  try {
+    const result = await $fetch<{ email: string }>('/api/user/email', {
+      method: 'PUT',
+      body: {
+        newEmail: emailForm.newEmail,
+        password: emailForm.password,
+      },
+    })
+
+    // 更新本地用户信息和当前显示
+    updateUser({ email: result.email })
+    currentEmail.value = result.email
+
+    toast.add({ title: '邮箱修改成功', color: 'success' })
+    // 清空表单
+    emailForm.newEmail = ''
+    emailForm.password = ''
+  } catch (error: any) {
+    toast.add({ title: '修改失败', description: error.data?.message || error.message, color: 'error' })
+  } finally {
+    isChangingEmail.value = false
   }
 }
 </script>
@@ -106,8 +193,8 @@ async function onSubmit(event: FormSubmitEvent<typeof formData>) {
         <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 text-(--ui-text-dimmed) animate-spin" />
       </div>
 
-      <!-- 设置表单 -->
-      <UForm v-else :state="formData" :validate="validate" class="space-y-6" @submit="onSubmit">
+      <!-- 设置内容 -->
+      <div v-if="!isLoading" class="space-y-6">
         <!-- 个人信息卡片 -->
         <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
           <h2 class="text-lg font-medium text-(--ui-text)">个人信息</h2>
@@ -158,15 +245,77 @@ async function onSubmit(event: FormSubmitEvent<typeof formData>) {
               class="w-full max-w-xs"
             />
           </UFormField>
+
+          <div class="flex justify-end">
+            <UButton :loading="isSaving" @click="saveProfile">
+              保存
+            </UButton>
+          </div>
         </div>
 
-        <!-- 保存按钮 -->
-        <div class="flex justify-end">
-          <UButton type="submit" :loading="isSaving" size="lg">
-            保存设置
-          </UButton>
+        <!-- 修改邮箱 -->
+        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
+          <h2 class="text-lg font-medium text-(--ui-text)">修改邮箱</h2>
+          <p class="text-sm text-(--ui-text-muted)">当前邮箱：{{ currentEmail }}</p>
+
+          <UFormField label="新邮箱" name="newEmail">
+            <UInput
+              v-model="emailForm.newEmail"
+              type="email"
+              placeholder="输入新邮箱地址"
+              class="w-full max-w-xs"
+            />
+          </UFormField>
+          <UFormField label="确认密码" name="emailPassword">
+            <UInput
+              v-model="emailForm.password"
+              type="password"
+              placeholder="输入当前密码以确认身份"
+              class="w-full max-w-xs"
+            />
+          </UFormField>
+          <div class="flex justify-end">
+            <UButton :loading="isChangingEmail" @click="changeEmail">
+              修改邮箱
+            </UButton>
+          </div>
         </div>
-      </UForm>
+
+        <!-- 修改密码 -->
+        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
+          <h2 class="text-lg font-medium text-(--ui-text)">修改密码</h2>
+
+          <UFormField label="当前密码" name="currentPassword">
+            <UInput
+              v-model="passwordForm.currentPassword"
+              type="password"
+              placeholder="输入当前密码"
+              class="w-full max-w-xs"
+            />
+          </UFormField>
+          <UFormField label="新密码" name="newPassword">
+            <UInput
+              v-model="passwordForm.newPassword"
+              type="password"
+              placeholder="输入新密码（至少6位）"
+              class="w-full max-w-xs"
+            />
+          </UFormField>
+          <UFormField label="确认新密码" name="confirmPassword">
+            <UInput
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              placeholder="再次输入新密码"
+              class="w-full max-w-xs"
+            />
+          </UFormField>
+          <div class="flex justify-end">
+            <UButton :loading="isChangingPassword" @click="changePassword">
+              修改密码
+            </UButton>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

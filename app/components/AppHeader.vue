@@ -28,6 +28,17 @@ watch(loggedIn, (val) => {
   else userProfile.value = null
 }, { immediate: true })
 
+// 监听全局用户信息变化（用户设置页面更新后同步）
+watch(user, (val) => {
+  if (val && userProfile.value) {
+    userProfile.value = {
+      ...userProfile.value,
+      name: val.name,
+      avatar: val.avatar,
+    }
+  }
+}, { deep: true })
+
 // 导航项
 const navItems = [
   { label: '绘图', to: '/drawing', icon: 'i-heroicons-paint-brush' },
