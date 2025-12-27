@@ -19,7 +19,7 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { upstreams, loadUpstreams, createUpstream, updateUpstream } = useUpstreams()
+const { upstreams, loadUpstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
@@ -324,6 +324,25 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       color: 'error',
     })
   }
+}
+
+// 删除上游配置
+const showDeleteConfirm = ref(false)
+
+async function confirmDelete() {
+  if (!upstreamId.value) return
+  try {
+    await deleteUpstream(upstreamId.value)
+    toast.add({ title: '配置已删除', color: 'success' })
+    router.push('/settings/upstreams')
+  } catch (error: any) {
+    toast.add({
+      title: '删除失败',
+      description: error.data?.message || error.message,
+      color: 'error',
+    })
+  }
+  showDeleteConfirm.value = false
 }
 </script>
 
@@ -651,6 +670,28 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
             </template>
           </UTabs>
         </div>
+
+        <!-- 删除按钮（仅编辑模式） -->
+        <div v-if="!isNew" class="mt-8 pt-6 border-t border-(--ui-border)">
+          <UButton
+            color="error"
+            variant="ghost"
+            type="button"
+            @click="showDeleteConfirm = true"
+          >
+            删除上游配置
+          </UButton>
+        </div>
       </UForm>
+
+    <!-- 删除确认弹窗 -->
+    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定要删除这个上游配置吗？此操作不可撤销。" :close="false">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="error" @click="confirmDelete">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
+        </div>
+      </template>
+    </UModal>
   </SettingsLayout>
 </template>

@@ -76,18 +76,15 @@ const sortedAssistants = computed(() => {
           />
         </div>
       </button>
-    </div>
 
-    <!-- 新建按钮 -->
-    <div class="p-3 border-t border-(--ui-border)">
-      <UButton
-        variant="ghost"
-        block
+      <!-- 新建按钮（在列表末尾） -->
+      <button
+        class="w-full p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex items-center justify-center gap-2 text-(--ui-text-muted) hover:text-(--ui-primary)"
         @click="emit('create')"
       >
-        <UIcon name="i-heroicons-plus" class="w-5 h-5 mr-1.5" />
-        新建助手
-      </UButton>
+        <UIcon name="i-heroicons-plus" class="w-5 h-5" />
+        <span>新建助手</span>
+      </button>
     </div>
   </div>
 </template>

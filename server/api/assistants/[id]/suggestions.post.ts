@@ -5,7 +5,6 @@ import { useAimodelService } from '../../../services/aimodel'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
 import { createClaudeChatService } from '../../../services/claude'
-import { useSuggestionsCache } from '../../../services/suggestionsCache'
 import type { LogContext } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
 
@@ -43,13 +42,9 @@ export default defineEventHandler(async (event) => {
     return { suggestions: [] }
   }
 
-  // 检查缓存（非刷新模式）
-  const cache = useSuggestionsCache()
-  if (!refresh) {
-    const cached = cache.get(assistantId)
-    if (cached) {
-      return { suggestions: cached }
-    }
+  // 检查数据库缓存（非刷新模式）
+  if (!refresh && assistant.suggestions && assistant.suggestions.length > 0) {
+    return { suggestions: assistant.suggestions }
   }
 
   // 获取上游配置
@@ -137,9 +132,9 @@ export default defineEventHandler(async (event) => {
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
       .slice(0, suggestionsCount)
 
-    // 存入缓存
+    // 存入数据库缓存
     if (suggestions.length > 0) {
-      cache.set(assistantId, suggestions)
+      await assistantService.update(assistantId, user.id, { suggestions })
     }
 
     return { suggestions }

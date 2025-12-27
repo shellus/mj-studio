@@ -177,6 +177,43 @@ async function changeEmail() {
     isChangingEmail.value = false
   }
 }
+
+// 删除账号相关
+const deleteAccountForm = reactive({
+  password: '',
+})
+const isDeletingAccount = ref(false)
+const showDeleteConfirm = ref(false)
+
+// 删除账号
+async function deleteAccount() {
+  if (!deleteAccountForm.password) {
+    toast.add({ title: '请输入密码确认删除', color: 'error' })
+    return
+  }
+
+  isDeletingAccount.value = true
+  try {
+    await $fetch('/api/user/delete', {
+      method: 'POST',
+      body: {
+        password: deleteAccountForm.password,
+      },
+    })
+
+    toast.add({ title: '账号已删除', color: 'success' })
+    showDeleteConfirm.value = false
+
+    // 登出并跳转到登录页
+    const { logout } = useAuth()
+    logout()
+    navigateTo('/login')
+  } catch (error: any) {
+    toast.add({ title: '删除失败', description: error.data?.message || error.message, color: 'error' })
+  } finally {
+    isDeletingAccount.value = false
+  }
+}
 </script>
 
 <template>
@@ -315,7 +352,49 @@ async function changeEmail() {
             </UButton>
           </div>
         </div>
+
+        <!-- 危险区域：删除账号 -->
+        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-red-500/30 space-y-5">
+          <h2 class="text-lg font-medium text-red-500">危险区域</h2>
+          <p class="text-sm text-(--ui-text-muted)">
+            删除账号将永久删除你的所有数据，包括上游配置、AI 模型、绘图任务、助手、对话记录等。此操作不可撤销。
+          </p>
+          <div class="flex justify-end">
+            <UButton color="error" variant="outline" @click="showDeleteConfirm = true">
+              删除账号
+            </UButton>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- 删除账号确认弹窗 -->
+    <UModal :open="showDeleteConfirm" title="确认删除账号" :close="false">
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-(--ui-text-muted)">
+            你确定要删除账号吗？此操作将永久删除你的所有数据，且无法恢复。
+          </p>
+          <UFormField label="输入密码确认" name="deletePassword">
+            <UInput
+              v-model="deleteAccountForm.password"
+              type="password"
+              placeholder="输入密码"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton variant="ghost" @click="showDeleteConfirm = false; deleteAccountForm.password = ''">
+            取消
+          </UButton>
+          <UButton color="error" :loading="isDeletingAccount" @click="deleteAccount">
+            确认删除
+          </UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

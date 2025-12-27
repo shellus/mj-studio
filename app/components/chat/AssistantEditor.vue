@@ -316,23 +316,15 @@ function handleDeleteConfirm() {
 
   <!-- 删除确认弹窗 -->
   <UModal
-    :open="deleteConfirmOpen"
+    v-model:open="deleteConfirmOpen"
     title="确认删除"
-    @update:open="deleteConfirmOpen = $event"
+    :description="`确定要删除助手「${assistant?.name}」吗？该助手下的所有对话也将被删除，此操作不可撤销。`"
+    :close="false"
   >
-    <template #body>
-      <p class="text-(--ui-text-muted)">
-        确定要删除助手「{{ assistant?.name }}」吗？该助手下的所有对话也将被删除，此操作无法撤销。
-      </p>
-    </template>
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton variant="ghost" @click="deleteConfirmOpen = false">
-          取消
-        </UButton>
-        <UButton color="error" @click="handleDeleteConfirm">
-          确认删除
-        </UButton>
+      <div class="flex justify-end gap-3">
+        <UButton color="error" @click="handleDeleteConfirm">删除</UButton>
+        <UButton variant="outline" color="neutral" @click="deleteConfirmOpen = false">取消</UButton>
       </div>
     </template>
   </UModal>

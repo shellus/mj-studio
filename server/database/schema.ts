@@ -119,6 +119,7 @@ export const assistants = sqliteTable('assistants', {
   aimodelId: integer('aimodel_id'), // 关联 AI 模型
   modelName: text('model_name'), // 当前使用的模型名（冗余，便于显示）
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  suggestions: text('suggestions', { mode: 'json' }).$type<string[]>(), // 开场白建议缓存
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

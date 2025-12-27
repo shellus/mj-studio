@@ -487,6 +487,69 @@ function cancelDeleteUntil() {
   deleteUntilCount.value = 0
 }
 
+// 计算消息大小（参考 MessageInput.vue 的计算公式）
+function getMessageSize(message: Message): number {
+  let size = new TextEncoder().encode(message.content).length
+  if (message.files?.length) {
+    for (const file of message.files) {
+      // 只有图片会作为 base64 发送给 AI
+      if (file.mimeType.startsWith('image/')) {
+        size += Math.ceil(file.size * 4 / 3) // base64 编码后的大小
+      }
+    }
+  }
+  return size
+}
+
+// 格式化大小显示
+function formatSize(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+// 获取消息的下拉菜单项
+function getMessageMenuItems(message: Message) {
+  const items: any[][] = []
+
+  // 信息组（模型和大小）
+  const infoItems: any[] = []
+  if (message.modelName) {
+    infoItems.push({
+      label: message.modelName,
+      icon: 'i-heroicons-cpu-chip',
+      disabled: true,
+    })
+  }
+  infoItems.push({
+    label: formatSize(getMessageSize(message)),
+    icon: 'i-heroicons-document-text',
+    disabled: true,
+  })
+  items.push(infoItems)
+
+  // 操作组
+  items.push([
+    {
+      label: '复制',
+      icon: 'i-heroicons-clipboard',
+      onSelect: () => copyMessage(message.content),
+    },
+    {
+      label: '分叉对话',
+      icon: 'i-lucide-split',
+      onSelect: () => emit('fork', message.id),
+    },
+    {
+      label: '删除此消息及以上',
+      icon: 'i-heroicons-fire',
+      onSelect: () => handleDeleteUntil(message.id),
+    },
+  ])
+
+  return items
+}
+
 // 编辑状态
 const editingId = ref<number | null>(null)
 const editingContent = ref('')
@@ -844,25 +907,7 @@ function isEditing(messageId: number): boolean {
             <!-- 更多操作下拉菜单 -->
             <UDropdownMenu
               v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
-              :items="[
-                [
-                  {
-                    label: '复制',
-                    icon: 'i-heroicons-clipboard',
-                    onSelect: () => copyMessage(message.content)
-                  },
-                  {
-                    label: '分叉对话',
-                    icon: 'i-lucide-split',
-                    onSelect: () => emit('fork', message.id)
-                  },
-                  {
-                    label: '删除此消息及以上',
-                    icon: 'i-heroicons-fire',
-                    onSelect: () => handleDeleteUntil(message.id)
-                  }
-                ]
-              ]"
+              :items="getMessageMenuItems(message)"
               @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
             >
               <UButton

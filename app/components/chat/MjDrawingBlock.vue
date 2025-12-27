@@ -28,6 +28,9 @@ const showPreview = ref(false)
 // 详情弹窗
 const showDetail = ref(false)
 
+// 操作按钮显示状态（移动端点击切换，PC端悬浮显示）
+const showActions = ref(false)
+
 // 进度条相关
 const now = ref(Date.now())
 let progressTimer: ReturnType<typeof setInterval> | null = null
@@ -249,7 +252,11 @@ onUnmounted(() => {
 <template>
   <div class="mj-drawing-container my-3 bg-(--ui-bg-elevated) rounded-xl border border-(--ui-border) overflow-hidden max-w-md">
     <!-- 图片区域 -->
-    <div class="aspect-[4/3] bg-black/10 relative">
+    <div
+      class="aspect-[4/3] bg-black/10 relative group"
+      @mouseenter="showActions = true"
+      @mouseleave="showActions = false"
+    >
       <!-- 成功时显示图片 -->
       <img
         v-if="status === 'success' && imageUrl"
@@ -257,7 +264,7 @@ onUnmounted(() => {
         :alt="params.prompt"
         class="w-full h-full object-contain cursor-pointer transition-all duration-300"
         :class="isBlurred ? 'blur-xl scale-105' : 'hover:opacity-90'"
-        @click="toggleBlur"
+        @click="toggleBlur(); showActions = !showActions"
       />
 
       <!-- 非成功状态显示状态信息 -->
@@ -309,12 +316,16 @@ onUnmounted(() => {
       </div>
 
       <!-- 左上角按钮组（成功时显示） -->
-      <div v-if="status === 'success' && imageUrl" class="absolute top-2 left-2 flex gap-1">
+      <div
+        v-if="status === 'success' && imageUrl"
+        class="absolute top-2 left-2 flex gap-1 transition-opacity"
+        :class="showActions ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'"
+      >
         <!-- 下载按钮 -->
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="下载图片"
-          @click="downloadImage"
+          @click.stop="downloadImage"
         >
           <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 text-white" />
         </button>
@@ -322,7 +333,7 @@ onUnmounted(() => {
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="放大查看"
-          @click="showPreview = true"
+          @click.stop="showPreview = true"
         >
           <UIcon name="i-heroicons-magnifying-glass-plus" class="w-4 h-4 text-white" />
         </button>
@@ -330,9 +341,17 @@ onUnmounted(() => {
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="重新生成"
-          @click="regenerate"
+          @click.stop="regenerate"
         >
           <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 text-white" />
+        </button>
+        <!-- 详情按钮 -->
+        <button
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="查看详情"
+          @click.stop="showDetail = true"
+        >
+          <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-white" />
         </button>
       </div>
 
@@ -358,15 +377,6 @@ onUnmounted(() => {
           }"
         />
       </div>
-
-      <!-- 右下角信息按钮 -->
-      <button
-        class="absolute bottom-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-        title="查看详情"
-        @click="showDetail = true"
-      >
-        <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-white" />
-      </button>
     </div>
 
     <!-- 图片预览 Modal -->

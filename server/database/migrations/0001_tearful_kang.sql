@@ -1,0 +1,1 @@
+ALTER TABLE `assistants` ADD `suggestions` text;

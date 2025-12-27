@@ -16,16 +16,10 @@
 }
 
 /* Shiki 代码高亮主题切换 */
-.shiki,
-.shiki span {
-  color: var(--shiki-light);
-  background-color: var(--shiki-light-bg);
-}
-
 .dark .shiki,
 .dark .shiki span {
-  color: var(--shiki-dark);
-  background-color: var(--shiki-dark-bg);
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
 }
 
 /* Markdown 内容样式 */

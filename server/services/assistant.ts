@@ -94,6 +94,7 @@ export function useAssistantService() {
     aimodelId: number | null
     modelName: string | null
     isDefault: boolean
+    suggestions: string[] | null
   }>): Promise<Assistant | undefined> {
     // 如果设为默认，先取消其他默认
     if (data.isDefault) {
