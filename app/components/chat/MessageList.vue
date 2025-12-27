@@ -171,9 +171,6 @@ const streamingRenderTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
 // 渲染单条消息的 Markdown
 async function renderMessage(message: Message, force = false) {
-  // 用户消息不渲染 Markdown
-  if (message.role === 'user') return
-
   // 正在渲染中的跳过（除非强制渲染）
   if (!force && renderingIds.value.has(message.id)) return
 
@@ -222,9 +219,6 @@ function stopStreamingRender() {
 
 // 获取渲染后的内容
 function getRenderedContent(message: Message): string {
-  if (message.role === 'user') {
-    return message.content
-  }
   return renderedMessages.value.get(message.id) || message.content
 }
 
@@ -318,7 +312,6 @@ onUnmounted(() => {
 
 // 检查是否需要显示原始内容
 function shouldShowRaw(message: Message): boolean {
-  if (message.role === 'user') return true
   // 流式输出中的消息，只要有内容就尝试显示渲染结果（即使还没渲染完成）
   // 这样可以在流式输出时也显示 Markdown
   if (message.status === 'streaming' && message.content) {
@@ -352,7 +345,7 @@ watch(
       lastRenderedLength.clear()
     }
     for (const msg of props.messages) {
-      if (msg.role === 'assistant' && msg.content) {
+      if (msg.content) {
         await renderMessage(msg)
       }
     }
@@ -374,7 +367,7 @@ watch(
       // 强制渲染最终内容
       if (prevStreaming) {
         for (const msg of props.messages) {
-          if (msg.role === 'assistant' && msg.content) {
+          if (msg.content) {
             await renderMessage(msg, true)
           }
         }
@@ -660,9 +653,9 @@ function isEditing(messageId: number): boolean {
         :class="message.role === 'user' ? 'flex-row-reverse' : ''"
         :data-message-id="message.id"
       >
-      <!-- 头像 -->
+      <!-- 头像（移动端隐藏） -->
       <div
-        class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+        class="hidden md:flex w-8 h-8 rounded-full items-center justify-center flex-shrink-0"
         :class="[
           message.mark === 'compress-request' ? 'bg-blue-500' :
           message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'
@@ -682,7 +675,10 @@ function isEditing(messageId: number): boolean {
       <!-- 消息内容 -->
       <div
         class="group min-w-0"
-        :class="isEditing(message.id) ? 'w-[85%]' : 'max-w-[85%]'"
+        :class="[
+          isEditing(message.id) ? 'w-full md:w-[85%]' : 'max-w-full md:max-w-[85%]',
+          message.role === 'user' ? 'flex flex-col items-end' : ''
+        ]"
       >
         <div
           :class="[
@@ -730,8 +726,8 @@ function isEditing(messageId: number): boolean {
               <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
             </div>
           </div>
-          <!-- 用户消息：纯文本 + 文件附件 -->
-          <div v-else-if="message.role === 'user'" class="text-sm">
+          <!-- 用户消息：Markdown 渲染 + 文件附件 -->
+          <div v-else-if="message.role === 'user'" class="text-sm user-message-content">
             <!-- 文件附件 -->
             <div v-if="message.files?.length" class="flex flex-wrap gap-2 mb-2">
               <template v-for="file in message.files" :key="file.fileName">
@@ -786,10 +782,11 @@ function isEditing(messageId: number): boolean {
                 </button>
               </div>
             </template>
-            <!-- 文本内容（显示模式） -->
-            <div v-else-if="message.content" class="whitespace-pre-wrap break-words">
-              {{ message.content }}
-            </div>
+            <!-- 文本内容（显示模式）：Markdown 渲染 -->
+            <template v-else-if="message.content">
+              <ChatMarkdownContent v-if="!shouldShowRaw(message)" :html="getRenderedContent(message)" />
+              <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
+            </template>
           </div>
           <!-- 错误消息 -->
           <div v-else-if="message.mark === 'error'" class="text-sm flex items-start gap-2">
@@ -859,69 +856,58 @@ function isEditing(messageId: number): boolean {
           </div>
         </div>
 
-        <!-- 消息元信息 -->
+        <!-- 消息元信息（非生成状态时显示） -->
         <div
-          class="mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2"
+          v-if="!isMessageStreaming(message) && !isMessageLoading(message)"
+          :class="[
+            'mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2 transition-opacity',
+            isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+          ]"
         >
           <TimeAgo :time="message.createdAt" />
 
-          <!-- 操作按钮（非生成状态时显示） -->
-          <template v-if="!isMessageStreaming(message) && !isMessageLoading(message)">
-            <!-- 编辑按钮 -->
-            <button
-              v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
-              :class="[
-                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
-                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
-              ]"
-              title="编辑"
-              @click="startEdit(message)"
+          <!-- 操作按钮 -->
+          <!-- 编辑按钮 -->
+          <button
+            v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            class="p-1 hover:bg-(--ui-bg-elevated) rounded"
+            title="编辑"
+            @click="startEdit(message)"
+          >
+            <UIcon name="i-heroicons-pencil" class="w-3 h-3" />
+          </button>
+          <!-- 重放按钮 -->
+          <button
+            v-if="!isStreaming"
+            class="p-1 hover:bg-(--ui-bg-elevated) rounded"
+            :title="message.role === 'user' ? '重新发送' : '重新生成'"
+            @click="emit('replay', message)"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
+          </button>
+          <!-- 删除按钮 -->
+          <button
+            v-if="!isStreaming"
+            class="p-1 hover:bg-(--ui-bg-elevated) rounded"
+            title="删除"
+            @click="handleDelete(message.id)"
+          >
+            <UIcon name="i-heroicons-trash" class="w-3 h-3" />
+          </button>
+          <!-- 更多操作下拉菜单 -->
+          <UDropdownMenu
+            v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            :items="getMessageMenuItems(message)"
+            @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
+          >
+            <UButton
+              variant="ghost"
+              size="xs"
+              title="更多操作"
             >
-              <UIcon name="i-heroicons-pencil" class="w-3 h-3" />
-            </button>
-            <!-- 重放按钮 -->
-            <button
-              v-if="!isStreaming"
-              :class="[
-                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
-                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
-              ]"
-              :title="message.role === 'user' ? '重新发送' : '重新生成'"
-              @click="emit('replay', message)"
-            >
-              <UIcon name="i-heroicons-arrow-path" class="w-3 h-3" />
-            </button>
-            <!-- 删除按钮 -->
-            <button
-              v-if="!isStreaming"
-              :class="[
-                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
-                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
-              ]"
-              title="删除"
-              @click="handleDelete(message.id)"
-            >
-              <UIcon name="i-heroicons-trash" class="w-3 h-3" />
-            </button>
-            <!-- 更多操作下拉菜单 -->
-            <UDropdownMenu
-              v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
-              :items="getMessageMenuItems(message)"
-              @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
-            >
-              <UButton
-                variant="ghost"
-                size="xs"
-                :class="[
-                  'transition-opacity',
-                  isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
-                ]"
-                title="更多操作"
-              >
-                <UIcon name="i-heroicons-ellipsis-vertical" class="w-3 h-3" />
-              </UButton>
-            </UDropdownMenu>
-          </template>
+              <UIcon name="i-heroicons-ellipsis-vertical" class="w-3 h-3" />
+            </UButton>
+          </UDropdownMenu>
         </div>
       </div>
     </div>
@@ -991,5 +977,38 @@ function isEditing(messageId: number): boolean {
 .markdown-content :deep(pre) {
   max-width: 100%;
   overflow-x: auto;
+}
+
+/* 用户消息的 Markdown 样式覆盖 */
+.user-message-content :deep(.markdown-content) {
+  color: white;
+}
+
+.user-message-content :deep(.markdown-content pre) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.user-message-content :deep(.markdown-content code:not(pre code)) {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.user-message-content :deep(.markdown-content a) {
+  color: white;
+  text-decoration: underline;
+}
+
+.user-message-content :deep(.markdown-content blockquote) {
+  border-left-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user-message-content :deep(.markdown-content table th),
+.user-message-content :deep(.markdown-content table td) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.user-message-content :deep(.markdown-content hr) {
+  border-color: rgba(255, 255, 255, 0.3);
 }
 </style>
