@@ -66,6 +66,8 @@ export type ChatModelType =
 export type VideoModelType =
   | 'jimeng-video'  // 即梦视频
   | 'veo'           // Google Veo
+  | 'sora'          // OpenAI Sora
+  | 'grok-video'    // xAI Grok Video
 
 /**
  * 所有模型类型的联合

@@ -85,34 +85,62 @@ export type { VideoCreateParams, VideoCreateResponse, VideoQueryResponse }
  *
  * 所有上游可能返回的状态都应在此定义映射关系。
  * 新增上游或发现新状态时，只需在此添加映射即可。
+ *
+ * 支持的视频模型：即梦、Veo、Sora、Grok Video
+ * 参考：https://yunwu.apifox.cn/llms.txt
  */
 const STATUS_NORMALIZATION: Record<string, VideoQueryResponse['status']> = {
-  // 处理中状态（任务已接收，尚未完成）
-  'pending': 'processing',           // 排队等待
-  'image_downloading': 'processing', // Veo: 下载参考图中
-  'generating': 'processing',        // Veo: 生成中
-  'video_generating': 'processing',  // Veo: 视频生成中
-  'processing': 'processing',        // 标准处理中
+  // ============ 处理中状态 ============
+  // 通用状态
+  'pending': 'processing',                    // 排队等待
+  'processing': 'processing',                 // 标准处理中
+  'generating': 'processing',                 // 生成中
 
-  // 成功状态
+  // Veo 特有状态
+  'image_downloading': 'processing',          // 下载参考图中
+  'video_generating': 'processing',           // 视频生成中
+  'video_upsampling': 'processing',           // 超分处理中
+  'video_generation_completed': 'processing', // 视频生成完成，等待后续处理（如超分）
+
+  // 即梦官方格式状态（转为小写后匹配）
+  'not_start': 'processing',                  // NOT_START
+  'submitted': 'processing',                  // SUBMITTED
+  'queued': 'processing',                     // QUEUED
+  'in_progress': 'processing',                // IN_PROGRESS
+
+  // ============ 成功状态 ============
   'success': 'success',
-  'completed': 'success',            // 即梦/Veo: 完成
+  'completed': 'success',                     // 即梦/Veo: 完成
+  'video_upsampling_completed': 'success',    // Veo: 超分完成（最终成功）
 
-  // 失败状态
+  // ============ 失败状态 ============
   'failed': 'failed',
+  'failure': 'failed',                        // 即梦官方格式: FAILURE
+  'error': 'failed',                          // Veo: 错误
+  'video_generation_failed': 'failed',        // Veo: 视频生成失败
+  'video_upsampling_failed': 'failed',        // Veo: 超分失败
 }
 
 /**
  * 归一化上游状态到内部状态
  *
+ * 支持大小写不敏感匹配（即梦官方格式使用大写状态如 IN_PROGRESS）。
  * 未知状态会记录警告日志并默认映射为 processing，
  * 避免脏数据写入数据库导致前端显示异常。
  */
 function normalizeStatus(upstreamStatus: string): VideoQueryResponse['status'] {
-  const normalized = STATUS_NORMALIZATION[upstreamStatus]
+  // 先尝试原始状态匹配
+  let normalized = STATUS_NORMALIZATION[upstreamStatus]
   if (normalized) {
     return normalized
   }
+
+  // 转为小写后再次尝试匹配（支持即梦大写状态）
+  normalized = STATUS_NORMALIZATION[upstreamStatus.toLowerCase()]
+  if (normalized) {
+    return normalized
+  }
+
   console.warn(`[VideoUnified] 未知上游状态: "${upstreamStatus}"，映射为 processing`)
   return 'processing'
 }

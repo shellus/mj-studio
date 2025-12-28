@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-MJ-Studio 是一个多模型 AI 工作台，支持 AI 绘图（Midjourney、DALL-E、Gemini、Flux 等）、AI 视频生成（即梦、Veo 等）和 AI 对话（GPT、Claude、DeepSeek 等）。基于 Nuxt 4 + Drizzle ORM + SQLite 构建。
+MJ-Studio 是一个多模型 AI 工作台，支持 AI 绘图（Midjourney、DALL-E、Gemini、Flux 等）、AI 视频生成（即梦、Veo、Sora、Grok Video 等）和 AI 对话（GPT、Claude、DeepSeek 等）。基于 Nuxt 4 + Drizzle ORM + SQLite 构建。
 
 ## 常用命令
 
@@ -129,7 +129,7 @@ docs/                         # 详细设计文档
 - `mj-proxy`: 异步轮询模式（Midjourney）
 - `gemini`, `dalle`, `openai-chat`: 同步请求模式
 - `koukoutu`: 异步轮询模式（抠抠图）
-- `video-unified`: 视频统一格式（即梦、Veo）
+- `video-unified`: 视频统一格式（即梦、Veo、Sora、Grok Video）
 
 ## API 格式详解
 
@@ -194,11 +194,13 @@ docs/                         # 详细设计文档
 
 ### 视频统一格式
 
-统一的视频生成 API 格式（即梦、Veo）：
+统一的视频生成 API 格式（即梦、Veo、Sora、Grok Video）：
 - `POST /v1/video/create` - 创建视频任务
 - `POST /v1/video/query` - 轮询任务状态
 - 参数：`model`、`prompt`、`aspect_ratio`、`image`（可选参考图）
 - 返回：`status`、`video_url`（成功时）、`error`（失败时）
+
+> **开发指南**：添加新视频模型请参考 [docs/视频模型开发指南.md](docs/视频模型开发指南.md)，API 文档见 [docs/api/yunwu-video/](docs/api/yunwu-video/)
 
 ## 资源处理规范
 

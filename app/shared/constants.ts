@@ -58,6 +58,8 @@ export const CHAT_MODEL_TYPES: ChatModelType[] = [
 export const VIDEO_MODEL_TYPES: VideoModelType[] = [
   'jimeng-video',
   'veo',
+  'sora',
+  'grok-video',
 ]
 
 /**
@@ -113,6 +115,8 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   // 视频模型
   'jimeng-video': ['video-unified'],
   'veo': ['video-unified'],
+  'sora': ['video-unified'],
+  'grok-video': ['video-unified'],
 }
 
 /**
@@ -151,6 +155,8 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
   // 视频模型
   'jimeng-video': 'video',
   'veo': 'video',
+  'sora': 'video',
+  'grok-video': 'video',
 }
 
 // ==================== 默认模型名称 ====================
@@ -195,6 +201,8 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   // 视频模型
   'jimeng-video': 'jimeng-video-3.0',
   'veo': 'veo3.1-fast',
+  'sora': 'sora-2',
+  'grok-video': 'grok-video-3',
 }
 
 // ==================== 默认预计时间 ====================
@@ -237,6 +245,8 @@ export const DEFAULT_FALLBACK_ESTIMATED_TIME = 60
 export const DEFAULT_VIDEO_ESTIMATED_TIMES: Record<VideoModelType, number> = {
   'jimeng-video': 120,
   'veo': 180,
+  'sora': 180,
+  'grok-video': 120,
 }
 
 // ==================== 预计时间更新逻辑说明 ====================
@@ -328,6 +338,8 @@ export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   // 视频模型
   'jimeng-video': '即梦视频',
   'veo': 'Veo',
+  'sora': 'Sora',
+  'grok-video': 'Grok 视频',
 }
 
 /**
@@ -401,6 +413,8 @@ export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType | VideoModelType, { 
   // 视频模型
   'jimeng-video': { label: '即梦', color: 'bg-teal-500/80' },
   'veo': { label: 'Veo', color: 'bg-rose-500/80' },
+  'sora': { label: 'Sora', color: 'bg-amber-500/80' },
+  'grok-video': { label: 'Grok', color: 'bg-red-500/80' },
 }
 
 /**
