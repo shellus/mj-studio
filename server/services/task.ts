@@ -15,7 +15,6 @@ import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassi
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
-import type { VideoModelType } from '../../app/shared/types'
 
 // 存储每个任务的 AbortController，用于取消请求
 const taskAbortControllers = new Map<number, AbortController>()
@@ -625,7 +624,7 @@ export function useTaskService() {
 
   // 提交到视频统一格式 API（异步轮询）
   async function submitToVideoUnified(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
-    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel), task.modelType as VideoModelType)
+    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
       // 获取视频任务的扩展参数
@@ -800,7 +799,7 @@ export function useTaskService() {
       return task
     }
 
-    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel), task.modelType as VideoModelType)
+    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const logPrefix = `[Task] #${task.id}`
 
     try {

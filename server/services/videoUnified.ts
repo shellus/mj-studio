@@ -1,45 +1,56 @@
-// 视频统一格式 API 服务封装
-// 支持即梦和 Veo 视频生成，异步轮询模式
+/**
+ * 视频统一格式 API 服务封装
+ *
+ * 支持即梦和 Veo 视频生成，使用 OneAPI 定义的视频统一格式接口。
+ * 采用异步轮询模式：创建任务后通过轮询查询状态直到完成。
+ *
+ * 端点：
+ * - POST /v1/video/create - 创建视频任务
+ * - GET /v1/video/query?id=xxx - 查询任务状态
+ *
+ * 状态归一化：
+ * 不同上游返回的状态名称可能不同，本服务负责将所有上游状态
+ * 归一化为内部标准状态（pending/processing/success/failed），
+ * 确保上层代码和前端无需感知上游差异。
+ */
 
 import { logRequest, logResponse } from './logger'
-import type { VideoModelType } from '../../app/shared/types'
 
-// 创建视频请求参数
+// ============================================================================
+// 类型定义
+// ============================================================================
+
+/**
+ * 创建视频请求参数
+ */
 interface VideoCreateParams {
   model: string
   prompt: string
   aspect_ratio?: string
-  // 即梦特有
-  size?: string  // 分辨率：720x1280, 1280x720, 1080P
-  // Veo 特有
-  enhance_prompt?: boolean
-  enable_upsample?: boolean
-  // 参考图（Base64 数组）
-  images?: string[]
+  size?: string            // 即梦: 分辨率 720x1280/1280x720/1080P
+  enhance_prompt?: boolean // Veo: 提示词增强
+  enable_upsample?: boolean // Veo: 超分辨率
+  images?: string[]        // 参考图 Base64 数组
 }
 
-// 创建视频响应（内部统一格式）
+/**
+ * 创建视频响应（内部统一格式）
+ */
 interface VideoCreateResponse {
   id: string
   status: 'pending' | 'processing' | 'success' | 'failed'
   status_update_time?: number
 }
 
-// 查询任务响应（内部统一格式）
+/**
+ * 查询任务响应（内部统一格式）
+ *
+ * 这是服务层对外暴露的类型，status 字段已归一化为标准状态。
+ * 上层代码（task.ts、前端）只需处理这四种状态。
+ */
 interface VideoQueryResponse {
   id: string
   status: 'pending' | 'processing' | 'success' | 'failed'
-  progress?: number  // 进度百分比（0-100）
-  video_url?: string
-  enhanced_prompt?: string
-  status_update_time?: number
-  error?: string
-}
-
-// 即梦上游响应格式
-interface JimengQueryResponse {
-  id: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
   progress?: number
   video_url?: string
   enhanced_prompt?: string
@@ -47,10 +58,15 @@ interface JimengQueryResponse {
   error?: string
 }
 
-// Veo 上游响应格式
-interface VeoQueryResponse {
+/**
+ * 上游原始响应
+ *
+ * 不同上游返回的状态名称可能不同，status 使用 string 类型接收。
+ * 归一化逻辑在 normalizeStatus 函数中处理。
+ */
+interface UpstreamQueryResponse {
   id: string
-  status: 'pending' | 'generating' | 'success' | 'failed'
+  status: string
   progress?: number
   video_url?: string
   enhanced_prompt?: string
@@ -60,46 +76,66 @@ interface VeoQueryResponse {
 
 export type { VideoCreateParams, VideoCreateResponse, VideoQueryResponse }
 
-// 根据模型类型判断是即梦还是 Veo
-function isJimengModel(modelType: VideoModelType): boolean {
-  return modelType === 'jimeng-video'
+// ============================================================================
+// 状态归一化
+// ============================================================================
+
+/**
+ * 上游状态 → 内部状态映射表
+ *
+ * 所有上游可能返回的状态都应在此定义映射关系。
+ * 新增上游或发现新状态时，只需在此添加映射即可。
+ */
+const STATUS_NORMALIZATION: Record<string, VideoQueryResponse['status']> = {
+  // 处理中状态（任务已接收，尚未完成）
+  'pending': 'processing',           // 排队等待
+  'image_downloading': 'processing', // Veo: 下载参考图中
+  'generating': 'processing',        // Veo: 生成中
+  'video_generating': 'processing',  // Veo: 视频生成中
+  'processing': 'processing',        // 标准处理中
+
+  // 成功状态
+  'success': 'success',
+  'completed': 'success',            // 即梦/Veo: 完成
+
+  // 失败状态
+  'failed': 'failed',
 }
 
-// 归一化即梦状态
-function normalizeJimengStatus(status: JimengQueryResponse['status']): VideoQueryResponse['status'] {
-  switch (status) {
-    case 'completed':
-      return 'success'
-    default:
-      return status
+/**
+ * 归一化上游状态到内部状态
+ *
+ * 未知状态会记录警告日志并默认映射为 processing，
+ * 避免脏数据写入数据库导致前端显示异常。
+ */
+function normalizeStatus(upstreamStatus: string): VideoQueryResponse['status'] {
+  const normalized = STATUS_NORMALIZATION[upstreamStatus]
+  if (normalized) {
+    return normalized
   }
+  console.warn(`[VideoUnified] 未知上游状态: "${upstreamStatus}"，映射为 processing`)
+  return 'processing'
 }
 
-// 归一化 Veo 状态
-function normalizeVeoStatus(status: VeoQueryResponse['status']): VideoQueryResponse['status'] {
-  switch (status) {
-    case 'generating':
-      return 'processing'
-    default:
-      return status
-  }
-}
+// ============================================================================
+// 服务实现
+// ============================================================================
 
-// 工厂函数：根据配置创建视频统一服务实例
-export function createVideoUnifiedService(baseUrl: string, apiKey: string, modelType: VideoModelType) {
+/**
+ * 创建视频统一服务实例
+ */
+export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   }
 
-  // 创建视频任务
-  async function create(
-    params: VideoCreateParams,
-    taskId?: number
-  ): Promise<VideoCreateResponse> {
+  /**
+   * 创建视频任务
+   */
+  async function create(params: VideoCreateParams, taskId?: number): Promise<VideoCreateResponse> {
     const url = `${baseUrl}/v1/video/create`
 
-    // 构建请求体，过滤掉 undefined 值
     const body: Record<string, unknown> = {
       model: params.model,
       prompt: params.prompt,
@@ -112,12 +148,7 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string, model
     if (params.images && params.images.length > 0) body.images = params.images
 
     if (taskId) {
-      logRequest(taskId, {
-        url,
-        method: 'POST',
-        headers,
-        body,
-      })
+      logRequest(taskId, { url, method: 'POST', headers, body })
     }
 
     try {
@@ -145,51 +176,31 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string, model
     }
   }
 
-  // 查询任务状态
+  /**
+   * 查询任务状态
+   *
+   * 返回的 status 已归一化为内部标准状态。
+   */
   async function query(upstreamTaskId: string, taskId?: number): Promise<VideoQueryResponse> {
     const url = `${baseUrl}/v1/video/query?id=${encodeURIComponent(upstreamTaskId)}`
 
     if (taskId) {
-      logRequest(taskId, {
-        url,
-        method: 'GET',
-        headers,
-      })
+      logRequest(taskId, { url, method: 'GET', headers })
     }
 
     try {
-      // 根据模型类型解析不同的响应格式
-      if (isJimengModel(modelType)) {
-        const response = await $fetch<JimengQueryResponse>(url, {
-          method: 'GET',
-          headers,
-        })
+      const response = await $fetch<UpstreamQueryResponse>(url, {
+        method: 'GET',
+        headers,
+      })
 
-        if (taskId) {
-          logResponse(taskId, { status: 200, data: response })
-        }
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
 
-        // 归一化为统一格式
-        return {
-          ...response,
-          status: normalizeJimengStatus(response.status),
-        }
-      } else {
-        // Veo
-        const response = await $fetch<VeoQueryResponse>(url, {
-          method: 'GET',
-          headers,
-        })
-
-        if (taskId) {
-          logResponse(taskId, { status: 200, data: response })
-        }
-
-        // 归一化为统一格式
-        return {
-          ...response,
-          status: normalizeVeoStatus(response.status),
-        }
+      return {
+        ...response,
+        status: normalizeStatus(response.status),
       }
     } catch (error: any) {
       if (taskId) {
@@ -204,8 +215,5 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string, model
     }
   }
 
-  return {
-    create,
-    query,
-  }
+  return { create, query }
 }
