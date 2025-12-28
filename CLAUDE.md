@@ -447,23 +447,22 @@ pnpm drizzle-kit generate --custom --name=my-migration
 
 ## UI 组件规范
 
-本项目使用 **Nuxt UI 4**，遵循以下规范：
+本项目使用 **Nuxt UI 4**，设计风格基于 Fluent 2。详细规范见 [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)。
 
-### 表单组件
-
-**必须使用 `UForm` + `UFormField` 组合**，而非手动写 `<label>` 标签：
-
-### 模态框
-
-使用 `UModal` 组件，通过 `:ui` 属性调整宽度：
-
-```
-
-### 样式原则
+### 核心原则
 
 1. **优先使用组件 props**：如 `color`、`variant`、`size`，而非自定义 class
 2. **使用 CSS 变量**：如 `text-(--ui-text-muted)`、`bg-(--ui-bg-elevated)`
 3. **避免硬编码颜色**：使用主题变量确保深色模式兼容
+4. **移动端优先**：默认样式针对移动端，通过断点扩展桌面端
+
+### 表单组件
+
+**必须使用 `UForm` + `UFormField` 组合**，而非手动写 `<label>` 标签。
+
+### 模态框
+
+使用 `UModal` 组件，通过 `:ui` 属性调整宽度。
 
 
 ## 注意事项

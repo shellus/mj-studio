@@ -176,7 +176,8 @@ server {
 
 ## 文档
 
-- [**CLAUDE.md**](CLAUDE.md) - 开发指南：目录结构、API 格式、日志系统
+- [**CLAUDE.md**](CLAUDE.md) - 开发指南：目录结构、API 格式、日志系统、开发流程
+- [**docs/DESIGN-SYSTEM.md**](docs/DESIGN-SYSTEM.md) - UI 设计系统：颜色、圆角、间距、动效规范
 - [**docs/对话功能需求文档.md**](docs/对话功能需求文档.md) - 对话模块完整需求
 - [**docs/流式输出系统设计和实现规范.md**](docs/流式输出系统设计和实现规范.md) - SSE 流式输出架构
 - [**docs/对话压缩逻辑.md**](docs/对话压缩逻辑.md) - 长对话压缩机制
