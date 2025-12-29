@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
-import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
+import type { ImageModelType, ImageModelParams } from '../../shared/types'
 import {
   TASK_CARD_MODEL_DISPLAY,
-  API_FORMAT_LABELS,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
@@ -230,14 +229,17 @@ function handleImageClick() {
   toggleBlur(!isBlurred.value)
 }
 
-// 查看参考图
-const showRefImages = ref(false)
-
 // 是否有参考图
 const hasRefImages = computed(() => props.task.images && props.task.images.length > 0)
 
-// 任务详情
+// 任务详情弹窗
 const showTaskDetail = ref(false)
+
+// 错误详情弹窗
+const showErrorLogs = ref(false)
+
+// 参考图预览弹窗
+const showRefImages = ref(false)
 
 // 下载图片
 function downloadImage() {
@@ -249,29 +251,6 @@ function downloadImage() {
   a.click()
 }
 
-// 错误详情
-const showErrorDetailModal = ref(false)
-const errorLogs = ref<{ requests: any[]; responses: any[] } | null>(null)
-const loadingErrorLogs = ref(false)
-
-async function showErrorDetail() {
-  loadingErrorLogs.value = true
-  showErrorDetailModal.value = true
-
-  try {
-    const logs = await $fetch<{ requests: any[]; responses: any[] }>(`/api/tasks/${props.task.id}/logs`)
-    errorLogs.value = logs
-  } catch (error: any) {
-    // 日志不存在时不显示详情（可能是网络错误/超时等无响应情况）
-    if (error?.statusCode === 404) {
-      errorLogs.value = null
-      toast.add({ title: '无详情', description: '此错误无响应日志', color: 'warning' })
-      showErrorDetailModal.value = false
-    }
-  } finally {
-    loadingErrorLogs.value = false
-  }
-}
 </script>
 
 <template>
@@ -311,7 +290,7 @@ async function showErrorDetail() {
           <button
             v-if="task.error && task.status === 'failed'"
             class="text-xs text-(--ui-text-muted) hover:text-(--ui-text) underline underline-offset-2"
-            @click="showErrorDetail"
+            @click="showErrorLogs = true"
           >
             查看详情
           </button>
@@ -473,64 +452,7 @@ async function showErrorDetail() {
     </UModal>
 
     <!-- 任务详情 Modal -->
-    <UModal v-model:open="showTaskDetail" title="任务详情">
-      <template #body>
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">任务ID</span>
-            <span class="font-mono text-(--ui-text)">{{ task.id }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">上游</span>
-            <span class="text-(--ui-text)">{{ task.upstream?.name || '未知' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">模型类型</span>
-            <span class="text-(--ui-text)">{{ modelInfo.label }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">请求格式</span>
-            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[task.apiFormat] || task.apiFormat }}</span>
-          </div>
-          <div v-if="task.modelName" class="flex justify-between">
-            <span class="text-(--ui-text-muted)">模型名称</span>
-            <span class="text-(--ui-text) font-mono text-xs">{{ task.modelName }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">任务类型</span>
-            <span class="text-(--ui-text)">{{ task.type === 'blend' ? '图片混合' : '文生图' }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">状态</span>
-            <span :class="statusInfo.color">{{ statusInfo.text }}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-(--ui-text-muted)">创建时间</span>
-            <span class="text-(--ui-text)">{{ new Date(task.createdAt).toLocaleString('zh-CN') }}</span>
-          </div>
-          <div v-if="duration" class="flex justify-between">
-            <span class="text-(--ui-text-muted)">耗时</span>
-            <span class="text-(--ui-text)">{{ duration }}</span>
-          </div>
-          <div v-if="task.upstreamTaskId" class="flex justify-between">
-            <span class="text-(--ui-text-muted)">上游任务ID</span>
-            <span class="font-mono text-xs text-(--ui-text)">{{ task.upstreamTaskId }}</span>
-          </div>
-          <div v-if="task.prompt">
-            <span class="text-(--ui-text-muted) block mb-1">提示词</span>
-            <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.prompt }}</p>
-          </div>
-          <div v-if="task.modelParams">
-            <span class="text-(--ui-text-muted) block mb-1">模型参数</span>
-            <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.modelParams }}</p>
-          </div>
-          <div v-if="task.error">
-            <span class="text-(--ui-text-muted) block mb-1">错误信息</span>
-            <p class="text-(--ui-error) bg-(--ui-error)/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
-          </div>
-        </div>
-      </template>
-    </UModal>
+    <StudioTaskDetailModal v-model:open="showTaskDetail" :task="task" />
 
     <!-- 大图预览 Modal -->
     <UModal v-model:open="showImagePreview" :ui="{ content: 'sm:max-w-4xl' }">
@@ -562,84 +484,10 @@ async function showErrorDetail() {
     </UModal>
 
     <!-- 参考图预览 Modal -->
-    <UModal v-model:open="showRefImages" title="参考图" :ui="{ content: 'sm:max-w-3xl' }">
-      <template #body>
-        <div class="grid gap-4" :class="task.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
-          <div
-            v-for="(img, index) in task.images"
-            :key="index"
-            class="relative bg-(--ui-bg-muted) rounded-lg overflow-hidden"
-          >
-            <img
-              :src="img"
-              :alt="`参考图 ${index + 1}`"
-              class="w-full h-auto max-h-[60vh] object-contain"
-            />
-            <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs text-white">
-              {{ index + 1 }} / {{ task.images.length }}
-            </div>
-          </div>
-        </div>
-      </template>
-    </UModal>
+    <StudioRefImagesModal v-model:open="showRefImages" :images="task.images" />
 
     <!-- 错误详情 Modal -->
-    <UModal v-model:open="showErrorDetailModal" title="错误详情" :ui="{ content: 'sm:max-w-2xl' }">
-      <template #body>
-        <!-- 加载中 -->
-        <div v-if="loadingErrorLogs" class="text-center py-8">
-          <StudioLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
-          <p class="text-(--ui-text-muted) text-sm">加载中...</p>
-        </div>
-
-        <!-- 日志内容 -->
-        <div v-else-if="errorLogs" class="space-y-4 max-h-[70vh] overflow-y-auto">
-          <!-- 遍历所有请求/响应对 -->
-          <div v-for="(response, index) in errorLogs.responses" :key="index" class="space-y-3">
-            <h4 class="text-sm font-medium text-(--ui-text-muted)">
-              请求 {{ index + 1 }} / {{ errorLogs.responses.length }}
-              <span class="text-xs text-(--ui-text-dimmed) ml-2">{{ response.timestamp }}</span>
-            </h4>
-
-            <!-- 请求信息 -->
-            <div v-if="errorLogs.requests[index]" class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
-              <div class="flex items-center gap-2 text-sm">
-                <span class="font-mono text-(--ui-info)">{{ errorLogs.requests[index].method }}</span>
-                <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.requests[index].url }}</span>
-              </div>
-            </div>
-
-            <!-- 响应信息 -->
-            <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-3">
-              <!-- 状态码 -->
-              <div class="flex items-center gap-2 text-sm">
-                <span class="text-(--ui-text-muted)">状态码</span>
-                <span
-                  class="font-mono font-medium"
-                  :class="response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
-                >
-                  {{ response.status }} {{ response.statusText }}
-                </span>
-              </div>
-              <!-- 响应体 -->
-              <div>
-                <span class="text-(--ui-text-muted) text-sm block mb-1">响应内容</span>
-                <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-48 text-(--ui-text)">{{ JSON.stringify(response.data, null, 2) }}</pre>
-              </div>
-            </div>
-
-            <!-- 分隔线 -->
-            <hr v-if="index < errorLogs.responses.length - 1" class="border-(--ui-border)" />
-          </div>
-        </div>
-
-        <!-- 无日志 -->
-        <div v-else class="text-center py-8">
-          <UIcon name="i-heroicons-document-magnifying-glass" class="w-12 h-12 mx-auto mb-2 text-(--ui-text-dimmed)" />
-          <p class="text-(--ui-text-muted) text-sm">无日志记录</p>
-        </div>
-      </template>
-    </UModal>
+    <StudioErrorLogsModal v-model:open="showErrorLogs" :task-id="task.id" />
   </div>
 </template>
 
