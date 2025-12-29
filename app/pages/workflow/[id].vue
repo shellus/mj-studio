@@ -7,7 +7,6 @@ import type { Node, Edge, Connection } from '@vue-flow/core'
 import type { WorkflowData } from '~/shared/workflow-types'
 
 definePageMeta({
-  layout: false,
   middleware: 'auth',
 })
 
@@ -438,7 +437,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workflow-page h-screen w-screen bg-zinc-950 overflow-hidden" @click="closeContextMenu">
+  <div class="workflow-page flex flex-col h-[calc(100vh-56px)] bg-zinc-950 overflow-hidden" @click="closeContextMenu">
     <!-- 隐藏的文件上传 -->
     <input
       ref="fileInput"
@@ -447,8 +446,8 @@ onUnmounted(() => {
       class="hidden"
       @change="handleFileUpload"
     />
-    <!-- 顶部工具栏 -->
-    <header class="absolute top-0 left-0 right-0 z-10 h-12 bg-zinc-900/80 backdrop-blur border-b border-zinc-800 flex items-center px-4 gap-4">
+    <!-- 工具栏 -->
+    <header class="shrink-0 h-11 bg-zinc-900/80 backdrop-blur border-b border-zinc-800 flex items-center px-4 gap-4">
       <UButton variant="ghost" size="sm" @click="goBack">
         <UIcon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1" />
         返回
@@ -508,7 +507,7 @@ onUnmounted(() => {
     </header>
 
     <!-- 加载中 -->
-    <div v-if="isLoading" class="absolute inset-0 pt-12 flex items-center justify-center">
+    <div v-if="isLoading" class="flex-1 flex items-center justify-center">
       <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-zinc-500" />
     </div>
 
@@ -779,9 +778,9 @@ onUnmounted(() => {
 
 <style scoped>
 .workflow-canvas {
+  flex: 1;
   width: 100%;
   height: 100%;
-  padding-top: 48px;
 }
 
 /* 节点基础样式 */
