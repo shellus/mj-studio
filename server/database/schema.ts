@@ -20,7 +20,7 @@ export type {
   UpstreamInfo,
 } from '../../app/shared/types'
 
-import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo } from '../../app/shared/types'
+import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -82,7 +82,7 @@ export const tasks = sqliteTable('tasks', {
   apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式（冗余，便于查询）
   modelName: text('model_name').notNull(), // 实际使用的模型名称（冗余，便于查询）
   prompt: text('prompt'),
-  modelParams: text('model_params'), // 模型专用参数（JSON）
+  modelParams: text('model_params', { mode: 'json' }).$type<ModelParams | null>(), // 模型专用参数（JSON）
   images: text('images', { mode: 'json' }).$type<string[]>().default([]),
   type: text('type').notNull().default('imagine'), // imagine | blend（图片任务专用）
   status: text('status').$type<TaskStatus>().notNull().default('pending'),

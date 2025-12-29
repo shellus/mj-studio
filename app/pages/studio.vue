@@ -10,7 +10,7 @@ const { upstreams, loadUpstreams } = useUpstreams()
 const toast = useToast()
 
 // StudioWorkbench 组件引用
-const workbenchRef = ref<{ setContent: (prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) => void } | null>(null)
+const workbenchRef = ref<{ setContent: (prompt: string | null, modelParams: ImageModelParams | null, images: string[]) => void } | null>(null)
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -108,7 +108,7 @@ async function handleVideoSubmit(data: {
 }
 
 // 复制任务内容到工作台
-function handleCopyToPanel(prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
+function handleCopyToPanel(prompt: string | null, modelParams: ImageModelParams | null, images: string[]) {
   workbenchRef.value?.setContent(prompt, modelParams, images)
   toast.add({
     title: '已复制到工作台',

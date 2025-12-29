@@ -1,5 +1,5 @@
 // 任务状态管理
-import type { ModelType, ApiFormat, TaskType } from '../shared/types'
+import type { ModelType, ApiFormat, TaskType, ModelParams } from '../shared/types'
 
 // 精简的上游配置（用于任务列表/详情）
 export interface TaskUpstreamSummary {
@@ -19,7 +19,7 @@ export interface Task {
   modelName: string
   upstream?: TaskUpstreamSummary // 精简的上游配置
   prompt: string | null
-  modelParams: Record<string, unknown> | null  // 模型专用参数（JSON）
+  modelParams: ModelParams | null  // 模型专用参数
   images: string[]
   type: string
   status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'

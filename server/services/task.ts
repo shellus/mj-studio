@@ -78,7 +78,7 @@ export function useTaskService() {
       apiFormat: data.apiFormat,
       modelName: data.modelName,
       prompt: data.prompt ?? null,
-      modelParams: data.modelParams ? JSON.stringify(data.modelParams) : null,
+      modelParams: data.modelParams ?? null,
       images: data.images ?? [],
       type: data.type ?? 'imagine',
       status: 'pending',
@@ -481,8 +481,7 @@ export function useTaskService() {
     const dalle = createDalleService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
 
-    // 解析 modelParams
-    const modelParams: ImageModelParams = task.modelParams ? JSON.parse(task.modelParams) : {}
+    const modelParams = (task.modelParams ?? {}) as ImageModelParams
 
     try {
       let result: GenerateResult
@@ -609,8 +608,7 @@ export function useTaskService() {
     const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
-      // 解析 modelParams
-      const modelParams = task.modelParams ? JSON.parse(task.modelParams) : {}
+      const modelParams = task.modelParams ?? {}
 
       // 构建请求参数
       const params: VideoCreateParams = {

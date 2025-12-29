@@ -47,7 +47,7 @@ const hasVideoModels = computed(() => {
 
 // 图片表单引用
 const imageFormRef = ref<{
-  setContent: (prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) => void
+  setContent: (prompt: string | null, modelParams: ImageModelParams | null, images: string[]) => void
 } | null>(null)
 
 // 视频表单引用
@@ -84,7 +84,7 @@ function handleVideoSubmit(data: {
 }
 
 // 设置面板内容（供外部调用）
-function setContent(newPrompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
+function setContent(newPrompt: string | null, modelParams: ImageModelParams | null, images: string[]) {
   if (activeTab.value === 'video' && videoFormRef.value) {
     videoFormRef.value.setContent(newPrompt, images)
   } else if (imageFormRef.value) {

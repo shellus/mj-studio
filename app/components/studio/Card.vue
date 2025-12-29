@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
-import type { ImageModelType, ApiFormat } from '../../shared/types'
+import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
 import {
   TASK_CARD_MODEL_DISPLAY,
   API_FORMAT_LABELS,
@@ -19,7 +19,7 @@ const emit = defineEmits<{
   retry: []
   cancel: []
   blur: [isBlurred: boolean]
-  copyToPanel: [prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]]
+  copyToPanel: [prompt: string | null, modelParams: ImageModelParams | null, images: string[]]
 }>()
 
 const isActioning = ref(false)
@@ -391,7 +391,7 @@ async function showErrorDetail() {
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="复制到工作台"
-          @click="emit('copyToPanel', task.prompt, task.modelParams, task.images)"
+          @click="emit('copyToPanel', task.prompt, task.modelParams as ImageModelParams | null, task.images)"
         >
           <UIcon name="i-heroicons-document-duplicate" class="w-4 h-4 text-white" />
         </button>
@@ -519,6 +519,10 @@ async function showErrorDetail() {
           <div v-if="task.prompt">
             <span class="text-(--ui-text-muted) block mb-1">提示词</span>
             <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.prompt }}</p>
+          </div>
+          <div v-if="task.modelParams">
+            <span class="text-(--ui-text-muted) block mb-1">模型参数</span>
+            <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.modelParams }}</p>
           </div>
           <div v-if="task.error">
             <span class="text-(--ui-text-muted) block mb-1">错误信息</span>

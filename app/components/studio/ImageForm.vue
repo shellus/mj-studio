@@ -82,7 +82,7 @@ async function handleOptimize() {
 
   isOptimizing.value = true
   try {
-    const result = await $fetch<{ success: boolean; optimizedPrompt: string }>('/api/prompts/optimize', {
+    const result = await $fetch<{ success: boolean; optimizedPrompt: string; negativePrompt?: string }>('/api/prompts/optimize', {
       method: 'POST',
       headers: getAuthHeader(),
       body: {
@@ -90,12 +90,20 @@ async function handleOptimize() {
         upstreamId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID],
         aimodelId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID],
         modelName: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME],
+        targetModelType: selectedAimodel.value?.modelType,
+        targetModelName: selectedAimodel.value?.modelName,
       },
     })
 
     if (result.success && result.optimizedPrompt) {
       prompt.value = result.optimizedPrompt
-      toast.add({ title: '提示词已优化', color: 'success' })
+      // 如果返回了负面提示词且当前模型支持，则填充
+      if (result.negativePrompt && supportsNegativePrompt.value) {
+        negativePrompt.value = result.negativePrompt
+        toast.add({ title: '提示词已优化', description: '已填充负面提示词', color: 'success' })
+      } else {
+        toast.add({ title: '提示词已优化', color: 'success' })
+      }
     }
   } catch (error: any) {
     toast.add({ title: '优化失败', description: error.data?.message || error.message, color: 'error' })
@@ -224,9 +232,9 @@ async function handleSubmit() {
 }
 
 // 设置面板内容（供外部调用）
-function setContent(newPrompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
+function setContent(newPrompt: string | null, modelParams: ImageModelParams | null, images: string[]) {
   prompt.value = newPrompt || ''
-  negativePrompt.value = (modelParams?.negativePrompt as string) || ''
+  negativePrompt.value = modelParams?.negativePrompt || ''
   referenceImages.value = images.slice(0, MAX_REFERENCE_IMAGE_COUNT)
 }
 
