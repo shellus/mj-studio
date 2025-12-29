@@ -437,7 +437,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workflow-page flex flex-col h-[calc(100vh-56px)] bg-zinc-950 overflow-hidden" @click="closeContextMenu">
+  <div class="workflow-page flex flex-col h-[calc(100vh-56px)] bg-(--ui-bg) overflow-hidden" @click="closeContextMenu">
     <!-- 隐藏的文件上传 -->
     <input
       ref="fileInput"
@@ -447,20 +447,20 @@ onUnmounted(() => {
       @change="handleFileUpload"
     />
     <!-- 工具栏 -->
-    <header class="shrink-0 h-11 bg-zinc-900/80 backdrop-blur border-b border-zinc-800 flex items-center px-4 gap-4">
+    <header class="shrink-0 h-11 bg-(--ui-bg-elevated)/80 backdrop-blur border-b border-(--ui-border) flex items-center px-4 gap-4">
       <UButton variant="ghost" size="sm" @click="goBack">
         <UIcon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1" />
         返回
       </UButton>
 
-      <div class="h-4 w-px bg-zinc-700" />
+      <div class="h-4 w-px bg-(--ui-border)" />
 
       <!-- 标题（可编辑） -->
       <div class="flex items-center gap-1">
         <template v-if="isEditingTitle">
           <input
             v-model="editingTitle"
-            class="title-input bg-zinc-800 border border-zinc-600 rounded px-2 py-0.5 text-sm text-zinc-200 outline-none focus:border-blue-500 w-48"
+            class="title-input bg-(--ui-bg-muted) border border-(--ui-border) rounded px-2 py-0.5 text-sm text-(--ui-text) outline-none focus:border-(--ui-primary) w-48"
             @keydown.enter="confirmEditTitle"
             @keydown.escape="cancelEditTitle"
             @blur="confirmEditTitle"
@@ -468,7 +468,7 @@ onUnmounted(() => {
         </template>
         <template v-else>
           <h1
-            class="text-sm font-medium text-zinc-200 cursor-pointer hover:text-zinc-100 px-2 py-0.5 rounded hover:bg-zinc-800 transition-colors"
+            class="text-sm font-medium text-(--ui-text) cursor-pointer hover:text-(--ui-text-highlighted) px-2 py-0.5 rounded hover:bg-(--ui-bg-muted) transition-colors"
             title="点击编辑标题"
             @click="startEditTitle"
           >
@@ -481,18 +481,14 @@ onUnmounted(() => {
       <div class="flex-1" />
 
       <!-- 自动保存 -->
-      <label class="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
-        <input
-          v-model="autoSave"
-          type="checkbox"
-          class="w-3.5 h-3.5 rounded border-zinc-600 bg-zinc-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-        />
+      <label class="flex items-center gap-1.5 text-xs text-(--ui-text-muted) cursor-pointer select-none">
+        <UCheckbox v-model="autoSave" />
         自动保存
       </label>
 
-      <div class="h-4 w-px bg-zinc-700" />
+      <div class="h-4 w-px bg-(--ui-border)" />
 
-      <span class="text-xs text-zinc-500 hidden sm:inline">Ctrl+S 保存 · 右键添加节点</span>
+      <span class="text-xs text-(--ui-text-dimmed) hidden sm:inline">Ctrl+S 保存 · 右键添加节点</span>
 
       <UButton
         size="sm"
@@ -508,7 +504,7 @@ onUnmounted(() => {
 
     <!-- 加载中 -->
     <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-zinc-500" />
+      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-(--ui-text-muted)" />
     </div>
 
     <!-- Vue Flow 画布 -->
@@ -528,13 +524,13 @@ onUnmounted(() => {
         @pane-click="closeContextMenu"
       >
         <!-- 背景 -->
-        <Background :gap="20" :size="1" pattern-color="#27272a" />
+        <Background :gap="20" :size="1" class="workflow-background" />
 
         <!-- 小地图 -->
-        <MiniMap :pannable="true" :zoomable="true" class="!bg-zinc-900 !border-zinc-700" />
+        <MiniMap :pannable="true" :zoomable="true" />
 
         <!-- 控制面板 -->
-        <Controls :show-fit-view="true" :show-interactive="true" class="!bg-zinc-900 !border-zinc-700" />
+        <Controls :show-fit-view="true" :show-interactive="true" />
 
         <!-- 自定义节点: 图片输入 -->
         <template #node-input-image="{ id, data }">
@@ -552,8 +548,8 @@ onUnmounted(() => {
                 <img :src="data.imageUrl" class="w-full h-full object-cover rounded" />
               </div>
               <div v-else class="upload-area" @click="triggerUpload(id)">
-                <UIcon name="i-heroicons-arrow-up-tray" class="w-8 h-8 text-zinc-500" />
-                <span class="text-xs text-zinc-500">点击上传图片</span>
+                <UIcon name="i-heroicons-arrow-up-tray" class="w-8 h-8 text-(--ui-text-muted)" />
+                <span class="text-xs text-(--ui-text-muted)">点击上传图片</span>
               </div>
             </div>
             <Handle type="source" :position="Position.Right" class="handle-source" />
@@ -579,9 +575,9 @@ onUnmounted(() => {
             </div>
             <div class="node-content">
               <div class="mb-2">
-                <label class="text-[10px] text-zinc-500 block mb-1">模型</label>
+                <label class="text-[10px] text-(--ui-text-muted) block mb-1">模型</label>
                 <select
-                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 nodrag"
+                  class="node-select nodrag"
                   :value="data.selectedModel || ''"
                   @change="(e: Event) => {
                     const val = (e.target as HTMLSelectElement).value
@@ -596,10 +592,10 @@ onUnmounted(() => {
                 </select>
               </div>
               <div>
-                <label class="text-[10px] text-zinc-500 block mb-1">提示词</label>
+                <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
                 <textarea
                   v-model="data.prompt"
-                  class="w-full h-16 bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 resize-none nodrag"
+                  class="node-textarea nodrag"
                   placeholder="输入提示词..."
                 />
               </div>
@@ -647,9 +643,9 @@ onUnmounted(() => {
             </div>
             <div class="node-content">
               <div class="mb-2">
-                <label class="text-[10px] text-zinc-500 block mb-1">模型</label>
+                <label class="text-[10px] text-(--ui-text-muted) block mb-1">模型</label>
                 <select
-                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 nodrag"
+                  class="node-select nodrag"
                   :value="data.selectedModel || ''"
                   @change="(e: Event) => {
                     const val = (e.target as HTMLSelectElement).value
@@ -664,10 +660,10 @@ onUnmounted(() => {
                 </select>
               </div>
               <div>
-                <label class="text-[10px] text-zinc-500 block mb-1">提示词</label>
+                <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
                 <textarea
                   v-model="data.prompt"
-                  class="w-full h-16 bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 resize-none nodrag"
+                  class="node-textarea nodrag"
                   placeholder="输入视频描述..."
                 />
               </div>
@@ -706,7 +702,7 @@ onUnmounted(() => {
             <div class="node-content">
               <textarea
                 v-model="data.text"
-                class="w-full h-20 bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 resize-none nodrag"
+                class="node-textarea h-20 nodrag"
                 placeholder="输入文本内容..."
               />
             </div>
@@ -727,18 +723,18 @@ onUnmounted(() => {
                 <img
                   v-if="getUpstreamResult(id)?.type === 'image'"
                   :src="getUpstreamResult(id)?.url"
-                  class="w-full h-32 object-contain rounded bg-zinc-800"
+                  class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
                 />
                 <video
                   v-else-if="getUpstreamResult(id)?.type === 'video'"
                   :src="getUpstreamResult(id)?.url"
-                  class="w-full h-32 object-contain rounded bg-zinc-800"
+                  class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
                   controls
                 />
               </template>
               <div v-else class="preview-area">
-                <UIcon name="i-heroicons-photo" class="w-12 h-12 text-zinc-600" />
-                <span class="text-xs text-zinc-500">等待输入</span>
+                <UIcon name="i-heroicons-photo" class="w-12 h-12 text-(--ui-text-dimmed)" />
+                <span class="text-xs text-(--ui-text-muted)">等待输入</span>
               </div>
             </div>
             <Handle type="target" :position="Position.Left" class="handle-target" />
@@ -786,10 +782,10 @@ onUnmounted(() => {
 /* 节点基础样式 */
 .workflow-node {
   min-width: 220px;
-  background: #18181b;
-  border: 1px solid #3f3f46;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   position: relative;
 }
 
@@ -798,10 +794,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #3f3f46;
+  border-bottom: 1px solid var(--ui-border);
   font-size: 12px;
   font-weight: 500;
-  color: #e4e4e7;
+  color: var(--ui-text);
 }
 
 .node-header-gen {
@@ -828,6 +824,39 @@ onUnmounted(() => {
   padding: 12px;
 }
 
+/* 节点表单控件 */
+.node-select {
+  width: 100%;
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--ui-text);
+}
+
+.node-select:focus {
+  outline: none;
+  border-color: var(--ui-primary);
+}
+
+.node-textarea {
+  width: 100%;
+  height: 64px;
+  background: var(--ui-bg-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--ui-text);
+  resize: none;
+}
+
+.node-textarea:focus {
+  outline: none;
+  border-color: var(--ui-primary);
+}
+
 .upload-area,
 .preview-area {
   display: flex;
@@ -836,7 +865,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   height: 100px;
-  border: 2px dashed #3f3f46;
+  border: 2px dashed var(--ui-border);
   border-radius: 6px;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -844,7 +873,7 @@ onUnmounted(() => {
 
 .upload-area:hover,
 .preview-area:hover {
-  border-color: #60a5fa;
+  border-color: var(--ui-primary);
 }
 
 .upload-area.has-image {
@@ -871,15 +900,15 @@ onUnmounted(() => {
 .handle-target {
   width: 12px !important;
   height: 12px !important;
-  background: #3f3f46 !important;
-  border: 2px solid #52525b !important;
+  background: var(--ui-bg-accented) !important;
+  border: 2px solid var(--ui-border) !important;
   transition: background 0.15s, border-color 0.15s !important;
 }
 
 .handle-source:hover,
 .handle-target:hover {
-  background: #60a5fa !important;
-  border-color: #60a5fa !important;
+  background: var(--ui-primary) !important;
+  border-color: var(--ui-primary) !important;
 }
 
 .handle-source {
@@ -895,10 +924,10 @@ onUnmounted(() => {
   position: fixed;
   z-index: 1000;
   min-width: 180px;
-  background: #18181b;
-  border: 1px solid #3f3f46;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
 
@@ -906,8 +935,8 @@ onUnmounted(() => {
   padding: 8px 12px;
   font-size: 11px;
   font-weight: 500;
-  color: #71717a;
-  border-bottom: 1px solid #3f3f46;
+  color: var(--ui-text-dimmed);
+  border-bottom: 1px solid var(--ui-border);
 }
 
 .context-menu-item {
@@ -917,13 +946,13 @@ onUnmounted(() => {
   width: 100%;
   padding: 10px 12px;
   font-size: 13px;
-  color: #e4e4e7;
+  color: var(--ui-text);
   text-align: left;
   transition: background 0.15s;
 }
 
 .context-menu-item:hover {
-  background: #27272a;
+  background: var(--ui-bg-accented);
 }
 
 /* Vue Flow 主题覆盖 */
@@ -935,20 +964,20 @@ onUnmounted(() => {
 }
 
 :deep(.vue-flow__node.selected) {
-  box-shadow: 0 0 0 2px #60a5fa;
+  box-shadow: 0 0 0 2px var(--ui-primary);
 }
 
 :deep(.vue-flow__handle) {
   width: 12px;
   height: 12px;
-  background: #3f3f46;
-  border: 2px solid #52525b;
+  background: var(--ui-bg-accented);
+  border: 2px solid var(--ui-border);
   transition: background 0.15s, border-color 0.15s;
 }
 
 :deep(.vue-flow__handle:hover) {
-  background: #60a5fa;
-  border-color: #60a5fa;
+  background: var(--ui-primary);
+  border-color: var(--ui-primary);
 }
 
 :deep(.vue-flow__edge-path) {
@@ -956,27 +985,37 @@ onUnmounted(() => {
 }
 
 :deep(.vue-flow__controls) {
-  background: #18181b;
-  border-color: #3f3f46;
+  background: var(--ui-bg-elevated);
+  border-color: var(--ui-border);
 }
 
 :deep(.vue-flow__controls-button) {
-  background: #18181b;
-  border-color: #3f3f46;
-  color: #a1a1aa;
+  background: var(--ui-bg-elevated);
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
 }
 
 :deep(.vue-flow__controls-button:hover) {
-  background: #27272a;
+  background: var(--ui-bg-accented);
 }
 
 :deep(.vue-flow__minimap) {
-  background: #18181b;
-  border-color: #3f3f46;
+  background: var(--ui-bg-elevated);
+  border-color: var(--ui-border);
 }
 
 :deep(.vue-flow__connection-path) {
-  stroke: #60a5fa;
+  stroke: var(--ui-primary);
   stroke-width: 2;
+}
+
+/* Background 背景网格 */
+:deep(.vue-flow__background) {
+  background-color: var(--ui-bg);
+}
+
+:deep(.vue-flow__background pattern circle),
+:deep(.vue-flow__background pattern line) {
+  stroke: var(--ui-border);
 }
 </style>
