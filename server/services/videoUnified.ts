@@ -76,7 +76,7 @@ interface UpstreamQueryResponse {
   video_url?: string
   enhanced_prompt?: string
   status_update_time?: number
-  error?: string
+  error?: string | { code?: string; message?: string }
 }
 
 export type { VideoCreateParams, VideoCreateResponse, VideoQueryResponse }
@@ -236,9 +236,15 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
         logResponse(taskId, { status: 200, data: response })
       }
 
+      // 归一化 error 字段：上游可能返回对象 { code, message }，需要提取为字符串
+      const normalizedError = typeof response.error === 'object'
+        ? response.error?.message || JSON.stringify(response.error)
+        : response.error
+
       return {
         ...response,
         status: normalizeStatus(response.status),
+        error: normalizedError,
       }
     } catch (error: any) {
       if (taskId) {
