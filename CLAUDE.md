@@ -67,9 +67,15 @@ docs/                         # 详细设计文档
 ### 创作工作台组件 (`studio/`)
 | 组件 | 用途 |
 |-----|-----|
-| `Workbench.vue` | 创作工作台（提示词、负面提示词、参考图、模型选择） |
+| `Workbench.vue` | 创作工作台容器（切换绘图/视频标签页） |
+| `ImageForm.vue` | 绘图表单（提示词、负面提示词、参考图、模型专属参数） |
+| `VideoForm.vue` | 视频表单（提示词、参考图、模型专属参数） |
 | `List.vue` | 任务列表（分页、筛选、搜索、批量操作） |
-| `Card.vue` | 任务卡片（结果展示、操作按钮、进度条） |
+| `Card.vue` | 图片任务卡片（结果展示、操作按钮、进度条） |
+| `VideoCard.vue` | 视频任务卡片（视频播放、操作按钮、进度条） |
+| `TaskDetailModal.vue` | 任务详情弹窗（统一的任务信息展示） |
+| `ErrorLogsModal.vue` | 错误详情弹窗（请求/响应日志） |
+| `RefImagesModal.vue` | 参考图预览弹窗 |
 | `Loader.vue` | 加载动画 |
 | `Trash.vue` | 回收站（恢复/永久删除） |
 
@@ -101,8 +107,8 @@ docs/                         # 详细设计文档
 ### 前后端共享类型系统
 
 类型和常量定义在 `app/shared/` 目录，前后端共用：
-- `types.ts`: 核心类型定义（ModelCategory、ModelType、ApiFormat、TaskType、TaskStatus 等）
-- `constants.ts`: 常量和映射表（MODEL_TYPE_LABELS、API_FORMAT_LABELS、CATEGORY_LABELS 等）
+- `types.ts`: 核心类型定义（ModelCategory、ModelType、ApiFormat、TaskType、TaskStatus、ImageModelParams、VideoModelParams 等）
+- `constants.ts`: 常量和映射表（MODEL_TYPE_LABELS、API_FORMAT_LABELS、MODELS_WITH_* 等）
 
 **模型分类**：
 - `image`: 绘图模型（Midjourney、DALL-E、Gemini、Flux 等）
@@ -201,6 +207,42 @@ docs/                         # 详细设计文档
 - 返回：`status`、`video_url`（成功时）、`error`（失败时）
 
 > **开发指南**：添加新视频模型请参考 [docs/视频模型开发指南.md](docs/视频模型开发指南.md)，API 文档见 [docs/api/yunwu-video/](docs/api/yunwu-video/)
+
+## 模型专属参数
+
+各模型支持不同的生成参数，前端根据模型类型动态显示对应的参数控件。
+
+### 图片模型参数 (`ImageModelParams`)
+
+| 模型类型 | 支持的参数 |
+|---------|-----------|
+| `dalle` | `size`（尺寸）、`quality`（标准/高清）、`style`（生动/自然） |
+| `doubao` | `size`（尺寸）、`seed`（随机种子）、`guidanceScale`（提示词相关度）、`watermark`（水印） |
+| `flux` | `aspectRatio`（宽高比）、`negativePrompt`（负面提示词） |
+| `gpt4o-image` | `size`（尺寸）、`quality`（高/中/低）、`background`（透明/不透明） |
+| `midjourney` | `negativePrompt`（负面提示词）、`botType`（MJ/NIJI） |
+
+参数支持由 `constants.ts` 中的 `MODELS_WITH_*` 常量控制：
+- `MODELS_WITH_SIZE`: 支持尺寸选择
+- `MODELS_WITH_QUALITY`: 支持质量选择
+- `MODELS_WITH_STYLE`: 支持风格选择
+- `MODELS_WITH_ASPECT_RATIO`: 支持宽高比选择
+- `MODELS_WITH_NEGATIVE_PROMPT`: 支持负面提示词
+- `MODELS_WITH_SEED`: 支持随机种子
+- `MODELS_WITH_GUIDANCE`: 支持提示词相关度
+- `MODELS_WITH_WATERMARK`: 支持水印开关
+- `MODELS_WITH_BACKGROUND`: 支持背景透明度
+
+> **API 文档**：图片模型 API 参数详见 [docs/api/yunwu-image/](docs/api/yunwu-image/)
+
+### 视频模型参数
+
+| 模型类型 | 支持的参数 |
+|---------|-----------|
+| `jimeng-video` | `aspectRatio`（宽高比）、`size`（分辨率） |
+| `veo` | `aspectRatio`（宽高比）、`enhancePrompt`（提示词增强）、`enableUpsample`（超分辨率） |
+| `sora` | `orientation`（方向）、`size`（分辨率）、`duration`（时长）、`watermark`、`private` |
+| `grok-video` | `aspectRatio`（宽高比） |
 
 ## 资源处理规范
 

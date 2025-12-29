@@ -452,6 +452,70 @@ export const MODELS_WITHOUT_REFERENCE_IMAGE: ImageModelType[] = ['dalle', 'z-ima
  */
 export const MODELS_WITH_NEGATIVE_PROMPT: ImageModelType[] = ['flux', 'doubao', 'z-image']
 
+/**
+ * 支持尺寸参数的模型列表
+ * - 用途：判断是否显示尺寸选择控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示尺寸选择
+ */
+export const MODELS_WITH_SIZE: ImageModelType[] = ['dalle', 'doubao', 'gpt4o-image']
+
+/**
+ * 支持质量参数的模型列表
+ * - 用途：判断是否显示质量选择控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示质量选择
+ */
+export const MODELS_WITH_QUALITY: ImageModelType[] = ['dalle', 'gpt4o-image']
+
+/**
+ * 支持风格参数的模型列表
+ * - 用途：判断是否显示风格选择控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示风格选择
+ */
+export const MODELS_WITH_STYLE: ImageModelType[] = ['dalle']
+
+/**
+ * 支持宽高比参数的模型列表
+ * - 用途：判断是否显示宽高比选择控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示宽高比选择
+ */
+export const MODELS_WITH_ASPECT_RATIO: ImageModelType[] = ['flux']
+
+/**
+ * 支持随机种子参数的模型列表
+ * - 用途：判断是否显示种子输入控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示种子输入
+ */
+export const MODELS_WITH_SEED: ImageModelType[] = ['doubao']
+
+/**
+ * 支持提示词相关度参数的模型列表
+ * - 用途：判断是否显示 guidance_scale 控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示提示词相关度
+ */
+export const MODELS_WITH_GUIDANCE: ImageModelType[] = ['doubao']
+
+/**
+ * 支持水印参数的模型列表
+ * - 用途：判断是否显示水印开关控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示水印开关
+ */
+export const MODELS_WITH_WATERMARK: ImageModelType[] = ['doubao']
+
+/**
+ * 支持背景透明度参数的模型列表
+ * - 用途：判断是否显示背景选择控件
+ * - 使用场景：
+ *   - ImageForm.vue: 根据模型类型显示背景选择
+ */
+export const MODELS_WITH_BACKGROUND: ImageModelType[] = ['gpt4o-image']
+
 // ==================== 图片上传限制 ====================
 
 /**

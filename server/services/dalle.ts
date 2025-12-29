@@ -53,20 +53,63 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     'Content-Type': 'application/json',
   }
 
+  // 判断是否为 GPT Image 模型
+  function isGptImageModel(modelName: string): boolean {
+    return modelName.toLowerCase().includes('gpt-image')
+  }
+
   // 文生图
   async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal, modelParams?: ImageModelParams): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/generations`
     const body: Record<string, any> = {
       model: modelName,
       prompt,
-      n: 1,
-      size: '1024x1024',
+      n: modelParams?.n || 1,
       response_format: 'url',
     }
 
-    // 添加负面提示词（如果有）
+    // 尺寸参数（豆包不发送 size）
+    if (!isDoubaoModel(modelName)) {
+      body.size = modelParams?.size || '1024x1024'
+    } else if (modelParams?.size) {
+      body.size = modelParams.size
+    }
+
+    // 负面提示词
     if (modelParams?.negativePrompt) {
       body.negative_prompt = modelParams.negativePrompt
+    }
+
+    // DALL-E 3 专属参数
+    if (modelName.includes('dall-e-3')) {
+      if (modelParams?.quality) body.quality = modelParams.quality
+      if (modelParams?.style) body.style = modelParams.style
+    }
+
+    // 豆包专属参数
+    if (isDoubaoModel(modelName)) {
+      if (modelParams?.seed !== undefined && modelParams.seed !== -1) {
+        body.seed = modelParams.seed
+      }
+      if (modelParams?.guidanceScale !== undefined) {
+        body.guidance_scale = modelParams.guidanceScale
+      }
+      if (modelParams?.watermark !== undefined) {
+        body.watermark = modelParams.watermark
+      }
+    }
+
+    // Flux 专属参数
+    if (isFluxModel(modelName)) {
+      if (modelParams?.aspectRatio) body.aspect_ratio = modelParams.aspectRatio
+    }
+
+    // GPT Image 专属参数
+    if (isGptImageModel(modelName)) {
+      if (modelParams?.quality) body.quality = modelParams.quality
+      if (modelParams?.background && modelParams.background !== 'auto') {
+        body.background = modelParams.background
+      }
     }
 
     // 记录请求
@@ -143,18 +186,47 @@ export function createDalleService(baseUrl: string, apiKey: string) {
       model: modelName,
       prompt,
       image: imageValue,
-      n: 1,
+      n: modelParams?.n || 1,
       response_format: 'url',
     }
 
-    // 豆包模型不发送 size 参数（部分上游不支持 adaptive）
+    // 尺寸参数（豆包不发送 size）
     if (!isDoubaoModel(modelName)) {
-      body.size = '1024x1024'
+      body.size = modelParams?.size || '1024x1024'
+    } else if (modelParams?.size) {
+      body.size = modelParams.size
     }
 
-    // 添加负面提示词（如果有）
+    // 负面提示词
     if (modelParams?.negativePrompt) {
       body.negative_prompt = modelParams.negativePrompt
+    }
+
+    // DALL-E 3 专属参数
+    if (modelName.includes('dall-e-3')) {
+      if (modelParams?.quality) body.quality = modelParams.quality
+      if (modelParams?.style) body.style = modelParams.style
+    }
+
+    // 豆包专属参数
+    if (isDoubaoModel(modelName)) {
+      if (modelParams?.seed !== undefined && modelParams.seed !== -1) {
+        body.seed = modelParams.seed
+      }
+      if (modelParams?.guidanceScale !== undefined) {
+        body.guidance_scale = modelParams.guidanceScale
+      }
+      if (modelParams?.watermark !== undefined) {
+        body.watermark = modelParams.watermark
+      }
+    }
+
+    // GPT Image 专属参数（图生图模式不使用 Flux，因为 Flux 走单独的方法）
+    if (isGptImageModel(modelName)) {
+      if (modelParams?.quality) body.quality = modelParams.quality
+      if (modelParams?.background && modelParams.background !== 'auto') {
+        body.background = modelParams.background
+      }
     }
 
     // 记录请求（图片数据截断）
@@ -213,12 +285,17 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     const formData = new FormData()
     formData.append('model', modelName)
     formData.append('prompt', prompt)
-    formData.append('n', '1')
+    formData.append('n', String(modelParams?.n || 1))
     formData.append('response_format', 'b64_json')
 
-    // 添加负面提示词（如果有）
+    // 负面提示词
     if (modelParams?.negativePrompt) {
       formData.append('negative_prompt', modelParams.negativePrompt)
+    }
+
+    // 宽高比
+    if (modelParams?.aspectRatio) {
+      formData.append('aspect_ratio', modelParams.aspectRatio)
     }
 
     // 将 data URL 转换为 Blob 并添加到 FormData

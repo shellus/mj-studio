@@ -226,8 +226,8 @@ export interface ImageModelParams {
   n?: number
   /** 随机种子（豆包） */
   seed?: number
-  /** 质量（DALL-E 3） */
-  quality?: 'standard' | 'hd'
+  /** 质量（DALL-E 3: standard/hd，GPT Image: high/medium/low） */
+  quality?: 'standard' | 'hd' | 'high' | 'medium' | 'low'
   /** 风格（DALL-E 3） */
   style?: 'vivid' | 'natural'
   /** 提示词相关度：1-10（豆包） */
@@ -236,6 +236,8 @@ export interface ImageModelParams {
   watermark?: boolean
   /** 机器人类型（MJ） */
   botType?: 'MID_JOURNEY' | 'NIJI_JOURNEY'
+  /** 背景透明度（GPT Image） */
+  background?: 'auto' | 'transparent' | 'opaque'
 }
 
 /**

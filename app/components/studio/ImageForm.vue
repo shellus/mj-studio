@@ -6,6 +6,14 @@ import {
   MODEL_USAGE_HINTS,
   MODELS_WITHOUT_REFERENCE_IMAGE,
   MODELS_WITH_NEGATIVE_PROMPT,
+  MODELS_WITH_SIZE,
+  MODELS_WITH_QUALITY,
+  MODELS_WITH_STYLE,
+  MODELS_WITH_ASPECT_RATIO,
+  MODELS_WITH_SEED,
+  MODELS_WITH_GUIDANCE,
+  MODELS_WITH_WATERMARK,
+  MODELS_WITH_BACKGROUND,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   MAX_REFERENCE_IMAGE_COUNT,
   USER_SETTING_KEYS,
@@ -38,6 +46,77 @@ const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedUpstreamId = ref<number | null>(null)
 const selectedAimodelId = ref<number | null>(null)
+
+// 模型参数状态
+const size = ref('1024x1024')
+const quality = ref<'standard' | 'hd' | 'high' | 'medium' | 'low'>('standard')
+const style = ref<'vivid' | 'natural'>('vivid')
+const aspectRatio = ref('1:1')
+const seed = ref(-1)
+const guidanceScale = ref(2.5)
+const watermark = ref(true)
+const background = ref<'auto' | 'transparent' | 'opaque'>('auto')
+
+// 尺寸选项
+const dalleSizeOptions = [
+  { label: '1024x1024 (方形)', value: '1024x1024' },
+  { label: '1792x1024 (横版)', value: '1792x1024' },
+  { label: '1024x1792 (竖版)', value: '1024x1792' },
+]
+
+const doubaoSizeOptions = [
+  { label: '1024x1024 (1:1)', value: '1024x1024' },
+  { label: '1152x864 (4:3)', value: '1152x864' },
+  { label: '864x1152 (3:4)', value: '864x1152' },
+  { label: '1280x720 (16:9)', value: '1280x720' },
+  { label: '720x1280 (9:16)', value: '720x1280' },
+  { label: '1248x832 (3:2)', value: '1248x832' },
+  { label: '832x1248 (2:3)', value: '832x1248' },
+]
+
+const gptImageSizeOptions = [
+  { label: '自动', value: 'auto' },
+  { label: '1024x1024 (方形)', value: '1024x1024' },
+  { label: '1536x1024 (横版)', value: '1536x1024' },
+  { label: '1024x1536 (竖版)', value: '1024x1536' },
+]
+
+// 质量选项
+const dalleQualityOptions = [
+  { label: '标准', value: 'standard' },
+  { label: '高清', value: 'hd' },
+]
+
+const gptImageQualityOptions = [
+  { label: '高', value: 'high' },
+  { label: '中', value: 'medium' },
+  { label: '低', value: 'low' },
+]
+
+// 风格选项
+const styleOptions = [
+  { label: '生动 (超现实)', value: 'vivid' },
+  { label: '自然', value: 'natural' },
+]
+
+// 宽高比选项 (Flux)
+const fluxAspectRatioOptions = [
+  { label: '1:1 (方形)', value: '1:1' },
+  { label: '16:9 (横屏)', value: '16:9' },
+  { label: '9:16 (竖屏)', value: '9:16' },
+  { label: '4:3', value: '4:3' },
+  { label: '3:4', value: '3:4' },
+  { label: '3:2', value: '3:2' },
+  { label: '2:3', value: '2:3' },
+  { label: '21:9 (超宽)', value: '21:9' },
+]
+
+// 背景选项 (GPT Image)
+const backgroundOptions = [
+  { label: '自动', value: 'auto' },
+  { label: '透明', value: 'transparent' },
+  { label: '不透明', value: 'opaque' },
+]
 
 // AI 优化状态
 const isOptimizing = ref(false)
@@ -136,6 +215,82 @@ const supportsNegativePrompt = computed(() => {
   return MODELS_WITH_NEGATIVE_PROMPT.includes(selectedAimodel.value.modelType as ImageModelType)
 })
 
+// 模型类型判断
+const isDalleModel = computed(() => selectedAimodel.value?.modelType === 'dalle')
+const isDoubaoModel = computed(() => selectedAimodel.value?.modelType === 'doubao')
+const isFluxModel = computed(() => selectedAimodel.value?.modelType === 'flux')
+const isGpt4oImageModel = computed(() => selectedAimodel.value?.modelType === 'gpt4o-image')
+
+// 是否支持各参数
+const supportsSize = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_SIZE.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsQuality = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_QUALITY.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsStyle = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_STYLE.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsAspectRatio = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_ASPECT_RATIO.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsSeed = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_SEED.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsGuidance = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_GUIDANCE.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsWatermark = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_WATERMARK.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+const supportsBackground = computed(() => {
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_BACKGROUND.includes(selectedAimodel.value.modelType as ImageModelType)
+})
+
+// 获取当前模型的尺寸选项
+const currentSizeOptions = computed(() => {
+  if (isDalleModel.value) return dalleSizeOptions
+  if (isDoubaoModel.value) return doubaoSizeOptions
+  if (isGpt4oImageModel.value) return gptImageSizeOptions
+  return dalleSizeOptions
+})
+
+// 获取当前模型的质量选项
+const currentQualityOptions = computed(() => {
+  if (isGpt4oImageModel.value) return gptImageQualityOptions
+  return dalleQualityOptions
+})
+
+// 高级选项数量
+const advancedOptionsCount = computed(() => {
+  let count = 0
+  if (supportsNegativePrompt.value) count++
+  if (supportsSize.value) count++
+  if (supportsQuality.value) count++
+  if (supportsStyle.value) count++
+  if (supportsAspectRatio.value) count++
+  if (supportsSeed.value) count++
+  if (supportsGuidance.value) count++
+  if (supportsWatermark.value) count++
+  if (supportsBackground.value) count++
+  return count
+})
+
 // 当前模型的使用提示
 const currentModelHint = computed(() => {
   if (!selectedAimodel.value) return undefined
@@ -212,8 +367,50 @@ async function handleSubmit() {
 
     // 构建 modelParams
     const modelParams: ImageModelParams = {}
+
+    // 负面提示词
     if (supportsNegativePrompt.value && negativePrompt.value) {
       modelParams.negativePrompt = negativePrompt.value
+    }
+
+    // 尺寸
+    if (supportsSize.value && size.value) {
+      modelParams.size = size.value
+    }
+
+    // 质量
+    if (supportsQuality.value && quality.value) {
+      modelParams.quality = quality.value
+    }
+
+    // 风格 (DALL-E 3)
+    if (supportsStyle.value && style.value) {
+      modelParams.style = style.value
+    }
+
+    // 宽高比 (Flux)
+    if (supportsAspectRatio.value && aspectRatio.value) {
+      modelParams.aspectRatio = aspectRatio.value
+    }
+
+    // 随机种子 (豆包)
+    if (supportsSeed.value && seed.value !== -1) {
+      modelParams.seed = seed.value
+    }
+
+    // 提示词相关度 (豆包)
+    if (supportsGuidance.value) {
+      modelParams.guidanceScale = guidanceScale.value
+    }
+
+    // 水印 (豆包)
+    if (supportsWatermark.value) {
+      modelParams.watermark = watermark.value
+    }
+
+    // 背景透明度 (GPT Image)
+    if (supportsBackground.value && background.value !== 'auto') {
+      modelParams.background = background.value
     }
 
     emit('submit', {
@@ -236,6 +433,18 @@ function setContent(newPrompt: string | null, modelParams: ImageModelParams | nu
   prompt.value = newPrompt || ''
   negativePrompt.value = modelParams?.negativePrompt || ''
   referenceImages.value = images.slice(0, MAX_REFERENCE_IMAGE_COUNT)
+
+  // 恢复模型参数
+  if (modelParams) {
+    if (modelParams.size) size.value = modelParams.size
+    if (modelParams.quality) quality.value = modelParams.quality
+    if (modelParams.style) style.value = modelParams.style
+    if (modelParams.aspectRatio) aspectRatio.value = modelParams.aspectRatio
+    if (modelParams.seed !== undefined) seed.value = modelParams.seed
+    if (modelParams.guidanceScale !== undefined) guidanceScale.value = modelParams.guidanceScale
+    if (modelParams.watermark !== undefined) watermark.value = modelParams.watermark
+    if (modelParams.background) background.value = modelParams.background
+  }
 }
 
 // 暴露给父组件
@@ -377,18 +586,132 @@ defineExpose({
       />
     </UFormField>
 
-    <!-- 负面提示词输入（仅支持的模型显示） -->
-    <UFormField v-if="supportsNegativePrompt" label="负面提示词 (可选)" class="mb-4">
-      <template #hint>
-        <span class="text-(--ui-text-dimmed) text-xs">描述不希望出现的内容</span>
+    <!-- 高级选项折叠区域 -->
+    <UCollapsible v-if="selectedAimodel" class="mb-4">
+      <UButton variant="ghost" block class="justify-between" :ui="{ trailingIconLeadingClass: 'ms-auto' }">
+        <span class="text-sm text-(--ui-text-muted)">
+          高级选项
+          <span v-if="advancedOptionsCount > 0" class="ml-1 text-(--ui-primary)">+{{ advancedOptionsCount }}</span>
+        </span>
+        <template #trailing>
+          <UIcon name="i-heroicons-chevron-down" class="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" />
+        </template>
+      </UButton>
+      <template #content>
+        <div class="pt-4 space-y-4">
+          <!-- 无高级选项提示 -->
+          <div v-if="advancedOptionsCount === 0" class="text-center py-4 text-(--ui-text-muted) text-sm">
+            该模型没有高级选项
+          </div>
+
+          <!-- 负面提示词输入（仅支持的模型显示） -->
+          <UFormField v-if="supportsNegativePrompt" label="负面提示词">
+            <template #hint>
+              <span class="text-(--ui-text-dimmed) text-xs">描述不希望出现的内容</span>
+            </template>
+            <UTextarea
+              v-model="negativePrompt"
+              placeholder="例如：模糊、低质量、变形、水印"
+              :rows="3"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 尺寸选择 -->
+          <UFormField v-if="supportsSize" label="尺寸">
+            <USelect
+              v-model="size"
+              :items="currentSizeOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 宽高比选择 (Flux) -->
+          <UFormField v-if="supportsAspectRatio" label="宽高比">
+            <USelect
+              v-model="aspectRatio"
+              :items="fluxAspectRatioOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 质量选择 -->
+          <UFormField v-if="supportsQuality" label="质量">
+            <USelect
+              v-model="quality"
+              :items="currentQualityOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 风格选择 (DALL-E 3) -->
+          <UFormField v-if="supportsStyle" label="风格">
+            <USelect
+              v-model="style"
+              :items="styleOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 背景透明度 (GPT Image) -->
+          <UFormField v-if="supportsBackground" label="背景">
+            <USelect
+              v-model="background"
+              :items="backgroundOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 提示词相关度 (豆包) -->
+          <UFormField v-if="supportsGuidance" label="提示词相关度">
+            <template #hint>
+              <span class="text-(--ui-text-dimmed) text-xs">值越大与提示词相关性越强 (1-10)</span>
+            </template>
+            <UInput
+              v-model.number="guidanceScale"
+              type="number"
+              :min="1"
+              :max="10"
+              :step="0.5"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 随机种子 (豆包) -->
+          <UFormField v-if="supportsSeed" label="随机种子">
+            <template #hint>
+              <span class="text-(--ui-text-dimmed) text-xs">-1 表示自动生成</span>
+            </template>
+            <UInput
+              v-model.number="seed"
+              type="number"
+              :min="-1"
+              :max="2147483647"
+              class="w-full"
+            />
+          </UFormField>
+
+          <!-- 水印开关 (豆包) -->
+          <div v-if="supportsWatermark" class="flex items-center justify-between">
+            <div class="flex flex-col">
+              <span class="text-sm text-(--ui-text)">添加水印</span>
+              <span class="text-xs text-(--ui-text-dimmed)">在图片右下角添加"AI生成"水印</span>
+            </div>
+            <USwitch v-model="watermark" />
+          </div>
+        </div>
       </template>
-      <UTextarea
-        v-model="negativePrompt"
-        placeholder="例如：模糊、低质量、变形、水印"
-        :rows="3"
-        class="w-full"
-      />
-    </UFormField>
+    </UCollapsible>
 
     <!-- 提交按钮 -->
     <UButton
