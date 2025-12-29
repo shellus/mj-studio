@@ -177,3 +177,70 @@ export const userSettings = sqliteTable('user_settings', {
 
 export type UserSetting = typeof userSettings.$inferSelect
 export type NewUserSetting = typeof userSettings.$inferInsert
+
+// ==================== 工作流相关表 ====================
+
+// 工作流运行状态
+export type WorkflowRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+// 工作流模板分类
+export type WorkflowTemplateCategory = 'image' | 'video' | 'mixed'
+
+// 工作流表（定义/模板）
+export const workflows = sqliteTable('workflows', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  filename: text('filename').notNull(), // JSON 文件名，如 "wf-1735456789.json"
+  thumbnail: text('thumbnail'), // 缩略图 URL
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除
+})
+
+export type Workflow = typeof workflows.$inferSelect
+export type NewWorkflow = typeof workflows.$inferInsert
+
+// 工作流运行记录表
+export const workflowRuns = sqliteTable('workflow_runs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  workflowId: integer('workflow_id').notNull(),
+  userId: integer('user_id').notNull(),
+  status: text('status').$type<WorkflowRunStatus>().notNull().default('pending'),
+  snapshotFilename: text('snapshot_filename').notNull(), // 执行时的工作流快照文件
+  currentNodeId: text('current_node_id'), // 当前执行到的节点
+  progress: integer('progress').notNull().default(0), // 整体进度 0-100
+  nodeResults: text('node_results', { mode: 'json' }).$type<Record<string, {
+    status: 'pending' | 'running' | 'completed' | 'failed'
+    output?: any
+    error?: string
+    taskId?: number // 关联的任务ID
+    startedAt?: string
+    completedAt?: string
+  }>>(), // 各节点执行结果
+  error: text('error'), // 失败时的错误信息
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type WorkflowRun = typeof workflowRuns.$inferSelect
+export type NewWorkflowRun = typeof workflowRuns.$inferInsert
+
+// 工作流模板表（预设模板）
+export const workflowTemplates = sqliteTable('workflow_templates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  description: text('description'),
+  category: text('category').$type<WorkflowTemplateCategory>().notNull().default('image'),
+  filename: text('filename').notNull(), // 模板 JSON 文件名
+  thumbnail: text('thumbnail'), // 预览图
+  isBuiltin: integer('is_builtin', { mode: 'boolean' }).notNull().default(false), // 是否内置模板
+  userId: integer('user_id'), // 用户自建模板时的用户ID，内置模板为 null
+  usageCount: integer('usage_count').notNull().default(0), // 使用次数
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type WorkflowTemplate = typeof workflowTemplates.$inferSelect
+export type NewWorkflowTemplate = typeof workflowTemplates.$inferInsert
