@@ -1,5 +1,6 @@
 // DELETE /api/tasks/:id - 软删除任务
 import { useTaskService } from '../../services/task'
+import { emitToUser, type TaskDeleted } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -21,6 +22,9 @@ export default defineEventHandler(async (event) => {
       message: '任务不存在或已删除',
     })
   }
+
+  // 广播任务删除事件
+  await emitToUser<TaskDeleted>(user.id, 'task.deleted', { taskId: id })
 
   return { success: true }
 })

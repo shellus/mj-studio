@@ -16,6 +16,7 @@ import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassi
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
+import { emitToUser, type TaskStatusUpdated } from './globalEvents'
 
 // 存储每个任务的 AbortController，用于取消请求
 const taskAbortControllers = new Map<number, AbortController>()
@@ -112,6 +113,20 @@ export function useTaskService() {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(tasks.id, id))
       .returning()
+
+    // 如果状态有变化，广播事件
+    if (updated && data.status !== undefined) {
+      await emitToUser<TaskStatusUpdated>(updated.userId, 'task.status.updated', {
+        taskId: updated.id,
+        status: updated.status,
+        progress: updated.progress ? parseInt(updated.progress) : undefined,
+        resourceUrl: updated.resourceUrl,
+        error: updated.error,
+        buttons: updated.buttons,
+        updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+      })
+    }
+
     return updated
   }
 

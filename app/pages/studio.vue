@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { addTask, cleanup, loadTasks } = useTasks()
+const { loadTasks } = useTasks()
 const { upstreams, loadUpstreams } = useUpstreams()
 const toast = useToast()
 
@@ -46,8 +46,8 @@ async function handleImageSubmit(data: {
       },
     })
 
-    if (result.success && result.taskId) {
-      await addTask(result.taskId)
+    if (result.success) {
+      // 任务添加由 SSE 事件 task.created 处理
       toast.add({
         title: '任务已创建',
         description: result.message,
@@ -90,8 +90,8 @@ async function handleVideoSubmit(data: {
       },
     })
 
-    if (result.success && result.taskId) {
-      await addTask(result.taskId)
+    if (result.success) {
+      // 任务添加由 SSE 事件 task.created 处理
       toast.add({
         title: '视频任务已创建',
         description: result.message,

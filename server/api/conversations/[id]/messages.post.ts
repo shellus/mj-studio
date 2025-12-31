@@ -2,7 +2,9 @@
 // 同时创建用户消息和 AI 消息，返回两个消息 ID，后端异步开始生成
 import { useConversationService } from '../../../services/conversation'
 import { startStreamingTask } from '../../../services/streamingTask'
+import { emitToUser } from '../../../services/globalEvents'
 import type { MessageMark, MessageFile } from '../../../database/schema'
+import type { ChatMessageCreated } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -67,6 +69,23 @@ export default defineEventHandler(async (event) => {
       files: files && files.length > 0 ? files : undefined,
     })
 
+    // 广播用户消息创建事件
+    await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
+      conversationId,
+      message: {
+        id: userMessage.id,
+        conversationId,
+        role: 'user',
+        content: userMessage.content,
+        files: userMessage.files || null,
+        status: null,
+        mark: userMessage.mark || null,
+        sortId: userMessage.sortId || null,
+        createdAt: userMessage.createdAt,
+        updatedAt: userMessage.updatedAt,
+      },
+    })
+
     // 如果是首条消息，更新对话标题
     if (result.messages.length === 0) {
       const title = conversationService.generateTitle(content?.trim() || (files?.[0]?.name || '新对话'))
@@ -82,6 +101,23 @@ export default defineEventHandler(async (event) => {
     status: 'created',
     mark: responseMark,
     sortId: responseSortId,
+  })
+
+  // 广播 AI 消息创建事件
+  await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
+    conversationId,
+    message: {
+      id: assistantMessage.id,
+      conversationId,
+      role: 'assistant',
+      content: '',
+      files: null,
+      status: 'created',
+      mark: assistantMessage.mark || null,
+      sortId: assistantMessage.sortId || null,
+      createdAt: assistantMessage.createdAt,
+      updatedAt: assistantMessage.updatedAt,
+    },
   })
 
   // 异步启动流式生成任务（不阻塞响应）

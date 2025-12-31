@@ -1,5 +1,7 @@
 // PATCH /api/messages/[id] - 更新消息内容
 import { useConversationService } from '../../services/conversation'
+import { emitToUser } from '../../services/globalEvents'
+import type { ChatMessageUpdated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -33,7 +35,17 @@ export default defineEventHandler(async (event) => {
   }
 
   // 更新消息内容（保持原状态不变）
-  await service.updateMessageContentAndStatus(messageId, body.content, message.status)
+  await service.updateMessageContentAndStatus(messageId, body.content, message.status ?? 'completed')
+
+  // 广播消息更新事件
+  await emitToUser<ChatMessageUpdated>(user.id, 'chat.message.updated', {
+    conversationId: message.conversationId,
+    message: {
+      id: messageId,
+      content: body.content,
+      updatedAt: new Date().toISOString(),
+    },
+  })
 
   return { success: true }
 })

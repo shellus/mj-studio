@@ -6,6 +6,8 @@ import { useAimodelService } from '../../../services/aimodel'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
 import { createClaudeChatService } from '../../../services/claude'
+import { emitToUser } from '../../../services/globalEvents'
+import type { ChatConversationUpdated } from '../../../services/globalEvents'
 import type { LogContext } from '../../../utils/logger'
 import { logTitleResponse } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
@@ -138,10 +140,21 @@ export default defineEventHandler(async (event) => {
     }
 
     // 更新对话标题
-    await conversationService.updateTitle(conversationId, user.id, title)
+    const updated = await conversationService.updateTitle(conversationId, user.id, title)
 
     // 记录标题响应日志
     logTitleResponse(logContext, title, Date.now() - startTime)
+
+    // 广播对话更新事件
+    if (updated) {
+      await emitToUser<ChatConversationUpdated>(user.id, 'chat.conversation.updated', {
+        conversation: {
+          id: updated.id,
+          title: updated.title,
+          updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        },
+      })
+    }
 
     return { title }
   } catch (error: any) {

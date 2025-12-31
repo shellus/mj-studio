@@ -3,6 +3,7 @@ import { useTaskService } from '../../services/task'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
+import { emitToUser, type TaskCreated } from '../../services/globalEvents'
 import { USER_SETTING_KEYS } from '~~/app/shared/constants'
 
 export default defineEventHandler(async (event) => {
@@ -115,7 +116,20 @@ export default defineEventHandler(async (event) => {
     sourceType: 'chat',
   })
 
-  // 5. 提交任务（此时 autostart 一定为 true）
+  // 5. 广播任务创建事件
+  await emitToUser<TaskCreated>(user.id, 'task.created', {
+    task: {
+      id: task.id,
+      userId: task.userId,
+      taskType: task.taskType,
+      modelType: task.modelType,
+      prompt: task.prompt ?? '',
+      status: task.status,
+      createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : task.createdAt,
+    },
+  })
+
+  // 6. 提交任务（此时 autostart 一定为 true）
   taskService.submitTask(task.id).catch((err) => {
     console.error('[Illustration] 提交任务失败:', err)
   })

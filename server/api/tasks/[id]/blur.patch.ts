@@ -2,6 +2,7 @@
 import { db } from '../../../database'
 import { tasks } from '../../../database/schema'
 import { eq, and } from 'drizzle-orm'
+import { emitToUser, type TaskBlurUpdated } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const session = await requireAuth(event)
@@ -39,6 +40,12 @@ export default defineEventHandler(async (event) => {
       message: '任务不存在',
     })
   }
+
+  // 广播模糊状态更新事件
+  await emitToUser<TaskBlurUpdated>(session.user.id, 'task.blur.updated', {
+    taskId: id,
+    isBlurred: updated.isBlurred,
+  })
 
   return { success: true, isBlurred: updated.isBlurred }
 })

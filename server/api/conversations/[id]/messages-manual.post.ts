@@ -1,5 +1,7 @@
 // POST /api/conversations/[id]/messages-manual - 手动添加消息（不触发AI回复）
 import { useConversationService } from '../../../services/conversation'
+import { emitToUser } from '../../../services/globalEvents'
+import type { ChatMessageCreated } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -42,6 +44,22 @@ export default defineEventHandler(async (event) => {
     conversationId,
     role,
     content: content.trim(),
+  })
+
+  // 广播消息创建事件
+  await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
+    conversationId,
+    message: {
+      id: message.id,
+      conversationId: message.conversationId,
+      role: message.role as 'user' | 'assistant',
+      content: message.content,
+      files: message.files,
+      status: message.status,
+      mark: message.mark,
+      sortId: message.sortId,
+      createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
+    },
   })
 
   return message

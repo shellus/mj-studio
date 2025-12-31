@@ -1,5 +1,6 @@
 // POST /api/tasks/action - 执行按钮动作
 import { useTaskService } from '../../services/task'
+import { emitToUser, type TaskCreated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -34,6 +35,19 @@ export default defineEventHandler(async (event) => {
 
   try {
     const newTask = await taskService.executeAction(taskId, customId, user.id)
+
+    // 广播新任务创建事件
+    await emitToUser<TaskCreated>(user.id, 'task.created', {
+      task: {
+        id: newTask.id,
+        userId: newTask.userId,
+        taskType: newTask.taskType,
+        modelType: newTask.modelType,
+        prompt: newTask.prompt ?? '',
+        status: newTask.status,
+        createdAt: newTask.createdAt instanceof Date ? newTask.createdAt.toISOString() : newTask.createdAt,
+      },
+    })
 
     return {
       success: true,

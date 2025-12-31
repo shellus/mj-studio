@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(
+  defineConfig({
   title: 'MJ-Studio 文档',
   description: '多模型 AI 工作台文档中心',
   base: '/help/',
@@ -11,6 +13,15 @@ export default defineConfig({
 
   // 忽略死链接
   ignoreDeadLinks: true,
+
+  vite: {
+    optimizeDeps: {
+      include: ['mermaid', 'dayjs'],
+    },
+    ssr: {
+      noExternal: ['mermaid'],
+    },
+  },
 
   head: [
     ['link', { rel: 'icon', href: '/logo.png' }],
@@ -74,7 +85,7 @@ export default defineConfig({
           { text: 'ImageForm 参数方案', link: '/architecture/ImageForm模型参数开发方案' },
           { text: '任务多图支持', link: '/architecture/任务多图支持设计' },
           { text: '对话压缩逻辑', link: '/architecture/对话压缩逻辑' },
-          { text: '全局事件订阅', link: '/architecture/全局事件订阅系统设计' },
+          { text: '全局事件订阅', link: '/develop/CLAUDE' },
         ],
       },
     ],
@@ -108,4 +119,10 @@ export default defineConfig({
     sidebarMenuLabel: '菜单',
     darkModeSwitchLabel: '主题',
   },
+
+  mermaid: {
+    class: 'mermaid',
+  },
+  mermaidPlugin: {},
 })
+)

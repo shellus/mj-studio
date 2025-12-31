@@ -13,10 +13,11 @@ import {
   updateSessionStatus,
   appendStreamingContent,
   endStreamingSession,
-  broadcastToSubscribers,
   getStreamingSession,
   getSessionAbortController,
 } from './streamingCache'
+import { emitToUser } from './globalEvents'
+import type { ChatMessageDelta, ChatMessageDone } from './globalEvents'
 import type { Message, MessageMark, MessageStatus, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
 
@@ -153,6 +154,25 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     const requestStartTime = Date.now() // 记录请求开始时间
     let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
 
+    // Delta 批量聚合机制：300ms 内的 chunk 合并后发送，减少 SSE 消息数量
+    const DELTA_BUFFER_INTERVAL = 300
+    let deltaBuffer = ''
+    let deltaBufferTimer: ReturnType<typeof setTimeout> | null = null
+
+    // 刷新 delta buffer，发送聚合后的内容
+    const flushDeltaBuffer = async () => {
+      if (deltaBuffer) {
+        const content = deltaBuffer
+        deltaBuffer = ''
+        await emitToUser<ChatMessageDelta>(userId, 'chat.message.delta', {
+          conversationId,
+          messageId,
+          delta: content,
+        })
+      }
+      deltaBufferTimer = null
+    }
+
     for await (const chunk of generator) {
       // 检查是否被中止
       if (abortController.signal.aborted) {
@@ -186,13 +206,24 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 追加到缓存
         appendStreamingContent(messageId, chunk.content)
 
-        // 广播给订阅者
-        await broadcastToSubscribers(messageId, { content: chunk.content, done: false })
+        // 追加到 delta buffer
+        deltaBuffer += chunk.content
+
+        // 启动定时器（如果尚未启动）
+        if (!deltaBufferTimer) {
+          deltaBufferTimer = setTimeout(flushDeltaBuffer, DELTA_BUFFER_INTERVAL)
+        }
       }
 
       if (chunk.done) {
         break
       }
+    }
+
+    // 清理定时器
+    if (deltaBufferTimer) {
+      clearTimeout(deltaBufferTimer)
+      deltaBufferTimer = null
     }
 
     // 检查是否被中止
@@ -202,9 +233,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       const contentToSave = cachedContent || fullContent
       await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
 
-      // 广播完成信号（包含更新后的预计时间）
-      await broadcastToSubscribers(messageId, {
-        done: true,
+      // 广播 done 事件
+      await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+        conversationId,
+        messageId,
         status: 'stopped',
         ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
           estimatedTime: updatedEstimatedTime,
@@ -215,13 +247,17 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       return
     }
 
-    // 正常完成：保存内容并更新状态
+    // 正常完成：刷新剩余 buffer 内容
+    await flushDeltaBuffer()
+
+    // 保存内容并更新状态
     await conversationService.updateMessageContentAndStatus(messageId, fullContent, 'completed', responseMark)
     endStreamingSession(messageId)
 
-    // 广播完成信号（包含更新后的预计时间）
-    await broadcastToSubscribers(messageId, {
-      done: true,
+    // 广播 done 事件
+    await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+      conversationId,
+      messageId,
       status: 'completed',
       ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
         estimatedTime: updatedEstimatedTime,
@@ -233,7 +269,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
   } catch (error: any) {
     // 错误处理：保存错误信息
     const errorMessage = error.message || '生成失败'
-    const cachedContent = endStreamingSession(messageId)
+    endStreamingSession(messageId)
 
     // 更新消息为错误状态
     await conversationService.updateMessageContentAndStatus(
@@ -243,8 +279,13 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       'error'
     )
 
-    // 广播错误
-    await broadcastToSubscribers(messageId, { error: errorMessage, done: true, status: 'failed' })
+    // 广播 done 事件（带错误）
+    await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+      conversationId,
+      messageId,
+      status: 'failed',
+      error: errorMessage,
+    })
   }
 }
 
@@ -269,8 +310,12 @@ export async function stopStreamingTask(messageId: number): Promise<boolean> {
   const cachedContent = endStreamingSession(messageId)
   await conversationService.updateMessageContentAndStatus(messageId, cachedContent, 'stopped')
 
-  // 广播停止信号
-  await broadcastToSubscribers(messageId, { done: true, status: 'stopped' })
+  // 广播 done 事件
+  await emitToUser<ChatMessageDone>(session.userId, 'chat.message.done', {
+    conversationId: session.conversationId,
+    messageId,
+    status: 'stopped',
+  })
 
   return true
 }

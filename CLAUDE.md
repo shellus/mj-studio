@@ -310,21 +310,66 @@ pending → submitting → processing → success
 
 ## 流式输出系统
 
-对话模块采用后端独立状态机模式实现流式输出。
+对话模块采用**全局事件订阅**模式实现流式输出和多端同步。
+
+### 事件驱动渲染
+
+对话模块的 UI 状态更新采用**事件驱动**模式，而非传统的请求-响应模式：
+
+- **请求仅触发操作**：前端发起 API 请求（如发送消息、删除对话），请求成功只意味着操作已被接受
+- **事件驱动渲染**：UI 状态变化由后端通过 SSE 推送的事件驱动，前端监听事件并更新本地状态
+- **多端同步**：同一用户的所有浏览器标签页/设备共享同一事件流，一端操作，多端同步
 
 ### 架构概览
 
+```mermaid
+flowchart TB
+    subgraph 客户端
+        A[浏览器标签页 A<br/>同一用户]
+        B[浏览器标签页 B<br/>同一用户]
+    end
+
+    subgraph 后端
+        Hub[全局事件 Hub<br/>Map‹userId, Set‹SSEConnection››<br/>emitToUser userId, eventType, data]
+        BL[业务逻辑层]
+    end
+
+    A -->|GET /api/events<br/>SSE 长连接| Hub
+    B -->|GET /api/events<br/>SSE 长连接| Hub
+    BL -->|触发事件| Hub
+
+    BL --> E1[创建消息 → chat.message.created]
+    BL --> E2[收到 chunk → chat.message.delta]
+    BL --> E3[生成完成 → chat.message.done]
+    BL --> E4[对话操作 → chat.conversation.*]
 ```
-前端                          后端
-  │                            │
-  ├─ POST /messages ──────────►│ 创建消息，返回 messageId
-  │                            │
-  ├─ GET /messages/:id/stream ►│ SSE 订阅
-  │◄─────── data: {content} ───│ 流式推送内容
-  │◄─────── data: {done} ──────│ 完成信号
-  │                            │
-  ├─ POST /messages/:id/stop ─►│ 中止生成
-```
+
+### 事件类型
+
+**对话模块事件**
+
+| 事件类型 | 触发时机 |
+|---------|---------|
+| `chat.message.created` | 消息写入数据库成功后 |
+| `chat.message.delta` | AI 流式生成过程中收到 chunk |
+| `chat.message.done` | AI 流式生成结束 |
+| `chat.message.deleted` | 消息删除成功后 |
+| `chat.message.updated` | 消息内容编辑成功后 |
+| `chat.messages.deleted` | 批量删除消息成功后 |
+| `chat.conversation.created` | 对话创建成功后 |
+| `chat.conversation.deleted` | 对话删除成功后 |
+| `chat.conversation.updated` | 对话标题更新成功后 |
+
+**绘图/视频任务事件**
+
+| 事件类型 | 触发时机 |
+|---------|---------|
+| `task.created` | 任务创建成功后 |
+| `task.status.updated` | 任务状态变化后（提交、处理中、成功、失败） |
+| `task.deleted` | 任务删除成功后（软删除） |
+| `task.restored` | 任务从回收站恢复后 |
+| `task.blur.updated` | 单个任务模糊状态变化后 |
+| `tasks.blur.updated` | 批量模糊状态变化后 |
 
 ### 消息状态流转
 
@@ -336,9 +381,18 @@ created → pending → streaming → completed
 
 ### 关键文件
 
-- `server/services/streamingTask.ts` - 流式任务管理
-- `server/services/streamingCache.ts` - 内容缓存（支持断线重连）
-- `app/composables/useConversations.ts` - 前端 SSE 订阅和打字机效果
+| 文件 | 用途 |
+|-----|-----|
+| `server/services/globalEvents.ts` | 全局事件 Hub，维护连接映射，提供 `emitToUser` |
+| `server/api/events.get.ts` | 全局 SSE 端点 |
+| `server/services/streamingTask.ts` | 流式任务管理，发送 delta/done 事件 |
+| `server/services/task.ts` | 绘图任务服务，状态更新时发送事件 |
+| `app/composables/useGlobalEvents.ts` | 前端事件订阅 composable |
+| `app/composables/useConversations.ts` | 对话状态管理，注册事件处理器 |
+| `app/composables/useTasks.ts` | 任务状态管理，注册事件处理器 |
+| `app/plugins/global-events.client.ts` | 登录后自动建立连接的插件 |
+
+> **详细设计**：[docs/architecture/全局事件订阅系统设计.md](docs/architecture/全局事件订阅系统设计.md)
 
 ## API 接口清单
 
@@ -389,13 +443,17 @@ created → pending → streaming → completed
 ### 消息
 | 方法 | 端点 | 功能 |
 |-----|------|-----|
-| GET | `/api/messages/[id]/stream` | SSE 流式订阅 |
 | POST | `/api/messages/[id]/stop` | 停止消息生成 |
 | PATCH | `/api/messages/[id]` | 编辑消息内容 |
 | DELETE | `/api/messages/[id]` | 删除消息 |
 | POST | `/api/messages/[id]/replay` | 重放消息 |
 | POST | `/api/messages/[id]/fork` | 分叉对话 |
 | POST | `/api/messages/[id]/delete-until` | 删除指定消息及之前的消息 |
+
+### 全局事件
+| 方法 | 端点 | 功能 |
+|-----|------|-----|
+| GET | `/api/events` | 全局 SSE 订阅（用户级，支持多端同步） |
 
 ### 绘图任务
 | 方法 | 端点 | 功能 |

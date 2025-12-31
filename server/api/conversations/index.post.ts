@@ -1,6 +1,8 @@
 // POST /api/conversations - 创建对话
 import { useConversationService } from '../../services/conversation'
 import { useAssistantService } from '../../services/assistant'
+import { emitToUser } from '../../services/globalEvents'
+import type { ChatConversationCreated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -24,6 +26,18 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     assistantId,
     title: title?.trim() || '新对话',
+  })
+
+  // 广播对话创建事件
+  await emitToUser<ChatConversationCreated>(user.id, 'chat.conversation.created', {
+    conversation: {
+      id: conversation.id,
+      userId: conversation.userId,
+      assistantId: conversation.assistantId,
+      title: conversation.title,
+      createdAt: conversation.createdAt instanceof Date ? conversation.createdAt.toISOString() : conversation.createdAt,
+      updatedAt: conversation.updatedAt instanceof Date ? conversation.updatedAt.toISOString() : conversation.updatedAt,
+    },
   })
 
   return conversation

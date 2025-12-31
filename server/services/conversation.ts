@@ -181,24 +181,24 @@ export function useConversationService() {
   }
 
   // 删除指定消息及之前的所有消息
-  async function removeMessagesUntil(messageId: number, userId: number): Promise<number> {
+  async function removeMessagesUntil(messageId: number, userId: number): Promise<{ conversationId: number; messageIds: number[] } | null> {
     // 获取消息
     const message = await getMessageById(messageId)
-    if (!message) return 0
+    if (!message) return null
 
     // 验证对话属于该用户
     const conversation = await getById(message.conversationId)
     if (!conversation || conversation.userId !== userId) {
-      return 0
+      return null
     }
 
     // 获取对话的所有消息
     const data = await getWithMessages(message.conversationId)
-    if (!data) return 0
+    if (!data) return null
 
     // 找到目标消息的位置
     const targetIndex = data.messages.findIndex(m => m.id === messageId)
-    if (targetIndex < 0) return 0
+    if (targetIndex < 0) return null
 
     // 获取要删除的消息 ID 列表（该消息及之前的所有消息）
     const messageIdsToDelete = data.messages.slice(0, targetIndex + 1).map(m => m.id)
@@ -208,7 +208,12 @@ export function useConversationService() {
       .where(inArray(messages.id, messageIdsToDelete))
       .returning()
 
-    return result.length
+    if (result.length === 0) return null
+
+    return {
+      conversationId: message.conversationId,
+      messageIds: messageIdsToDelete,
+    }
   }
 
   // 根据首条消息自动生成对话标题

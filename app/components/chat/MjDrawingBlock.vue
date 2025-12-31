@@ -5,10 +5,17 @@ import {
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
 } from '~/shared/constants'
+import {
+  useGlobalEvents,
+  type TaskStatusUpdated,
+  type TaskBlurUpdated,
+} from '~/composables/useGlobalEvents'
 
 const props = defineProps<{
   params: MjDrawingParams
 }>()
+
+const { on } = useGlobalEvents()
 
 // 任务状态
 const status = ref<'idle' | 'pending' | 'submitting' | 'processing' | 'success' | 'failed'>('idle')
@@ -18,9 +25,6 @@ const taskId = ref<number | null>(null)
 const error = ref<string | null>(null)
 const createdAt = ref<Date | null>(null)
 const isBlurred = ref(true)
-
-// 轮询定时器
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
 // 图片预览
 const showPreview = ref(false)
@@ -105,11 +109,7 @@ async function fetchOrCreateTask(startTask = false) {
 
     taskId.value = res.taskId
     updateFromResponse(res, startTask)
-
-    // 任务进行中时开始轮询（包括刚启动的 pending 状态）
-    if (status.value === 'submitting' || status.value === 'processing' || status.value === 'pending') {
-      startPolling()
-    }
+    // 任务状态更新完全通过 SSE 事件处理
   } catch (e: any) {
     error.value = e.data?.message || e.message || '请求失败'
     status.value = 'failed'
@@ -127,10 +127,8 @@ function updateFromResponse(res: any, wasStarted = true) {
 
   if (res.status === 'success') {
     status.value = 'success'
-    stopPolling()
   } else if (res.status === 'failed') {
     status.value = 'failed'
-    stopPolling()
   } else if (res.status === 'submitting') {
     status.value = 'submitting'
   } else if (res.status === 'processing') {
@@ -140,37 +138,6 @@ function updateFromResponse(res: any, wasStarted = true) {
     status.value = wasStarted ? 'pending' : 'idle'
   } else {
     status.value = 'idle'
-  }
-}
-
-// 开始轮询
-function startPolling() {
-  if (pollTimer) return
-
-  pollTimer = setInterval(async () => {
-    try {
-      const res = await $fetch('/api/illustrations', {
-        method: 'POST',
-        body: {
-          uniqueId: props.params.uniqueId,
-          prompt: props.params.prompt,
-          model: props.params.model,
-          negative: props.params.negative,
-          autostart: false,
-        },
-      })
-      updateFromResponse(res, false)
-    } catch {
-      // 轮询失败不处理
-    }
-  }, 2000)
-}
-
-// 停止轮询
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
   }
 }
 
@@ -227,25 +194,72 @@ async function regenerate() {
 
     taskId.value = res.taskId
     updateFromResponse(res, true)
-
-    if (status.value === 'submitting' || status.value === 'processing' || status.value === 'pending') {
-      startPolling()
-    }
+    // 任务状态更新完全通过 SSE 事件处理
   } catch (e: any) {
     error.value = e.data?.message || e.message || '重新生成失败'
     status.value = 'failed'
   }
 }
 
+// ==================== 事件处理器 ====================
+
+// 处理任务状态更新事件
+function handleTaskStatusUpdated(data: TaskStatusUpdated) {
+  // 只处理当前任务的事件
+  if (data.taskId !== taskId.value) return
+
+  // 更新状态
+  if (data.progress !== undefined) {
+    progress.value = `${data.progress}%`
+  }
+  if (data.resourceUrl !== undefined) {
+    resourceUrl.value = data.resourceUrl
+  }
+  if (data.error !== undefined) {
+    error.value = data.error
+  }
+
+  // 映射状态
+  const statusMap: Record<string, typeof status.value> = {
+    pending: 'pending',
+    submitting: 'submitting',
+    processing: 'processing',
+    success: 'success',
+    failed: 'failed',
+    cancelled: 'failed',
+  }
+
+  if (data.status in statusMap) {
+    status.value = statusMap[data.status]!
+  }
+}
+
+// 处理模糊状态更新事件
+function handleTaskBlurUpdated(data: TaskBlurUpdated) {
+  if (data.taskId !== taskId.value) return
+  isBlurred.value = data.isBlurred
+}
+
+// 事件取消订阅函数
+let unsubscribeStatus: (() => void) | null = null
+let unsubscribeBlur: (() => void) | null = null
+
 // 组件挂载时自动请求（传递 autostart 参数）
 onMounted(() => {
   fetchOrCreateTask(props.params.autostart ?? false)
+
+  // 注册事件处理器
+  unsubscribeStatus = on<TaskStatusUpdated>('task.status.updated', handleTaskStatusUpdated)
+  unsubscribeBlur = on<TaskBlurUpdated>('task.blur.updated', handleTaskBlurUpdated)
 })
 
 // 组件卸载时清理
 onUnmounted(() => {
-  stopPolling()
   if (progressTimer) clearInterval(progressTimer)
+
+  // 取消事件订阅
+  unsubscribeStatus?.()
+  unsubscribeBlur?.()
 })
 </script>
 

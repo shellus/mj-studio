@@ -2,6 +2,8 @@
 // 适配新的流式系统：创建 AI 消息后异步生成，返回消息 ID
 import { useConversationService } from '../../../services/conversation'
 import { startStreamingTask } from '../../../services/streamingTask'
+import { emitToUser } from '../../../services/globalEvents'
+import type { ChatMessageCreated, ChatMessageDeleted } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -54,6 +56,12 @@ export default defineEventHandler(async (event) => {
 
     // 删除这条 AI 消息
     await conversationService.removeMessage(messageId, user.id)
+
+    // 广播消息删除事件
+    await emitToUser<ChatMessageDeleted>(user.id, 'chat.message.deleted', {
+      conversationId: message.conversationId,
+      messageId,
+    })
   }
 
   // 创建 AI 消息（status: created，content 为空）
@@ -62,6 +70,23 @@ export default defineEventHandler(async (event) => {
     role: 'assistant',
     content: '',
     status: 'created',
+  })
+
+  // 广播 AI 消息创建事件
+  await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
+    conversationId: message.conversationId,
+    message: {
+      id: assistantMessage.id,
+      conversationId: message.conversationId,
+      role: 'assistant',
+      content: '',
+      files: null,
+      status: 'created',
+      mark: null,
+      sortId: null,
+      createdAt: assistantMessage.createdAt,
+      updatedAt: assistantMessage.updatedAt,
+    },
   })
 
   // 异步启动流式生成任务

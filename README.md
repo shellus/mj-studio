@@ -73,6 +73,7 @@
 
 - **多助手管理**：创建不同角色的 AI 助手，各自独立的系统提示词和模型配置
 - **流式输出**：打字机效果实时显示 AI 回复，支持中途停止
+- **多端同步**：基于全局事件系统，同一用户的多个浏览器标签页/设备实时同步对话状态
 - **对话分叉**：从任意消息创建分支，探索不同对话方向而不丢失原有内容
 - **消息重放**：对任意历史消息重新生成 AI 回复，不满意随时重来
 - **智能压缩**：长对话自动压缩为摘要，节省 token 的同时保留完整上下文，压缩后的原始消息仍可查看
@@ -127,8 +128,8 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
-    # SSE 流式输出（关键配置）
-    location ~ ^/api/messages/[^/]+/stream$ {
+    # 全局事件 SSE（关键配置）
+    location = /api/events {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

@@ -1,5 +1,7 @@
 // PUT /api/conversations/[id] - 更新对话标题
 import { useConversationService } from '../../services/conversation'
+import { emitToUser } from '../../services/globalEvents'
+import type { ChatConversationUpdated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -27,6 +29,15 @@ export default defineEventHandler(async (event) => {
   if (!updated) {
     throw createError({ statusCode: 404, message: '对话不存在或无权修改' })
   }
+
+  // 广播对话更新事件
+  await emitToUser<ChatConversationUpdated>(user.id, 'chat.conversation.updated', {
+    conversation: {
+      id: updated.id,
+      title: updated.title,
+      updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+    },
+  })
 
   return updated
 })
