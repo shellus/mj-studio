@@ -213,19 +213,21 @@ export function useConversations() {
   }
 
   // 开始流式状态（由事件驱动调用）
-  function startStreamingState(messageId: number, conversationId: number) {
+  // initialContent: 消息已有的内容（从缓存恢复的情况）
+  function startStreamingState(messageId: number, conversationId: number, initialContent?: string) {
+    const existingContent = initialContent ?? ''
     streamingStates.value[conversationId] = {
       isStreaming: true,
       messageId,
-      content: '',
-      contentBuffer: '',
-      displayedContent: '',
+      content: existingContent,
+      contentBuffer: existingContent,
+      displayedContent: existingContent,
     }
     streamingMessageId = messageId
     streamingConversationId = conversationId
-    contentBuffer = ''
-    displayedContent = ''
-    streamingContent.value = ''
+    contentBuffer = existingContent
+    displayedContent = existingContent
+    streamingContent.value = existingContent
   }
 
   // 结束流式状态
@@ -279,7 +281,7 @@ export function useConversations() {
     // 如果是 AI 消息且状态为 created/pending/streaming，开始流式状态
     if (message.role === 'assistant' &&
         (message.status === 'created' || message.status === 'pending' || message.status === 'streaming')) {
-      startStreamingState(message.id, conversationId)
+      startStreamingState(message.id, conversationId, message.content || '')
     }
   }
 
@@ -298,9 +300,9 @@ export function useConversations() {
       return
     }
 
-    // 如果还没开始流式状态，先开始
+    // 如果还没开始流式状态，先开始（传入消息已有内容，支持中途加入）
     if (streamingMessageId !== messageId) {
-      startStreamingState(messageId, conversationId)
+      startStreamingState(messageId, conversationId, targetMessage.content || '')
     }
 
     // 追加到缓冲区，打字机效果会逐字渲染
@@ -515,8 +517,8 @@ export function useConversations() {
       )
 
       if (streamingMsg) {
-        // 恢复流式状态（全局 SSE 会自动推送后续内容）
-        startStreamingState(streamingMsg.id, id)
+        // 恢复流式状态（传入已有内容，全局 SSE 会自动推送后续增量）
+        startStreamingState(streamingMsg.id, id, streamingMsg.content || '')
       }
     } catch (error) {
       console.error('加载对话详情失败:', error)
