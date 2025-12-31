@@ -3,8 +3,8 @@
 # Build stage
 FROM node:20-alpine AS builder
 
-# Install build dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
+# Install build dependencies for better-sqlite3 and git for VitePress
+RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
