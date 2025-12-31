@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: 常见问题
-      link: /常见问题
+      link: /help/常见问题
     - theme: alt
       text: 返回应用
       link: /
