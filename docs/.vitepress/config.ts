@@ -5,11 +5,11 @@ export default withMermaid(
   defineConfig({
   title: 'MJ-Studio 文档',
   description: '多模型 AI 工作台文档中心',
-  base: '/help/',
+  base: '/docs/',
   lang: 'zh-CN',
 
-  // 输出到 public/help 目录，Nuxt 会自动包含 public 目录到构建产物
-  outDir: '../public/help',
+  // 输出到 public/docs 目录，Nuxt 会自动包含 public 目录到构建产物
+  outDir: '../public/docs',
 
   // 忽略死链接
   ignoreDeadLinks: true,
@@ -33,7 +33,7 @@ export default withMermaid(
 
     nav: [
       { text: '首页', link: '/' },
-      { text: '常见问题', link: '/help/常见问题' },
+      { text: '常见问题', link: '/docs/常见问题' },
       { text: '返回应用', link: 'javascript:window.location.href="/"' },
     ],
 
@@ -41,7 +41,7 @@ export default withMermaid(
       {
         text: '帮助中心',
         items: [
-          { text: '常见问题', link: '/help/常见问题' },
+          { text: '常见问题', link: '/docs/常见问题' },
         ],
       },
       {
@@ -85,7 +85,14 @@ export default withMermaid(
           { text: 'ImageForm 参数方案', link: '/architecture/ImageForm模型参数开发方案' },
           { text: '任务多图支持', link: '/architecture/任务多图支持设计' },
           { text: '对话压缩逻辑', link: '/architecture/对话压缩逻辑' },
-          { text: '全局事件订阅', link: '/develop/CLAUDE' },
+          { text: '全局事件订阅', link: '/architecture/全局事件订阅系统设计' },
+        ],
+      },
+      {
+        text: '记忆系统',
+        items: [
+          { text: '记忆系统功能设计', link: '/memory/记忆系统功能设计' },
+          { text: '为什么不实现自动化记忆', link: '/memory/为什么不实现自动化记忆系统' },
         ],
       },
     ],
