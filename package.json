@@ -10,7 +10,7 @@
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "docs:dev": "vitepress dev docs --port 4173",
+    "docs:dev": "vitepress dev docs --port 4173 --host 0.0.0.0",
     "docs:build": "vitepress build docs",
     "build:docs": "vitepress build docs",
     "test": "vitest run",

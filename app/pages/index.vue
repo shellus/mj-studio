@@ -64,10 +64,10 @@ const { loggedIn } = useAuth()
               AI 对话
             </UButton>
           </NuxtLink>
-          <a href="/help/">
+          <a href="/docs/">
             <UButton size="lg" variant="soft" color="neutral">
               <UIcon name="i-heroicons-question-mark-circle" class="w-5 h-5 mr-2" />
-              帮助中心
+              文档中心
             </UButton>
           </a>
         </div>

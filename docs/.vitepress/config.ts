@@ -32,24 +32,26 @@ export default withMermaid(
     siteTitle: 'MJ-Studio',
 
     nav: [
-      { text: '首页', link: '/' },
-      { text: '常见问题', link: '/docs/常见问题' },
+      { text: '文档中心', link: '/index' },
       { text: '返回应用', link: 'javascript:window.location.href="/"' },
     ],
 
     sidebar: [
       {
-        text: '帮助中心',
+        text: '概述',
         items: [
-          { text: '常见问题', link: '/docs/常见问题' },
+          { text: '项目介绍', link: '/index' },
         ],
       },
       {
-        text: '功能模块',
+        text: '功能介绍',
         items: [
-          { text: '对话功能', link: '/features/对话功能需求文档' },
-          { text: '嵌入式绘图', link: '/features/嵌入式绘图组件设计' },
-          { text: '流式输出', link: '/features/流式输出系统设计和实现规范' },
+          { text: '对话功能', link: '/features/对话功能介绍' },
+          { text: '对话压缩', link: '/features/对话压缩功能介绍' },
+          { text: '流式输出', link: '/features/流式输出功能介绍' },
+          { text: '生图功能', link: '/features/生图功能介绍' },
+          { text: '视频生成', link: '/features/视频生成功能介绍' },
+          { text: '嵌入式绘图组件', link: '/features/嵌入式绘图组件介绍' },
         ],
       },
       {
@@ -69,30 +71,24 @@ export default withMermaid(
         ],
       },
       {
-        text: '设计规范',
+        text: '开发规范',
         items: [
-          { text: '设计系统', link: '/design/设计系统规范' },
-          { text: '任务卡片组件', link: '/design/任务卡片组件设计文档' },
-          { text: '模型选择器', link: '/design/模型选择器组件设计文档' },
-          { text: '日志规范', link: '/design/日志规范需求' },
-          { text: '错误规范', link: '/design/绘图任务错误规范' },
+          { text: '设计系统', link: '/dev-spec/设计系统' },
+          { text: '任务卡片组件', link: '/dev-spec/任务卡片组件设计文档' },
+          { text: '模型选择器', link: '/dev-spec/模型选择器组件设计文档' },
+          { text: '日志', link: '/dev-spec/日志' },
+          { text: '错误处理', link: '/dev-spec/错误处理' },
+          { text: '全局事件订阅', link: '/dev-spec/全局事件订阅系统设计' },
         ],
       },
       {
-        text: '架构文档',
+        text: '功能规划',
         items: [
-          { text: '模型参数架构 RFC', link: '/architecture/RFC-模型参数架构重构' },
-          { text: 'ImageForm 参数方案', link: '/architecture/ImageForm模型参数开发方案' },
-          { text: '任务多图支持', link: '/architecture/任务多图支持设计' },
-          { text: '对话压缩逻辑', link: '/architecture/对话压缩逻辑' },
-          { text: '全局事件订阅', link: '/architecture/全局事件订阅系统设计' },
-        ],
-      },
-      {
-        text: '记忆系统',
-        items: [
-          { text: '记忆系统功能设计', link: '/memory/记忆系统功能设计' },
-          { text: '为什么不实现自动化记忆', link: '/memory/为什么不实现自动化记忆系统' },
+          { text: 'AI 群聊功能设计', link: '/planning/AI群聊功能设计' },
+          { text: '记忆系统功能设计', link: '/planning/记忆系统功能设计' },
+          { text: '为什么不实现自动化记忆', link: '/planning/为什么不实现自动化记忆系统' },
+          { text: '任务多图支持设计', link: '/planning/任务多图支持设计' },
+          { text: '对话分享系统设计', link: '/planning/对话分享系统设计' },
         ],
       },
     ],
