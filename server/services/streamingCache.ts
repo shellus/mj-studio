@@ -2,6 +2,7 @@
 // 用于在流式响应过程中缓存内容，支持中止和恢复
 
 import type { MessageStatus } from '../database/schema'
+import type { EventStream } from 'h3'
 
 interface StreamingSession {
   messageId: number           // AI 消息 ID
@@ -12,6 +13,7 @@ interface StreamingSession {
   startedAt: number
   updatedAt: number
   abortController?: AbortController  // 用于中止上游请求
+  streams?: Set<EventStream>  // 订阅此消息流的 SSE 连接
 }
 
 // 内存缓存：以消息 ID 为 key
@@ -47,12 +49,25 @@ export function updateSessionStatus(messageId: number, status: MessageStatus): v
   }
 }
 
-// 追加内容到缓存
+// 追加内容到缓存并广播给订阅者
 export function appendStreamingContent(messageId: number, content: string): void {
   const session = streamingSessions.get(messageId)
   if (session) {
     session.content += content
     session.updatedAt = Date.now()
+
+    // 广播给所有订阅者
+    if (session.streams) {
+      for (const stream of session.streams) {
+        try {
+          // 使用 JSON.stringify 编码，处理换行符等特殊字符
+          stream.push(JSON.stringify(content))
+        } catch (err) {
+          // 连接已断开，从订阅列表移除
+          session.streams.delete(stream)
+        }
+      }
+    }
   }
 }
 

@@ -1,12 +1,11 @@
 // 对话状态管理
-// 适配全局事件订阅系统：消息通过全局 SSE 推送，不再按 messageId 单独订阅
+// 适配独立流式订阅系统：消息 CRUD 通过全局 SSE，流式内容通过独立端点订阅
 import type { MessageMark, MessageStatus, MessageFile } from '~/shared/types'
 import { useAuth } from './useAuth'
 import { useUpstreams } from './useUpstreams'
 import {
   useGlobalEvents,
   type ChatMessageCreated,
-  type ChatMessageDelta,
   type ChatMessageDone,
   type ChatConversationCreated,
   type ChatConversationDeleted,
@@ -76,12 +75,7 @@ export function useConversations() {
   const streamingStates = useState<Record<number, {
     isStreaming: boolean
     messageId: number
-    content: string
-    contentBuffer: string
-    displayedContent: string
   }>>('conversation-streaming-states', () => ({}))
-
-  const streamingContent = useState('chat-streaming-content', () => '')
 
   // 当前对话是否正在流式输出
   const isStreaming = computed(() => {
@@ -153,92 +147,149 @@ export function useConversations() {
     }
   }
 
-  // 打字机效果相关状态
-  let contentBuffer = '' // 待渲染的内容缓冲
-  let displayedContent = '' // 已显示的内容
-  let typingTimer: ReturnType<typeof setTimeout> | null = null
-  const TYPING_SPEED = 15 // 每个字符的渲染间隔(ms)
+  // 流式状态跟踪
   let streamingMessageId = -1 // 正在流式输出的消息 ID
   let streamingConversationId: number | null = null // 正在流式输出的对话 ID
 
-  // 获取正在流式输出的消息（只在当前对话中查找）
-  function getStreamingMessage(): Message | undefined {
-    // 只有当前对话是 streaming 对话时才返回消息
-    if (currentConversationId.value !== streamingConversationId) {
-      return undefined
+  // ==================== 独立流式订阅管理 ====================
+
+  // 当前活跃的流式订阅（messageId -> AbortController）
+  const activeStreamSubscriptions = new Map<number, AbortController>()
+
+  // 订阅单个消息的流式输出
+  async function subscribeToMessageStream(messageId: number, conversationId: number, initialContent?: string) {
+    // 如果已经在订阅，先取消
+    if (activeStreamSubscriptions.has(messageId)) {
+      activeStreamSubscriptions.get(messageId)?.abort()
+      activeStreamSubscriptions.delete(messageId)
     }
-    return messages.value.find(m => m.id === streamingMessageId)
-  }
 
-  // 打字机效果：逐字渲染缓冲区内容
-  function startTyping() {
-    if (typingTimer) return // 已经在运行
+    const { getAuthHeader } = useAuth()
+    const abortController = new AbortController()
+    activeStreamSubscriptions.set(messageId, abortController)
 
-    function tick() {
-      if (displayedContent.length < contentBuffer.length) {
-        // 每次渲染多个字符以加快速度
-        const charsToAdd = Math.min(3, contentBuffer.length - displayedContent.length)
-        displayedContent = contentBuffer.slice(0, displayedContent.length + charsToAdd)
-        streamingContent.value = displayedContent
+    // 开始流式状态
+    startStreamingState(messageId, conversationId)
 
-        // 更新消息列表中的内容
-        const targetMessage = getStreamingMessage()
-        if (targetMessage?.role === 'assistant') {
-          targetMessage.content = displayedContent
-        }
-
-        typingTimer = setTimeout(tick, TYPING_SPEED)
-      } else {
-        typingTimer = null
+    // 如果有初始内容，设置到消息对象中
+    if (initialContent) {
+      const targetMessage = messages.value.find(m => m.id === messageId)
+      if (targetMessage) {
+        targetMessage.content = initialContent
       }
     }
 
-    tick()
+    try {
+      const response = await fetch(`/api/messages/${messageId}/stream`, {
+        signal: abortController.signal,
+        headers: getAuthHeader(),
+      })
+
+      if (!response.ok) {
+        return
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        return
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let firstDeltaReceived = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // 解析 SSE 格式
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          // 移除行末的 \r（如果有）
+          const cleanLine = line.endsWith('\r') ? line.slice(0, -1) : line
+
+          // 跳过空行和注释
+          if (cleanLine === '' || cleanLine.startsWith(':')) {
+            continue
+          }
+
+          // data: 纯文本内容
+          if (cleanLine.startsWith('data:')) {
+            const delta = cleanLine.slice(5)
+            // 只去掉开头的一个空格（SSE 格式：data: content）
+            const encodedContent = delta.startsWith(' ') ? delta.slice(1) : delta
+
+            try {
+              // 后端使用 JSON.stringify 编码，前端使用 JSON.parse 解码
+              const content = JSON.parse(encodedContent)
+
+              // 首次收到 delta，更新消息状态为 streaming
+              if (!firstDeltaReceived && streamingMessageId === messageId) {
+                firstDeltaReceived = true
+                const targetMessage = messages.value.find(m => m.id === messageId)
+                if (targetMessage) {
+                  targetMessage.status = 'streaming'
+                }
+              }
+
+              // 只有当前正在流式输出的消息是此 messageId 时才追加
+              if (streamingMessageId === messageId) {
+                const targetMessage = messages.value.find(m => m.id === messageId)
+                if (targetMessage?.role === 'assistant') {
+                  targetMessage.content = targetMessage.content + content
+                }
+              }
+            } catch (err) {
+              console.error('[MessageStream] JSON.parse 失败:', encodedContent, err)
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+      } else {
+      }
+    } finally {
+      activeStreamSubscriptions.delete(messageId)
+    }
   }
 
-  // 停止打字机效果，立即显示所有内容
-  function flushTyping() {
-    if (typingTimer) {
-      clearTimeout(typingTimer)
-      typingTimer = null
+  // 取消消息的流式订阅
+  function unsubscribeFromMessageStream(messageId: number) {
+    const abortController = activeStreamSubscriptions.get(messageId)
+    if (abortController) {
+      abortController.abort()
+      activeStreamSubscriptions.delete(messageId)
     }
-    displayedContent = contentBuffer
-    streamingContent.value = displayedContent
+  }
 
-    const targetMessage = getStreamingMessage()
-    // 错误消息不覆盖
-    if (targetMessage?.role === 'assistant' && targetMessage.mark !== 'error') {
-      targetMessage.content = displayedContent
+  // 取消所有流式订阅
+  function unsubscribeAllMessageStreams() {
+    for (const [messageId, abortController] of activeStreamSubscriptions) {
+      abortController.abort()
     }
+    activeStreamSubscriptions.clear()
   }
 
   // 开始流式状态（由事件驱动调用）
-  // initialContent: 消息已有的内容（从缓存恢复的情况）
-  function startStreamingState(messageId: number, conversationId: number, initialContent?: string) {
-    const existingContent = initialContent ?? ''
+  function startStreamingState(messageId: number, conversationId: number) {
     streamingStates.value[conversationId] = {
       isStreaming: true,
       messageId,
-      content: existingContent,
-      contentBuffer: existingContent,
-      displayedContent: existingContent,
     }
     streamingMessageId = messageId
     streamingConversationId = conversationId
-    contentBuffer = existingContent
-    displayedContent = existingContent
-    streamingContent.value = existingContent
   }
 
   // 结束流式状态
   function endStreamingState(conversationId: number) {
-    flushTyping()
     if (streamingStates.value[conversationId]) {
       streamingStates.value[conversationId].isStreaming = false
     }
-    streamingContent.value = ''
-    contentBuffer = ''
-    displayedContent = ''
     streamingMessageId = -1
     streamingConversationId = null
   }
@@ -249,6 +300,7 @@ export function useConversations() {
   function handleMessageCreated(data: ChatMessageCreated) {
     const { conversationId, message } = data
 
+
     // 只处理当前已加载对话的消息
     if (currentConversationId.value !== conversationId) {
       return
@@ -256,62 +308,43 @@ export function useConversations() {
 
     // 按 message.id 做 upsert
     const existingIndex = messages.value.findIndex(m => m.id === message.id)
-    const newMessage: Message = {
-      id: message.id,
-      conversationId: message.conversationId,
-      role: message.role,
-      content: message.content,
-      files: message.files,
-      upstreamId: null,
-      aimodelId: null,
-      modelName: null,
-      createdAt: message.createdAt || new Date().toISOString(),
-      mark: message.mark as MessageMark | null,
-      status: message.status as MessageStatus | null,
-    }
 
     if (existingIndex >= 0) {
-      // 更新现有消息
-      messages.value[existingIndex] = newMessage
+      // 更新现有消息（直接修改属性，保持对象引用不变）
+      const existing = messages.value[existingIndex]
+      existing.conversationId = message.conversationId
+      existing.role = message.role
+      // 只在消息不是 streaming 状态时更新 content（避免覆盖流式内容）
+      if (existing.status !== 'streaming') {
+        existing.content = message.content
+      }
+      existing.files = message.files
+      existing.createdAt = message.createdAt || existing.createdAt
+      existing.mark = message.mark as MessageMark | null
+      existing.status = message.status as MessageStatus | null
     } else {
       // 插入新消息
+      const newMessage: Message = {
+        id: message.id,
+        conversationId: message.conversationId,
+        role: message.role,
+        content: message.content,
+        files: message.files,
+        upstreamId: null,
+        aimodelId: null,
+        modelName: null,
+        createdAt: message.createdAt || new Date().toISOString(),
+        mark: message.mark as MessageMark | null,
+        status: message.status as MessageStatus | null,
+      }
       messages.value.push(newMessage)
     }
 
-    // 如果是 AI 消息且状态为 created/pending/streaming，开始流式状态
+    // 如果是 AI 消息且状态为 created/pending/streaming，且仍是当前对话，订阅流式输出
     if (message.role === 'assistant' &&
-        (message.status === 'created' || message.status === 'pending' || message.status === 'streaming')) {
-      startStreamingState(message.id, conversationId, message.content || '')
-    }
-  }
-
-  // 处理流式内容增量事件
-  function handleMessageDelta(data: ChatMessageDelta) {
-    const { conversationId, messageId, delta } = data
-
-    // 只处理当前对话的消息
-    if (currentConversationId.value !== conversationId) {
-      return
-    }
-
-    // 找到目标消息
-    const targetMessage = messages.value.find(m => m.id === messageId)
-    if (!targetMessage) {
-      return
-    }
-
-    // 如果还没开始流式状态，先开始（传入消息已有内容，支持中途加入）
-    if (streamingMessageId !== messageId) {
-      startStreamingState(messageId, conversationId, targetMessage.content || '')
-    }
-
-    // 追加到缓冲区，打字机效果会逐字渲染
-    contentBuffer += delta
-    startTyping()
-
-    // 更新消息状态为 streaming
-    if (targetMessage.status !== 'streaming') {
-      targetMessage.status = 'streaming'
+        (message.status === 'created' || message.status === 'pending' || message.status === 'streaming') &&
+        currentConversationId.value === conversationId) {
+      subscribeToMessageStream(message.id, conversationId, message.content || '')
     }
   }
 
@@ -334,8 +367,8 @@ export function useConversations() {
       }
     }
 
-    // 刷新打字机
-    flushTyping()
+    // 取消流式订阅
+    unsubscribeFromMessageStream(messageId)
 
     // 如果后端返回了更新后的预计时间，更新本地 upstreams 状态
     if (estimatedTime !== undefined && upstreamId && aimodelId) {
@@ -461,7 +494,6 @@ export function useConversations() {
   if (import.meta.client) {
     // 消息流式输出事件
     on<ChatMessageCreated>('chat.message.created', handleMessageCreated)
-    on<ChatMessageDelta>('chat.message.delta', handleMessageDelta)
     on<ChatMessageDone>('chat.message.done', handleMessageDone)
 
     // 对话和消息操作事件
@@ -497,7 +529,6 @@ export function useConversations() {
       currentConversationId.value = null
       messages.value = []
     } catch (error) {
-      console.error('加载对话列表失败:', error)
     } finally {
       isLoading.value = false
     }
@@ -517,11 +548,10 @@ export function useConversations() {
       )
 
       if (streamingMsg) {
-        // 恢复流式状态（传入已有内容，全局 SSE 会自动推送后续增量）
-        startStreamingState(streamingMsg.id, id, streamingMsg.content || '')
+        // 恢复流式状态（订阅流式输出，传入已有内容以支持中途加入）
+        subscribeToMessageStream(streamingMsg.id, id, streamingMsg.content || '')
       }
     } catch (error) {
-      console.error('加载对话详情失败:', error)
       messages.value = []
     }
   }
@@ -661,9 +691,6 @@ export function useConversations() {
     }
     inputStates.value = {}
     streamingStates.value = {}
-    streamingContent.value = ''
-    contentBuffer = ''
-    displayedContent = ''
   }
 
   // 手动添加消息（不触发AI回复）
@@ -695,17 +722,15 @@ export function useConversations() {
           method: 'POST',
         })
       } catch (error) {
-        console.error('停止生成失败:', error)
       }
     }
 
-    // 立即结束打字机效果，保留已输出的内容
-    flushTyping()
-
-    // 更新消息状态
-    const targetMessage = getStreamingMessage()
-    if (targetMessage) {
-      targetMessage.status = 'stopped'
+    // 更新消息状态为已停止
+    if (streamingMessageId !== -1) {
+      const targetMessage = messages.value.find(m => m.id === streamingMessageId)
+      if (targetMessage) {
+        targetMessage.status = 'stopped'
+      }
     }
 
     // 清除该对话的 streaming 状态
@@ -778,7 +803,6 @@ export function useConversations() {
     currentConversationId,
     currentConversation,
     isStreaming,
-    streamingContent,
     loadConversations,
     selectConversation,
     createConversation,

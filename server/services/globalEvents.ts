@@ -28,11 +28,7 @@ export interface ChatMessageCreated {
   }
 }
 
-export interface ChatMessageDelta {
-  conversationId: number
-  messageId: number
-  delta: string
-}
+// ChatMessageDelta 已废弃，流式增量内容通过独立端点 GET /api/messages/[id]/stream 订阅
 
 export interface ChatMessageDone {
   conversationId: number

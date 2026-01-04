@@ -154,63 +154,6 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     const requestStartTime = Date.now() // 记录请求开始时间
     let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
 
-    // Delta 批量聚合机制：减少 SSE 消息数量
-    // - 基础间隔 300ms
-    // - 如果 buffer < 50 字符，延缓刷新，最多延缓 3000ms
-    const DELTA_BUFFER_INTERVAL = 300
-    const DELTA_MIN_CHARS = 50
-    const DELTA_MAX_DELAY = 3000
-    let deltaBuffer = ''
-    let deltaBufferTimer: ReturnType<typeof setTimeout> | null = null
-    let deltaBufferStartTime: number | null = null
-
-    // 刷新 delta buffer，发送聚合后的内容
-    const flushDeltaBuffer = async () => {
-      if (deltaBuffer) {
-        const content = deltaBuffer
-        deltaBuffer = ''
-        deltaBufferStartTime = null
-        await emitToUser<ChatMessageDelta>(userId, 'chat.message.delta', {
-          conversationId,
-          messageId,
-          delta: content,
-        })
-      }
-      deltaBufferTimer = null
-    }
-
-    // 调度 delta buffer 刷新（智能延缓策略）
-    const scheduleDeltaFlush = () => {
-      // 如果已有定时器，先清除
-      if (deltaBufferTimer) {
-        clearTimeout(deltaBufferTimer)
-        deltaBufferTimer = null
-      }
-
-      // 记录 buffer 开始时间
-      if (deltaBufferStartTime === null) {
-        deltaBufferStartTime = Date.now()
-      }
-
-      const elapsed = Date.now() - deltaBufferStartTime
-
-      // 策略 1：buffer >= 50 字符，立即刷新
-      if (deltaBuffer.length >= DELTA_MIN_CHARS) {
-        deltaBufferTimer = setTimeout(flushDeltaBuffer, DELTA_BUFFER_INTERVAL)
-        return
-      }
-
-      // 策略 2：已等待超过 3000ms，强制刷新
-      if (elapsed >= DELTA_MAX_DELAY) {
-        deltaBufferTimer = setTimeout(flushDeltaBuffer, 0)
-        return
-      }
-
-      // 策略 3：buffer < 50 字符且未超时，延缓刷新
-      const remainingDelay = Math.min(DELTA_BUFFER_INTERVAL, DELTA_MAX_DELAY - elapsed)
-      deltaBufferTimer = setTimeout(flushDeltaBuffer, remainingDelay)
-    }
-
     for await (const chunk of generator) {
       // 检查是否被中止
       if (abortController.signal.aborted) {
@@ -241,37 +184,18 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           }
         }
 
-        // 追加到缓存
+        // 追加到缓存并立即广播给订阅者（无聚合策略）
         appendStreamingContent(messageId, chunk.content)
-
-        // 追加到 delta buffer
-        deltaBuffer += chunk.content
-
-        // 调度刷新（智能延缓策略）
-        scheduleDeltaFlush()
       }
 
       if (chunk.done) {
-        // 流结束：立即刷新剩余 buffer，不受延缓策略限制
-        if (deltaBufferTimer) {
-          clearTimeout(deltaBufferTimer)
-          deltaBufferTimer = null
-        }
-        await flushDeltaBuffer()
         break
       }
     }
 
-    // 清理定时器（异常退出情况）
-    if (deltaBufferTimer) {
-      clearTimeout(deltaBufferTimer)
-      deltaBufferTimer = null
-    }
-
     // 检查是否被中止
     if (abortController.signal.aborted) {
-      // 被中止的情况：刷新剩余 buffer，保存已生成的内容，状态设为 stopped
-      await flushDeltaBuffer()
+      // 被中止的情况：保存已生成的内容，状态设为 stopped
       const cachedContent = endStreamingSession(messageId)
       const contentToSave = cachedContent || fullContent
       await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
@@ -290,7 +214,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       return
     }
 
-    // 正常完成：buffer 已在 chunk.done 时刷新，这里无需再次刷新
+    // 正常完成：保存内容并更新状态
 
     // 保存内容并更新状态
     await conversationService.updateMessageContentAndStatus(messageId, fullContent, 'completed', responseMark)

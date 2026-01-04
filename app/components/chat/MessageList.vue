@@ -219,7 +219,10 @@ function stopStreamingRender() {
 
 // 获取渲染后的内容
 function getRenderedContent(message: Message): string {
-  return renderedMessages.value.get(message.id) || message.content
+  const rendered = renderedMessages.value.get(message.id)
+  if (!rendered) {
+  }
+  return rendered || message.content
 }
 
 // 检查消息是否正在生成中（显示加载动画）
@@ -318,7 +321,8 @@ function shouldShowRaw(message: Message): boolean {
     return false
   }
   // 非流式消息，还没有渲染完成时显示原始内容
-  if (!renderedMessages.value.has(message.id)) {
+  const hasRendered = renderedMessages.value.has(message.id)
+  if (!hasRendered) {
     return true
   }
   return false
@@ -335,7 +339,6 @@ watch(() => props.messages.length, (newLen, oldLen) => {
 // 流式输出时的滚动已移至 startStreamingRender 定时器中，避免高频滚动导致抖动
 
 // 监听消息列表变化，渲染已完成的消息
-// 使用 messages 数组引用作为依赖，确保切换对话时能触发重新渲染
 watch(
   () => props.messages,
   async (newMessages, oldMessages) => {
@@ -344,8 +347,9 @@ watch(
       renderedMessages.value.clear()
       lastRenderedLength.clear()
     }
+    // 渲染所有非 streaming 状态的消息（streaming 消息由定时器处理）
     for (const msg of props.messages) {
-      if (msg.content) {
+      if (msg.content && msg.status !== 'streaming') {
         await renderMessage(msg)
       }
     }
