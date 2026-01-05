@@ -507,7 +507,6 @@ onUnmounted(() => {
                   <ModelSelector
                     :upstreams="upstreams"
                     category="image"
-                    show-type-label
                     list-layout
                     dropdown-width="w-64"
                     :upstream-id="data.upstreamId || null"
@@ -571,7 +570,6 @@ onUnmounted(() => {
                   <ModelSelector
                     :upstreams="upstreams"
                     category="video"
-                    show-type-label
                     list-layout
                     dropdown-width="w-64"
                     :upstream-id="data.upstreamId || null"

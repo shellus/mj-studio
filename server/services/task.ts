@@ -170,6 +170,7 @@ export function useTaskService() {
   type TaskUpstreamSummary = {
     name: string
     estimatedTime: number | null
+    aimodelName: string  // AI 模型的显示名称
   }
 
   // 从完整配置中提取精简信息
@@ -177,6 +178,7 @@ export function useTaskService() {
     return {
       name: upstream.name,
       estimatedTime: aimodel?.estimatedTime ?? null,
+      aimodelName: aimodel?.name ?? '未知模型',
     }
   }
 

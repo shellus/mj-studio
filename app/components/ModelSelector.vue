@@ -2,15 +2,13 @@
 import { onClickOutside } from '@vueuse/core'
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { ModelCategory } from '~/shared/types'
-import { MODEL_TYPE_ICONS, MODEL_TYPE_LABELS } from '~/shared/constants'
+import { MODEL_TYPE_ICONS } from '~/shared/constants'
 
 const props = defineProps<{
   upstreams: Upstream[]
   category: ModelCategory
   upstreamId?: number | null
   aimodelId?: number | null
-  // 显示模型类型标签而非模型名称
-  showTypeLabel?: boolean
   // 下拉面板宽度，默认 w-80 (320px)
   dropdownWidth?: string
   // 使用列表布局而非 grid 布局
@@ -142,12 +140,8 @@ const currentDisplayText = computed(() => {
   const aimodel = upstream.aimodels?.find(m => m.id === selectedAimodelId.value)
   if (!aimodel) return `${upstream.name} / 未知模型`
 
-  // 根据 showTypeLabel 决定显示内容
-  const displayName = props.showTypeLabel
-    ? (MODEL_TYPE_LABELS[aimodel.modelType as keyof typeof MODEL_TYPE_LABELS] || aimodel.modelType)
-    : aimodel.modelName
-
-  return `${upstream.name} / ${displayName}`
+  // 使用 name 字段作为显示名称
+  return `${upstream.name} / ${aimodel.name}`
 })
 
 // 获取模型图标
@@ -157,10 +151,7 @@ function getModelIcon(modelType: string): string {
 
 // 获取模型显示文本
 function getModelDisplayText(aimodel: Aimodel): string {
-  if (props.showTypeLabel) {
-    return MODEL_TYPE_LABELS[aimodel.modelType as keyof typeof MODEL_TYPE_LABELS] || aimodel.modelType
-  }
-  return aimodel.modelName
+  return aimodel.name
 }
 
 // 检查模型是否选中

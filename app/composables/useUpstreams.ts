@@ -9,6 +9,7 @@ export interface Aimodel {
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
+  name: string  // 显示名称（用户可自定义）
   estimatedTime: number
   keyName: string
   createdAt: string
@@ -38,6 +39,7 @@ export interface AimodelInput {
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
+  name: string  // 显示名称（用户可自定义）
   estimatedTime?: number
   keyName?: string
 }

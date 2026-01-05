@@ -165,7 +165,6 @@ const workbenchAimodelId = computed({
             <ModelSelector
               :upstreams="upstreams"
               category="image"
-              show-type-label
               no-auto-select
               align-right
               v-model:upstream-id="embeddedUpstreamId"
@@ -181,7 +180,6 @@ const workbenchAimodelId = computed({
             <ModelSelector
               :upstreams="upstreams"
               category="image"
-              show-type-label
               no-auto-select
               align-right
               v-model:upstream-id="workbenchUpstreamId"

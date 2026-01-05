@@ -62,6 +62,7 @@ export const aimodels = sqliteTable('aimodels', {
   modelType: text('model_type').$type<ModelType>().notNull(), // 界面显示的模型类型
   apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 实际请求时使用的 API 格式
   modelName: text('model_name').notNull(), // 发送给上游的模型标识符
+  name: text('name').notNull(), // 显示名称（用户可自定义）
   estimatedTime: integer('estimated_time').notNull().default(60), // 预计时间（秒）
   keyName: text('key_name').notNull().default('default'), // 使用的 Key 名称
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),

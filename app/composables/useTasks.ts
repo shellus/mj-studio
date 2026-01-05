@@ -14,6 +14,7 @@ import {
 export interface TaskUpstreamSummary {
   name: string
   estimatedTime: number | null
+  aimodelName: string  // AI 模型的显示名称
 }
 
 // 后端Task类型

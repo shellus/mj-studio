@@ -9,6 +9,7 @@ interface AimodelInput {
   modelType: ModelType
   apiFormat: ApiFormat
   modelName: string
+  name: string  // 显示名称
   estimatedTime?: number
   keyName?: string
 }
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
       modelType: m.modelType,
       apiFormat: m.apiFormat,
       modelName: m.modelName,
+      name: m.name,  // 显示名称
       estimatedTime: m.estimatedTime,
       keyName: m.keyName,
     }))

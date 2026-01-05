@@ -90,7 +90,7 @@ const modelInfo = computed(() => {
   const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
   return {
-    label: display.label,
+    label: props.task.upstream?.aimodelName || display.label,  // 优先使用 aimodelName
     type: modelType,
     color: display.color,
   }

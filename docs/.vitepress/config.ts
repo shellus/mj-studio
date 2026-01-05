@@ -46,6 +46,7 @@ export default withMermaid(
       {
         text: '功能介绍',
         items: [
+          { text: '上游和模型配置', link: '/features/上游和模型配置' },
           { text: '对话功能', link: '/features/对话功能介绍' },
           { text: '对话压缩', link: '/features/对话压缩功能介绍' },
           { text: '流式输出', link: '/features/流式输出功能介绍' },

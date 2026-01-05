@@ -43,6 +43,13 @@
       "when": 1767024560491,
       "tag": "0005_add-workflow-run-nodes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1767577995044,
+      "tag": "0006_add-aimodel-name-field",
+      "breakpoints": true
     }
   ]
 }

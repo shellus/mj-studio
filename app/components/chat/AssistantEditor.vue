@@ -78,7 +78,7 @@ const allChatModels = computed(() => {
     upstreamId: number
     upstreamName: string
     aimodelId: number
-    modelName: string
+    modelName: string  // 显示名称（aimodel.name）
   }> = []
 
   for (const upstream of props.upstreams) {
@@ -91,7 +91,7 @@ const allChatModels = computed(() => {
           upstreamId: upstream.id,
           upstreamName: upstream.name,
           aimodelId: aimodel.id,
-          modelName: aimodel.modelName
+          modelName: aimodel.name  // 使用 name 字段作为显示名称
         })
       }
     }

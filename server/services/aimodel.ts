@@ -107,6 +107,7 @@ export function useAimodelService() {
     modelType: ModelType
     apiFormat: ApiFormat
     modelName: string
+    name: string  // 显示名称
     estimatedTime?: number
     keyName?: string
   }>): Promise<Aimodel[]> {
@@ -118,6 +119,7 @@ export function useAimodelService() {
       modelType: d.modelType,
       apiFormat: d.apiFormat,
       modelName: d.modelName,
+      name: d.name,  // 显示名称
       estimatedTime: d.estimatedTime ?? 60,
       keyName: d.keyName ?? 'default',
     }))
@@ -184,6 +186,7 @@ export function useAimodelService() {
     modelType: ModelType
     apiFormat: ApiFormat
     modelName: string
+    name: string  // 显示名称
     estimatedTime?: number
     keyName?: string
   }>): Promise<Aimodel[]> {
@@ -203,6 +206,7 @@ export function useAimodelService() {
           modelType: model.modelType,
           apiFormat: model.apiFormat,
           modelName: model.modelName,
+          name: model.name,  // 显示名称
           estimatedTime: model.estimatedTime ?? 60,
           keyName: model.keyName ?? 'default',
           deletedAt: null,  // 如果之前被软删除，恢复它

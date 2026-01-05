@@ -132,6 +132,7 @@ async function loadUpstreamData() {
             modelType: m.modelType,
             apiFormat: m.apiFormat,
             modelName: m.modelName,
+            name: m.name,  // 显示名称
             estimatedTime: m.estimatedTime,
             keyName: m.keyName,
           }))
@@ -143,6 +144,7 @@ async function loadUpstreamData() {
             modelType: m.modelType,
             apiFormat: m.apiFormat,
             modelName: m.modelName,
+            name: m.name,  // 显示名称
             estimatedTime: m.estimatedTime,
             keyName: m.keyName,
           }))
@@ -154,6 +156,7 @@ async function loadUpstreamData() {
             modelType: m.modelType,
             apiFormat: m.apiFormat,
             modelName: m.modelName,
+            name: m.name,  // 显示名称
             estimatedTime: m.estimatedTime,
             keyName: m.keyName,
           }))
@@ -184,6 +187,7 @@ function addImageModel() {
     modelType: '' as any,
     apiFormat: '' as any,
     modelName: '',
+    name: '',  // 显示名称，modelType 变化时自动填充
     estimatedTime: 60,
   })
 }
@@ -195,6 +199,7 @@ function addChatModel() {
     modelType: 'gpt' as any, // 保留字段但使用默认值
     apiFormat: 'openai-chat' as any,
     modelName: '',
+    name: '',  // 显示名称，modelName 变化时自动填充
     estimatedTime: 5, // 默认5秒
   })
 }
@@ -206,6 +211,7 @@ function addVideoModel() {
     modelType: '' as any,
     apiFormat: '' as any,
     modelName: '',
+    name: '',  // 显示名称，modelType 变化时自动填充
     estimatedTime: 120,
   })
 }
@@ -235,6 +241,7 @@ function onImageModelTypeChange(index: number) {
   }
 
   aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+  aimodel.name = MODEL_TYPE_LABELS[aimodel.modelType as ModelType] || ''  // 自动填充显示名称
   aimodel.estimatedTime = DEFAULT_ESTIMATED_TIMES[aimodel.modelType as ImageModelType] || 60
 }
 
@@ -262,6 +269,7 @@ function onVideoModelTypeChange(index: number) {
   }
 
   aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+  aimodel.name = MODEL_TYPE_LABELS[aimodel.modelType as ModelType] || ''  // 自动填充显示名称
   aimodel.estimatedTime = DEFAULT_VIDEO_ESTIMATED_TIMES[aimodel.modelType as VideoModelType] || 120
 }
 
@@ -278,6 +286,9 @@ function getInferredModelType(modelName: string): { type: ChatModelType | null; 
 function onChatModelNameChange(index: number) {
   const aimodel = chatAimodels.value[index]
   if (!aimodel) return
+
+  // 自动填充 name 为 modelName（对话模型规则）
+  aimodel.name = aimodel.modelName
 
   const inferred = inferChatModelType(aimodel.modelName)
   if (inferred) {
@@ -588,6 +599,14 @@ async function confirmDelete() {
                         />
                       </UFormField>
 
+                      <UFormField label="显示名称">
+                        <UInput
+                          v-model="aimodel.name"
+                          placeholder="在模型选择器中显示的名称"
+                          class="w-60"
+                        />
+                      </UFormField>
+
                       <UFormField label="预计时间(秒)">
                         <UInput
                           v-model.number="aimodel.estimatedTime"
@@ -687,6 +706,14 @@ async function confirmDelete() {
                         />
                       </UFormField>
 
+                      <UFormField label="显示名称">
+                        <UInput
+                          v-model="aimodel.name"
+                          placeholder="在模型选择器中显示的名称"
+                          class="w-60"
+                        />
+                      </UFormField>
+
                       <UFormField label="预计时间(秒)">
                         <UInput
                           v-model.number="aimodel.estimatedTime"
@@ -782,6 +809,14 @@ async function confirmDelete() {
                           placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
                           class="w-60"
                           @input="onChatModelNameChange(index)"
+                        />
+                      </UFormField>
+
+                      <UFormField label="显示名称">
+                        <UInput
+                          v-model="aimodel.name"
+                          placeholder="在模型选择器中显示的名称"
+                          class="w-60"
                         />
                       </UFormField>
 

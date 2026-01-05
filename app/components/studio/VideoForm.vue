@@ -248,7 +248,6 @@ defineExpose({
         ref="modelSelectorRef"
         :upstreams="upstreams"
         category="video"
-        show-type-label
         v-model:upstream-id="selectedUpstreamId"
         v-model:aimodel-id="selectedAimodelId"
       />
