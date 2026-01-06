@@ -77,7 +77,7 @@ export default withMermaid(
           { text: '设计系统', link: '/dev-spec/设计系统' },
           { text: '任务卡片组件', link: '/dev-spec/任务卡片组件设计文档' },
           { text: '模型选择器', link: '/dev-spec/模型选择器组件设计文档' },
-          { text: '日志', link: '/dev-spec/日志' },
+          { text: '日志系统说明', link: '/dev-spec/日志系统说明' },
           { text: '错误处理', link: '/dev-spec/错误处理' },
           { text: '全局事件订阅', link: '/dev-spec/全局事件订阅系统设计' },
         ],
