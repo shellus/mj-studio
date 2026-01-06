@@ -17,8 +17,8 @@ import {
   getSessionAbortController,
 } from './streamingCache'
 import { emitToUser } from './globalEvents'
-import type { ChatMessageDelta, ChatMessageDone } from './globalEvents'
-import type { Message, MessageMark, MessageStatus, MessageFile } from '../database/schema'
+import type { ChatMessageDone } from './globalEvents'
+import type { MessageMark, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
 
 interface StreamingTaskParams {

@@ -3,7 +3,7 @@ import { db } from '../database'
 import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
 import type { ModelParams, ImageModelParams, JimengVideoParams, VeoVideoParams, SoraVideoParams, GrokVideoParams } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
-import { createMJService, type MJTaskResponse } from './mj'
+import { createMJService } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
@@ -785,7 +785,7 @@ export function useTaskService() {
         // 下载失败时保留原始URL
 
         // 更新预计时间
-        await updateEstimatedTime(aimodel, task, task.createdAt)
+        await updateEstimatedTime(aimodel, task.id, task.createdAt)
       }
 
       // 对 MJ 的 failReason 进行分类
@@ -843,7 +843,7 @@ export function useTaskService() {
         // 下载失败时保留原始 URL
 
         // 更新预计时间
-        await updateEstimatedTime(aimodel, task, task.createdAt)
+        await updateEstimatedTime(aimodel, task.id, task.createdAt)
       }
 
       // 计算进度显示
