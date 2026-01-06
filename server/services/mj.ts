@@ -1,7 +1,7 @@
 // MJ API 服务封装
 // 兼容多个中转站，只需更换 BASE_URL 和 API Key
 
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 
 interface MJSubmitResponse {
   code: number
@@ -46,16 +46,14 @@ export function createMJService(baseUrl: string, apiKey: string) {
   async function imagine(prompt: string, base64Array: string[] = [], taskId?: number): Promise<MJSubmitResponse> {
     const url = `${baseUrl}/mj/submit/imagine`
     const body = { prompt, base64Array }
+    const startTime = Date.now()
 
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url,
         method: 'POST',
         headers,
-        body: {
-          prompt,
-          base64Array: base64Array.map(b => `[base64 ${b.length} chars]`),
-        },
+        body,
       })
     }
 
@@ -69,17 +67,24 @@ export function createMJService(baseUrl: string, apiKey: string) {
       const result = typeof response === 'string' ? JSON.parse(response) : response
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: result })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: result,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       return result
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error
@@ -90,16 +95,14 @@ export function createMJService(baseUrl: string, apiKey: string) {
   async function blend(base64Array: string[], dimensions: 'PORTRAIT' | 'SQUARE' | 'LANDSCAPE' = 'SQUARE', taskId?: number): Promise<MJSubmitResponse> {
     const url = `${baseUrl}/mj/submit/blend`
     const body = { base64Array, dimensions }
+    const startTime = Date.now()
 
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url,
         method: 'POST',
         headers,
-        body: {
-          base64Array: base64Array.map(b => `[base64 ${b.length} chars]`),
-          dimensions,
-        },
+        body,
       })
     }
 
@@ -113,17 +116,24 @@ export function createMJService(baseUrl: string, apiKey: string) {
       const result = typeof response === 'string' ? JSON.parse(response) : response
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: result })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: result,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       return result
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error
@@ -134,9 +144,10 @@ export function createMJService(baseUrl: string, apiKey: string) {
   async function action(parentTaskId: string, customId: string, taskId?: number): Promise<MJSubmitResponse> {
     const url = `${baseUrl}/mj/submit/action`
     const body = { taskId: parentTaskId, customId }
+    const startTime = Date.now()
 
     if (taskId) {
-      logRequest(taskId, { url, method: 'POST', headers, body })
+      logTaskRequest(taskId, { url, method: 'POST', headers, body })
     }
 
     try {
@@ -149,17 +160,24 @@ export function createMJService(baseUrl: string, apiKey: string) {
       const result = typeof response === 'string' ? JSON.parse(response) : response
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: result })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: result,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       return result
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error

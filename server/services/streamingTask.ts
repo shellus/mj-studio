@@ -146,7 +146,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       userContent,
       userFiles,
       abortController.signal,
-      logContext
+      logContext,
+      conversationId,
+      messageId
     )
 
     let fullContent = ''

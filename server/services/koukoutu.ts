@@ -1,7 +1,7 @@
 // 抠抠图 API 服务封装
 // 异步轮询模式，类似 MJ-Proxy
 
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 
 interface KoukoutuCreateResponse {
   code: number
@@ -67,8 +67,10 @@ export function createKoukoutuService(baseUrl: string, apiKey: string) {
     const endPart = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8')
     const body = Buffer.concat([textPart, binaryData, endPart])
 
+    const startTime = Date.now()
+
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url,
         method: 'POST',
         headers: { Authorization: '[REDACTED]' },
@@ -91,17 +93,24 @@ export function createKoukoutuService(baseUrl: string, apiKey: string) {
       })
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       return response
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error

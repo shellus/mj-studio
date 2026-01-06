@@ -7,7 +7,7 @@
 
 import type { GenerateResult } from './types'
 import type { ImageModelParams } from '../../app/shared/types'
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
@@ -113,8 +113,9 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
 
     // 记录请求
+    const startTime = Date.now()
     if (taskId) {
-      logRequest(taskId, { url, method: 'POST', headers, body })
+      logTaskRequest(taskId, { url, method: 'POST', headers, body })
     }
 
     try {
@@ -127,7 +128,12 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       // 记录成功响应
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const imageData = response.data?.[0]
@@ -143,11 +149,13 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     } catch (error: any) {
       // 记录错误响应
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
 
@@ -230,8 +238,9 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
 
     // 记录请求（图片数据截断）
+    const startTime = Date.now()
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url,
         method: 'POST',
         headers,
@@ -249,7 +258,12 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       // 记录成功响应
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const imageData = response.data?.[0]
@@ -265,11 +279,13 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     } catch (error: any) {
       // 记录错误响应
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
 
@@ -303,8 +319,9 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     formData.append('image', blob, 'image.png')
 
     // 记录请求
+    const startTime = Date.now()
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url,
         method: 'POST',
         headers: { 'Authorization': '[REDACTED]' },
@@ -325,7 +342,12 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       // 记录成功响应
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const imageData = response.data?.[0]
@@ -341,11 +363,13 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     } catch (error: any) {
       // 记录错误响应
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
 

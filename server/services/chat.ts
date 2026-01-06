@@ -4,6 +4,7 @@ import { readFileAsBase64, isImageMimeType } from './file'
 import { useUpstreamService } from './upstream'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
+import { logConversationRequest, logConversationResponse } from '../utils/httpLogger'
 
 // OpenAI 多模态消息内容类型
 type ChatMessageContent =
@@ -197,13 +198,31 @@ export function createChatService(upstream: Upstream, keyName?: string) {
     userMessage: string,
     userFiles?: MessageFile[],
     signal?: AbortSignal,
-    logContext?: LogContext
+    logContext?: LogContext,
+    conversationId?: number,
+    messageId?: number
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${upstream.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
-    // 记录请求日志
+    const body = {
+      model: modelName,
+      messages,
+      stream: true,
+    }
+
+    // 记录 HTTP 请求日志
+    if (conversationId !== undefined && messageId !== undefined) {
+      logConversationRequest(conversationId, messageId, {
+        url,
+        method: 'POST',
+        headers,
+        body,
+      })
+    }
+
+    // 记录控制台请求日志
     if (logContext) {
       const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
@@ -222,12 +241,6 @@ export function createChatService(upstream: Upstream, keyName?: string) {
       }
     }
 
-    const body = {
-      model: modelName,
-      messages,
-      stream: true,
-    }
-
     let totalContent = ''
 
     try {
@@ -241,10 +254,25 @@ export function createChatService(upstream: Upstream, keyName?: string) {
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        let errorBody: any
         try {
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error?.message || errorMessage
-        } catch {}
+          errorBody = JSON.parse(errorText)
+          errorMessage = errorBody.error?.message || errorMessage
+        } catch {
+          errorBody = errorText
+        }
+
+        // 记录 HTTP 响应日志（HTTP 错误）
+        if (conversationId !== undefined && messageId !== undefined) {
+          logConversationResponse(conversationId, messageId, {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+            durationMs: Date.now() - startTime,
+          })
+        }
+
+        // 记录控制台错误日志
         if (logContext) {
           logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMessage)
         }
@@ -276,9 +304,19 @@ export function createChatService(upstream: Upstream, keyName?: string) {
 
           const data = trimmed.slice(5).trim()
           if (data === '[DONE]') {
-            // 记录完成日志
+            const durationMs = Date.now() - startTime
+
+            // 记录 HTTP 响应日志（成功）
+            if (conversationId !== undefined && messageId !== undefined) {
+              logConversationResponse(conversationId, messageId, {
+                status: 200,
+                content: totalContent,
+                durationMs,
+              })
+            }
+
+            // 记录控制台完成日志
             if (logContext) {
-              const durationMs = Date.now() - startTime
               logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
             }
             yield { content: '', done: true }
@@ -298,17 +336,41 @@ export function createChatService(upstream: Upstream, keyName?: string) {
         }
       }
 
-      // 记录完成日志
+      const durationMs = Date.now() - startTime
+
+      // 记录 HTTP 响应日志（成功）
+      if (conversationId !== undefined && messageId !== undefined) {
+        logConversationResponse(conversationId, messageId, {
+          status: 200,
+          content: totalContent,
+          durationMs,
+        })
+      }
+
+      // 记录控制台完成日志
       if (logContext) {
-        const durationMs = Date.now() - startTime
         logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
       }
       yield { content: '', done: true }
     } catch (error: any) {
+      const durationMs = Date.now() - startTime
+
       if (error.name === 'AbortError') {
         yield { content: '', done: true }
         return
       }
+
+      // 记录 HTTP 响应日志（网络错误）
+      if (conversationId !== undefined && messageId !== undefined) {
+        logConversationResponse(conversationId, messageId, {
+          status: null,
+          error: error.message || '请求失败',
+          errorType: error.name || 'Error',
+          durationMs,
+        })
+      }
+
+      // 记录控制台错误日志
       if (logContext) {
         logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
       }

@@ -235,9 +235,6 @@ const hasRefImages = computed(() => props.task.images && props.task.images.lengt
 // 任务详情弹窗
 const showTaskDetail = ref(false)
 
-// 错误详情弹窗
-const showErrorLogs = ref(false)
-
 // 参考图预览弹窗
 const showRefImages = ref(false)
 
@@ -283,17 +280,9 @@ function downloadImage() {
           />
           <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
           <!-- 失败时显示错误信息 -->
-          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed line-clamp-3 px-2 mb-2">
+          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed line-clamp-3 px-2">
             {{ task.error }}
           </p>
-          <!-- 查看详情按钮 -->
-          <button
-            v-if="task.error && task.status === 'failed'"
-            class="text-xs text-(--ui-text-muted) hover:text-(--ui-text) underline underline-offset-2"
-            @click="showErrorLogs = true"
-          >
-            查看详情
-          </button>
         </div>
       </div>
 
@@ -485,9 +474,6 @@ function downloadImage() {
 
     <!-- 参考图预览 Modal -->
     <StudioRefImagesModal v-model:open="showRefImages" :images="task.images" />
-
-    <!-- 错误详情 Modal -->
-    <StudioErrorLogsModal v-model:open="showErrorLogs" :task-id="task.id" />
   </div>
 </template>
 

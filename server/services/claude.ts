@@ -4,6 +4,7 @@ import { readFileAsBase64, isImageMimeType } from './file'
 import { useUpstreamService } from './upstream'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
+import { logConversationRequest, logConversationResponse } from '../utils/httpLogger'
 
 // Claude 多模态消息内容类型
 type ClaudeContentBlock =
@@ -201,12 +202,36 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
     userMessage: string,
     userFiles?: MessageFile[],
     signal?: AbortSignal,
-    logContext?: LogContext
+    logContext?: LogContext,
+    conversationId?: number,
+    messageId?: number
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${upstream.baseUrl}/v1/messages`
     const messages = buildMessages(historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
+    const body: Record<string, unknown> = {
+      model: modelName,
+      messages,
+      max_tokens: 8192,
+      stream: true,
+    }
+
+    if (systemPrompt) {
+      body.system = systemPrompt
+    }
+
+    // 记录 HTTP 请求日志
+    if (conversationId !== undefined && messageId !== undefined) {
+      logConversationRequest(conversationId, messageId, {
+        url,
+        method: 'POST',
+        headers,
+        body,
+      })
+    }
+
+    // 记录控制台请求日志
     if (logContext) {
       const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
@@ -225,17 +250,6 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
       }
     }
 
-    const body: Record<string, unknown> = {
-      model: modelName,
-      messages,
-      max_tokens: 8192,
-      stream: true,
-    }
-
-    if (systemPrompt) {
-      body.system = systemPrompt
-    }
-
     let totalContent = ''
 
     try {
@@ -249,10 +263,25 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        let errorBody: any
         try {
-          const errorData = JSON.parse(errorText)
-          errorMessage = errorData.error?.message || errorMessage
-        } catch {}
+          errorBody = JSON.parse(errorText)
+          errorMessage = errorBody.error?.message || errorMessage
+        } catch {
+          errorBody = errorText
+        }
+
+        // 记录 HTTP 响应日志（HTTP 错误）
+        if (conversationId !== undefined && messageId !== undefined) {
+          logConversationResponse(conversationId, messageId, {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody,
+            durationMs: Date.now() - startTime,
+          })
+        }
+
+        // 记录控制台错误日志
         if (logContext) {
           logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMessage)
         }
@@ -295,8 +324,19 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
                 yield { content: text, done: false }
               }
             } else if (parsed.type === 'message_stop') {
+              const durationMs = Date.now() - startTime
+
+              // 记录 HTTP 响应日志（成功）
+              if (conversationId !== undefined && messageId !== undefined) {
+                logConversationResponse(conversationId, messageId, {
+                  status: 200,
+                  content: totalContent,
+                  durationMs,
+                })
+              }
+
+              // 记录控制台完成日志
               if (logContext) {
-                const durationMs = Date.now() - startTime
                 logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
               }
               yield { content: '', done: true }
@@ -308,16 +348,41 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
         }
       }
 
+      const durationMs = Date.now() - startTime
+
+      // 记录 HTTP 响应日志（成功）
+      if (conversationId !== undefined && messageId !== undefined) {
+        logConversationResponse(conversationId, messageId, {
+          status: 200,
+          content: totalContent,
+          durationMs,
+        })
+      }
+
+      // 记录控制台完成日志
       if (logContext) {
-        const durationMs = Date.now() - startTime
         logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
       }
       yield { content: '', done: true }
     } catch (error: any) {
+      const durationMs = Date.now() - startTime
+
       if (error.name === 'AbortError') {
         yield { content: '', done: true }
         return
       }
+
+      // 记录 HTTP 响应日志（网络错误）
+      if (conversationId !== undefined && messageId !== undefined) {
+        logConversationResponse(conversationId, messageId, {
+          status: null,
+          error: error.message || '请求失败',
+          errorType: error.name || 'Error',
+          durationMs,
+        })
+      }
+
+      // 记录控制台错误日志
       if (logContext) {
         logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
       }

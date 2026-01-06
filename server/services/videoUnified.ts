@@ -14,7 +14,7 @@
  * 确保上层代码和前端无需感知上游差异。
  */
 
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 
 // ============================================================================
 // 类型定义
@@ -185,8 +185,10 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
     if (params.watermark !== undefined) body.watermark = params.watermark
     if (params.private !== undefined) body.private = params.private
 
+    const startTime = Date.now()
+
     if (taskId) {
-      logRequest(taskId, { url, method: 'POST', headers, body })
+      logTaskRequest(taskId, { url, method: 'POST', headers, body })
     }
 
     try {
@@ -197,17 +199,24 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
       })
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       return response
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error
@@ -222,8 +231,10 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
   async function query(upstreamTaskId: string, taskId?: number): Promise<VideoQueryResponse> {
     const url = `${baseUrl}/v1/video/query?id=${encodeURIComponent(upstreamTaskId)}`
 
+    const startTime = Date.now()
+
     if (taskId) {
-      logRequest(taskId, { url, method: 'GET', headers })
+      logTaskRequest(taskId, { url, method: 'GET', headers })
     }
 
     try {
@@ -233,7 +244,12 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
       })
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       // 归一化 error 字段：上游可能返回对象 { code, message }，需要提取为字符串
@@ -248,11 +264,13 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
       }
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       throw error

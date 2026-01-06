@@ -3,7 +3,7 @@
 // 适用于: GPT-4o Image, Grok-4 等
 
 import type { GenerateResult } from './types'
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
@@ -67,8 +67,10 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       stream: false,
     }
 
+    const startTime = Date.now()
+
     if (taskId) {
-      logRequest(taskId, { url, method: 'POST', headers, body })
+      logTaskRequest(taskId, { url, method: 'POST', headers, body })
     }
 
     try {
@@ -80,7 +82,12 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       })
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const content = response.choices?.[0]?.message?.content || ''
@@ -100,11 +107,13 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       return { success: true, resourceUrl: imageUrl }
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       return { success: false, error: classifyFetchError(error) }
@@ -133,6 +142,8 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       stream: false,
     }
 
+    const startTime = Date.now()
+
     if (taskId) {
       // 请求中的图片数据截断记录
       const logBody = JSON.parse(JSON.stringify(body))
@@ -141,7 +152,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
           p.image_url.url = `[base64 ${p.image_url.url.length} chars]`
         }
       })
-      logRequest(taskId, { url, method: 'POST', headers, body: logBody })
+      logTaskRequest(taskId, { url, method: 'POST', headers, body: logBody })
     }
 
     try {
@@ -153,7 +164,12 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       })
 
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: response,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const content = response.choices?.[0]?.message?.content || ''
@@ -173,11 +189,13 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       return { success: true, resourceUrl: imageUrl }
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       return { success: false, error: classifyFetchError(error) }

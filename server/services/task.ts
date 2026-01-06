@@ -13,7 +13,7 @@ import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
-import { logResponse } from './logger'
+import { logTaskResponse } from '../utils/httpLogger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 import { emitToUser, type TaskStatusUpdated } from './globalEvents'
@@ -793,7 +793,7 @@ export function useTaskService() {
       if (mjTask.failReason) {
         error = classifyError({ message: mjTask.failReason })
         // 任务失败时，记录轮询响应到日志（覆盖提交成功的日志）
-        logResponse(task.id, {
+        logTaskResponse(task.id, {
           status: 200,
           statusText: 'OK (Poll)',
           data: {

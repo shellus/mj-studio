@@ -2,7 +2,7 @@
 // 使用 Google Gemini 2.0 Flash 进行图像生成
 
 import type { GenerateResult } from './types'
-import { logRequest, logResponse } from './logger'
+import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
@@ -41,8 +41,10 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       generationConfig: { responseModalities: ['Text', 'Image'] },
     }
 
+    const startTime = Date.now()
+
     if (taskId) {
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url: url.replace(apiKey, '[REDACTED]'),
         method: 'POST',
         body,
@@ -67,7 +69,12 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
             }
           })
         })
-        logResponse(taskId, { status: 200, data: logData })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: logData,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const candidate = response.candidates?.[0]
@@ -88,11 +95,13 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       return { success: false, error: classifyFetchError(error) }
@@ -127,6 +136,8 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       generationConfig: { responseModalities: ['Text', 'Image'] },
     }
 
+    const startTime = Date.now()
+
     if (taskId) {
       // 请求中的图片数据截断记录
       const logBody = JSON.parse(JSON.stringify(body))
@@ -135,7 +146,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
           p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
         }
       })
-      logRequest(taskId, {
+      logTaskRequest(taskId, {
         url: url.replace(apiKey, '[REDACTED]'),
         method: 'POST',
         body: logBody,
@@ -159,7 +170,12 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
             }
           })
         })
-        logResponse(taskId, { status: 200, data: logData })
+        logTaskResponse(taskId, {
+          status: 200,
+          statusText: 'OK',
+          body: logData,
+          durationMs: Date.now() - startTime,
+        })
       }
 
       const candidate = response.candidates?.[0]
@@ -180,11 +196,13 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
     } catch (error: any) {
       if (taskId) {
-        logResponse(taskId, {
-          status: error.status || error.statusCode,
+        logTaskResponse(taskId, {
+          status: error.status || error.statusCode || null,
           statusText: error.statusText || error.statusMessage,
+          body: error.data,
           error: error.message,
-          data: error.data,
+          errorType: error.name || 'Error',
+          durationMs: Date.now() - startTime,
         })
       }
       return { success: false, error: classifyFetchError(error) }
