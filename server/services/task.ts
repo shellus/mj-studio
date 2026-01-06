@@ -1,7 +1,7 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
 import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
-import type { ModelParams, ImageModelParams } from '../../app/shared/types'
+import type { ModelParams, ImageModelParams, JimengVideoParams, VeoVideoParams, SoraVideoParams, GrokVideoParams } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
@@ -41,7 +41,8 @@ export function useTaskService() {
   }
 
   // 将本地 URL 数组转换为 Base64 数组
-  function convertImagesToBase64(images: string[]): string[] {
+  function convertImagesToBase64(images: string[] | undefined): string[] {
+    if (!images || images.length === 0) return []
     return images.map(url => {
       // 如果已经是 base64，直接返回
       if (url.startsWith('data:')) return url
@@ -87,6 +88,10 @@ export function useTaskService() {
       uniqueId: data.uniqueId ?? null,
       sourceType: data.sourceType ?? 'workbench',
     }).returning()
+
+    if (!task) {
+      throw new Error('创建任务失败')
+    }
 
     return task
   }
@@ -559,11 +564,19 @@ export function useTaskService() {
     }
 
     const koukoutu = createKoukoutuService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const modelKey = task.modelName || 'background-removal'
+    const modelKey = task.modelName ?? 'background-removal'
 
     try {
       const base64Images = convertImagesToBase64(task.images)
-      const result = await koukoutu.create(base64Images[0], modelKey, task.id)
+      if (base64Images.length === 0) {
+        await updateTask(task.id, {
+          status: 'failed',
+          error: '抠抠图服务必须提供参考图片',
+        })
+        return
+      }
+      const firstImage = base64Images[0]!  // 已经检查过数组长度,断言非空
+      const result = await koukoutu.create(firstImage, modelKey, task.id)
 
       if (result.code !== 200) {
         await updateTask(task.id, {
@@ -633,25 +646,29 @@ export function useTaskService() {
         prompt: task.prompt ?? '',
       }
 
-      // 根据模型类型添加参数
+      // 根据模型类型添加参数（使用类型断言）
       const modelType = aimodel.modelType
 
       if (modelType === 'jimeng-video') {
-        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
-        if (modelParams.size) params.size = modelParams.size
+        const p = modelParams as JimengVideoParams
+        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
+        if (p.size) params.size = p.size
       } else if (modelType === 'veo') {
-        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
-        if (modelParams.enhancePrompt !== undefined) params.enhance_prompt = modelParams.enhancePrompt
-        if (modelParams.enableUpsample !== undefined) params.enable_upsample = modelParams.enableUpsample
+        const p = modelParams as VeoVideoParams
+        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
+        if (p.enhancePrompt !== undefined) params.enhance_prompt = p.enhancePrompt
+        if (p.enableUpsample !== undefined) params.enable_upsample = p.enableUpsample
       } else if (modelType === 'sora') {
-        if (modelParams.orientation) params.orientation = modelParams.orientation
-        if (modelParams.size) params.size = modelParams.size
-        if (modelParams.duration) params.duration = modelParams.duration
-        if (modelParams.watermark !== undefined) params.watermark = modelParams.watermark
-        if (modelParams.private !== undefined) params.private = modelParams.private
+        const p = modelParams as SoraVideoParams
+        if (p.orientation) params.orientation = p.orientation
+        if (p.size) params.size = p.size
+        if (p.duration) params.duration = p.duration
+        if (p.watermark !== undefined) params.watermark = p.watermark
+        if (p.private !== undefined) params.private = p.private
       } else if (modelType === 'grok-video') {
-        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
-        if (modelParams.size) params.size = modelParams.size
+        const p = modelParams as GrokVideoParams
+        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
+        if (p.size) params.size = p.size
       }
 
       // 参考图（转换为 Base64）
@@ -894,6 +911,10 @@ export function useTaskService() {
       type: 'imagine',
       status: 'submitting',
     }).returning()
+
+    if (!newTask) {
+      throw new Error('创建任务失败')
+    }
 
     const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
 

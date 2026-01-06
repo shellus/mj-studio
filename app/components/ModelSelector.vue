@@ -174,9 +174,11 @@ watch(() => props.upstreams, (upstreams) => {
   if (upstreams.length > 0 && !selectedUpstreamId.value) {
     // upstreams 已按 sortOrder 排序，直接选择第一个
     const firstUpstream = upstreams[0]
-    const filteredModels = filterModelsByCategory(firstUpstream.aimodels || [])
-    if (filteredModels.length > 0) {
-      handleSelectModel(firstUpstream.id, filteredModels[0].id)
+    if (firstUpstream) {
+      const filteredModels = filterModelsByCategory(firstUpstream.aimodels || [])
+      if (filteredModels.length > 0) {
+        handleSelectModel(firstUpstream.id, filteredModels[0].id)
+      }
     }
   }
 }, { immediate: true })

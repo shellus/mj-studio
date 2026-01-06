@@ -84,8 +84,9 @@ export function useAimodelService() {
     modelType: ModelType
     apiFormat: ApiFormat
     modelName: string
+    name: string  // 显示名称
     estimatedTime?: number
-    keyName?: string
+    keyName: string  // Key 名称
   }): Promise<Aimodel> {
     const [aimodel] = await db.insert(aimodels).values({
       upstreamId: data.upstreamId,
@@ -93,9 +94,14 @@ export function useAimodelService() {
       modelType: data.modelType,
       apiFormat: data.apiFormat,
       modelName: data.modelName,
+      name: data.name,
       estimatedTime: data.estimatedTime ?? 60,
-      keyName: data.keyName ?? 'default',
+      keyName: data.keyName,
     }).returning()
+
+    if (!aimodel) {
+      throw new Error('创建模型失败')
+    }
 
     return aimodel
   }
@@ -109,7 +115,7 @@ export function useAimodelService() {
     modelName: string
     name: string  // 显示名称
     estimatedTime?: number
-    keyName?: string
+    keyName: string  // Key 名称
   }>): Promise<Aimodel[]> {
     if (data.length === 0) return []
 
@@ -121,7 +127,7 @@ export function useAimodelService() {
       modelName: d.modelName,
       name: d.name,  // 显示名称
       estimatedTime: d.estimatedTime ?? 60,
-      keyName: d.keyName ?? 'default',
+      keyName: d.keyName,
     }))
 
     return db.insert(aimodels).values(values).returning()
@@ -188,7 +194,7 @@ export function useAimodelService() {
     modelName: string
     name: string  // 显示名称
     estimatedTime?: number
-    keyName?: string
+    keyName: string  // Key 名称
   }>): Promise<Aimodel[]> {
     // 获取现有的所有模型（包括已软删除的）
     const existing = await db.query.aimodels.findMany({
@@ -208,7 +214,7 @@ export function useAimodelService() {
           modelName: model.modelName,
           name: model.name,  // 显示名称
           estimatedTime: model.estimatedTime ?? 60,
-          keyName: model.keyName ?? 'default',
+          keyName: model.keyName,
           deletedAt: null,  // 如果之前被软删除，恢复它
         })
         .where(eq(aimodels.id, model.id!))
