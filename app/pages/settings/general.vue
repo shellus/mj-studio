@@ -3,7 +3,7 @@ import { USER_SETTING_KEYS } from '../../shared/constants'
 import type { ImageModelType } from '../../shared/types'
 
 const { settings, isLoading, isLoaded, loadSettings, updateSettings } = useUserSettings()
-const { upstreams, loadUpstreams } = useUpstreams()
+const { upstreams } = useUpstreams()
 const toast = useToast()
 
 // 表单状态
@@ -27,10 +27,10 @@ const isSaving = ref(false)
 
 // 加载设置
 onMounted(async () => {
-  await Promise.all([
-    !isLoaded.value ? loadSettings() : Promise.resolve(),
-    loadUpstreams(),
-  ])
+  // upstreams 已由插件加载，这里只需等待 settings
+  if (!isLoaded.value) {
+    await loadSettings()
+  }
   syncFormFromSettings()
 })
 

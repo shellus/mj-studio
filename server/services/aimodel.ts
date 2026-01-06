@@ -1,6 +1,6 @@
 // AI 模型服务层
 import { db } from '../database'
-import { aimodels, upstreams, type Aimodel, type NewAimodel, type ModelCategory, type ModelType, type ApiFormat } from '../database/schema'
+import { aimodels, upstreams, assistants, type Aimodel, type NewAimodel, type ModelCategory, type ModelType, type ApiFormat } from '../database/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 
 export function useAimodelService() {
@@ -16,6 +16,26 @@ export function useAimodelService() {
     return db.query.aimodels.findFirst({
       where: eq(aimodels.id, id),
     })
+  }
+
+  // 获取单个模型（包含上游名称）
+  async function getByIdWithUpstream(id: number): Promise<(Aimodel & { upstreamName: string }) | undefined> {
+    const result = await db
+      .select({
+        aimodel: aimodels,
+        upstream: upstreams,
+      })
+      .from(aimodels)
+      .leftJoin(upstreams, eq(aimodels.upstreamId, upstreams.id))
+      .where(eq(aimodels.id, id))
+      .limit(1)
+
+    if (!result[0] || !result[0].upstream) return undefined
+
+    return {
+      ...result[0].aimodel,
+      upstreamName: result[0].upstream.name,
+    }
   }
 
   // 根据上游ID和模型名称查找模型
@@ -152,28 +172,34 @@ export function useAimodelService() {
 
   // 更新模型的预计时间（根据实际耗时自动更新）
   async function updateEstimatedTime(
-    upstreamId: number,
-    modelName: string,
+    aimodelId: number,
     actualTime: number
   ): Promise<number> {
     const newEstimatedTime = Math.round(actualTime)
     await db.update(aimodels)
       .set({ estimatedTime: newEstimatedTime })
-      .where(and(
-        eq(aimodels.upstreamId, upstreamId),
-        eq(aimodels.modelName, modelName),
-      ))
+      .where(eq(aimodels.id, aimodelId))
     return newEstimatedTime
   }
 
-  // 删除模型（软删除）
+  // 删除模型（软删除 + 级联清空助手关联）
   async function remove(id: number): Promise<boolean> {
+    // 1. 软删除模型
     const result = await db.update(aimodels)
       .set({ deletedAt: new Date() })
       .where(eq(aimodels.id, id))
       .returning()
 
-    return result.length > 0
+    if (result.length === 0) {
+      return false
+    }
+
+    // 2. 清空所有使用该模型的助手的模型关联
+    await db.update(assistants)
+      .set({ aimodelId: null })
+      .where(eq(assistants.aimodelId, id))
+
+    return true
   }
 
   // 删除上游的所有模型
@@ -185,7 +211,7 @@ export function useAimodelService() {
     return result.length
   }
 
-  // 同步上游的模型配置（智能同步：更新已有、创建新的、软删除移除的）
+  // 同步上游的模型配置（智能同步：更新已有、创建新的、软删除移除的 + 级联清空助手关联）
   async function syncByUpstream(upstreamId: number, models: Array<{
     id?: number
     category: ModelCategory
@@ -226,12 +252,24 @@ export function useAimodelService() {
       await createMany(newModels.map(m => ({ ...m, upstreamId })))
     }
 
-    // 3. 软删除不在列表中的模型（排除已经软删除的）
+    // 3. 软删除不在列表中的模型（排除已经软删除的）+ 级联清空助手关联
     const toDelete = existing.filter(m => !inputIds.has(m.id) && !m.deletedAt)
-    for (const model of toDelete) {
-      await db.update(aimodels)
-        .set({ deletedAt: new Date() })
-        .where(eq(aimodels.id, model.id))
+    const toDeleteIds = toDelete.map(m => m.id)
+
+    if (toDeleteIds.length > 0) {
+      // 软删除模型
+      for (const model of toDelete) {
+        await db.update(aimodels)
+          .set({ deletedAt: new Date() })
+          .where(eq(aimodels.id, model.id))
+      }
+
+      // 清空使用这些模型的助手的模型关联
+      for (const id of toDeleteIds) {
+        await db.update(assistants)
+          .set({ aimodelId: null })
+          .where(eq(assistants.aimodelId, id))
+      }
     }
 
     // 返回最新的模型列表（排除软删除的）
@@ -246,6 +284,7 @@ export function useAimodelService() {
   return {
     listByUpstream,
     getById,
+    getByIdWithUpstream,
     findByModelName,
     findByModelType,
     findByUserAndModelName,

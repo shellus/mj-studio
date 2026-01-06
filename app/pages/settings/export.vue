@@ -2,8 +2,8 @@
 import type { Assistant } from '~/composables/useAssistants'
 import type { Upstream, AimodelInput } from '~/composables/useUpstreams'
 
-const { assistants, loadAssistants, createAssistant } = useAssistants()
-const { upstreams, loadUpstreams, createUpstream } = useUpstreams()
+const { assistants, isLoading: isLoadingAssistants, createAssistant } = useAssistants()
+const { upstreams, createUpstream } = useUpstreams()
 const toast = useToast()
 
 // 加载状态
@@ -18,7 +18,10 @@ const selectedUpstreamIds = ref<Set<number>>(new Set())
 
 // 加载数据
 onMounted(async () => {
-  await Promise.all([loadAssistants(), loadUpstreams()])
+  // 数据已由插件加载，等待加载完成即可
+  while (isLoadingAssistants.value) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
   isLoading.value = false
 })
 

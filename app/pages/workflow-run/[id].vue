@@ -19,7 +19,7 @@ const toast = useToast()
 const { getAuthHeader } = useAuth()
 
 // 上游配置（用于模型显示）
-const { upstreams, loadUpstreams } = useUpstreams()
+const { upstreams } = useUpstreams()
 
 const runId = computed(() => Number(route.params.id))
 
@@ -367,7 +367,6 @@ function cleanupSSE() {
 
 onMounted(() => {
   loadRun()
-  loadUpstreams()
 })
 
 // 当 run 加载完成后，如果状态是 pending 或 running，订阅 SSE

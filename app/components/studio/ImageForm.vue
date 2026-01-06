@@ -43,8 +43,19 @@ const prompt = ref('')
 const negativePrompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
-const selectedUpstreamId = ref<number | null>(null)
 const selectedAimodelId = ref<number | null>(null)
+
+// 从 selectedAimodelId 计算 selectedUpstreamId
+const selectedUpstreamId = computed(() => {
+  if (!selectedAimodelId.value) return null
+
+  for (const upstream of props.upstreams) {
+    if (upstream.aimodels?.some(m => m.id === selectedAimodelId.value)) {
+      return upstream.id
+    }
+  }
+  return null
+})
 
 // 模型参数状态
 const size = ref('1024x1024')
@@ -467,7 +478,6 @@ defineExpose({
           ref="modelSelectorRef"
           :upstreams="upstreams"
           category="image"
-          v-model:upstream-id="selectedUpstreamId"
           v-model:aimodel-id="selectedAimodelId"
         />
       </UFormField>
@@ -693,7 +703,7 @@ defineExpose({
       block
       size="lg"
       :loading="isSubmitting"
-      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedUpstreamId || selectedAimodelId === null || upstreams.length === 0"
+      :disabled="(!prompt.trim() && referenceImages.length === 0) || selectedAimodelId === null || upstreams.length === 0"
       class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
       @click="handleSubmit"
     >

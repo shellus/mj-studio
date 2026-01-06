@@ -21,9 +21,7 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   files?: MessageFile[] | null
-  upstreamId: number | null
-  aimodelId: number | null
-  modelName: string | null
+  modelDisplayName: string | null
   createdAt: string
   mark?: MessageMark | null
   status?: MessageStatus | null  // AI 消息状态
@@ -319,6 +317,7 @@ export function useConversations() {
         existing.content = message.content
       }
       existing.files = message.files
+      existing.modelDisplayName = message.modelDisplayName ?? null
       existing.createdAt = message.createdAt || existing.createdAt
       existing.mark = message.mark as MessageMark | null
       existing.status = message.status as MessageStatus | null
@@ -330,9 +329,7 @@ export function useConversations() {
         role: message.role,
         content: message.content,
         files: message.files,
-        upstreamId: null,
-        aimodelId: null,
-        modelName: null,
+        modelDisplayName: message.modelDisplayName ?? null,
         createdAt: message.createdAt || new Date().toISOString(),
         mark: message.mark as MessageMark | null,
         status: message.status as MessageStatus | null,
@@ -617,9 +614,7 @@ export function useConversations() {
         conversationId,
         role: 'assistant',
         content: error.message || '发送失败',
-        upstreamId: null,
-        aimodelId: null,
-        modelName: null,
+        modelDisplayName: null,
         createdAt: new Date().toISOString(),
         mark: 'error',
         status: 'failed',
@@ -663,9 +658,7 @@ export function useConversations() {
         conversationId: message.conversationId,
         role: 'assistant',
         content: error.message || '重放失败',
-        upstreamId: null,
-        aimodelId: null,
-        modelName: null,
+        modelDisplayName: null,
         createdAt: new Date().toISOString(),
         mark: 'error',
         status: 'failed',
@@ -767,7 +760,7 @@ export function useConversations() {
   }
 
   // 压缩对话
-  async function compressConversation(conversationId: number, modelName?: string | null, onStart?: () => void) {
+  async function compressConversation(conversationId: number, onStart?: () => void) {
     // 1. 调用压缩 API 创建压缩请求消息
     const result = await $fetch<{
       success: boolean

@@ -5,7 +5,7 @@ node_modules/
 .nuxt/
 .output/
 dist/
-public/help/
+public/docs/
 docs/.vitepress/cache/
 
 # 环境变量

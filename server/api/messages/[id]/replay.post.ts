@@ -1,6 +1,8 @@
 // POST /api/messages/[id]/replay - 重放消息（让 AI 重新回复）
 // 适配新的流式系统：创建 AI 消息后异步生成，返回消息 ID
 import { useConversationService } from '../../../services/conversation'
+import { useAssistantService } from '../../../services/assistant'
+import { useAimodelService } from '../../../services/aimodel'
 import { startStreamingTask } from '../../../services/streamingTask'
 import { emitToUser } from '../../../services/globalEvents'
 import type { ChatMessageCreated, ChatMessageDeleted } from '../../../services/globalEvents'
@@ -36,6 +38,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: '无权访问此对话' })
   }
 
+  // 获取助手和模型信息
+  const assistantService = useAssistantService()
+  const aimodelService = useAimodelService()
+
+  const assistant = await assistantService.getById(result.conversation.assistantId)
+  if (!assistant) {
+    throw createError({ statusCode: 404, message: '助手不存在' })
+  }
+
+  let modelDisplayName: string | null = null
+  if (assistant.aimodelId) {
+    const aimodelWithUpstream = await aimodelService.getByIdWithUpstream(assistant.aimodelId)
+    if (aimodelWithUpstream) {
+      modelDisplayName = `${aimodelWithUpstream.upstreamName} / ${aimodelWithUpstream.name}`
+    }
+  }
+
   // 确定要重放的用户消息
   let userMessageContent: string
 
@@ -69,6 +88,7 @@ export default defineEventHandler(async (event) => {
     conversationId: message.conversationId,
     role: 'assistant',
     content: '',
+    modelDisplayName,
     status: 'created',
   })
 
@@ -81,6 +101,7 @@ export default defineEventHandler(async (event) => {
       role: 'assistant',
       content: '',
       files: null,
+      modelDisplayName,  // AI 消息的模型显示名称
       status: 'created',
       mark: null,
       sortId: null,

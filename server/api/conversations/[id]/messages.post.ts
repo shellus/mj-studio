@@ -1,6 +1,8 @@
 // POST /api/conversations/[id]/messages - 发送消息
 // 同时创建用户消息和 AI 消息，返回两个消息 ID，后端异步开始生成
 import { useConversationService } from '../../../services/conversation'
+import { useAssistantService } from '../../../services/assistant'
+import { useAimodelService } from '../../../services/aimodel'
 import { startStreamingTask } from '../../../services/streamingTask'
 import { emitToUser } from '../../../services/globalEvents'
 import type { MessageMark, MessageFile } from '../../../database/schema'
@@ -48,6 +50,24 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: '无权访问此对话' })
   }
 
+  // 获取助手和模型信息，用于设置 modelDisplayName
+  const assistantService = useAssistantService()
+  const aimodelService = useAimodelService()
+
+  const assistant = await assistantService.getById(result.conversation.assistantId)
+  if (!assistant) {
+    throw createError({ statusCode: 404, message: '助手不存在' })
+  }
+
+  // 获取模型显示名称（格式：上游 / 模型名称）
+  let modelDisplayName: string | null = null
+  if (assistant.aimodelId) {
+    const aimodelWithUpstream = await aimodelService.getByIdWithUpstream(assistant.aimodelId)
+    if (aimodelWithUpstream) {
+      modelDisplayName = `${aimodelWithUpstream.upstreamName} / ${aimodelWithUpstream.name}`
+    }
+  }
+
   // 压缩请求特殊处理：用户消息已在 compress.post.ts 中创建
   let userMessage = null
   let responseMark: MessageMark | undefined = undefined
@@ -78,6 +98,7 @@ export default defineEventHandler(async (event) => {
         role: 'user',
         content: userMessage.content,
         files: userMessage.files || null,
+        modelDisplayName: null,  // 用户消息没有模型
         status: null,
         mark: userMessage.mark || null,
         sortId: userMessage.sortId || null,
@@ -98,6 +119,7 @@ export default defineEventHandler(async (event) => {
     conversationId,
     role: 'assistant',
     content: '', // 初始内容为空
+    modelDisplayName, // 设置模型显示名称
     status: 'created',
     mark: responseMark,
     sortId: responseSortId,
@@ -112,6 +134,7 @@ export default defineEventHandler(async (event) => {
       role: 'assistant',
       content: '',
       files: null,
+      modelDisplayName,  // AI 消息的模型显示名称
       status: 'created',
       mark: assistantMessage.mark || null,
       sortId: assistantMessage.sortId || null,

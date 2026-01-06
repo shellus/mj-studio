@@ -511,9 +511,9 @@ function getMessageMenuItems(message: Message) {
 
   // 信息组（模型和大小）
   const infoItems: any[] = []
-  if (message.modelName) {
+  if (message.modelDisplayName) {
     infoItems.push({
-      label: message.modelName,
+      label: message.modelDisplayName,
       icon: 'i-heroicons-cpu-chip',
       disabled: true,
     })

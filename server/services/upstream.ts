@@ -1,6 +1,6 @@
 // 上游配置服务层
 import { db } from '../database'
-import { upstreams, aimodels, type Upstream, type NewUpstream, type Aimodel, type ApiKeyConfig, type UpstreamInfo } from '../database/schema'
+import { upstreams, aimodels, assistants, type Upstream, type NewUpstream, type Aimodel, type ApiKeyConfig, type UpstreamInfo } from '../database/schema'
 import { eq, and, asc, isNull } from 'drizzle-orm'
 
 // 包含 aimodels 的上游配置类型
@@ -9,10 +9,13 @@ export interface UpstreamWithModels extends Upstream {
 }
 
 export function useUpstreamService() {
-  // 获取用户的所有上游配置（包含 aimodels，按 sortOrder 排序）
+  // 获取用户的所有上游配置（包含 aimodels，按 sortOrder 排序，排除已软删除的上游）
   async function listByUser(userId: number): Promise<UpstreamWithModels[]> {
     const upstreamList = await db.query.upstreams.findMany({
-      where: eq(upstreams.userId, userId),
+      where: and(
+        eq(upstreams.userId, userId),
+        isNull(upstreams.deletedAt),
+      ),
       orderBy: [asc(upstreams.sortOrder), asc(upstreams.id)],
     })
 
@@ -102,18 +105,42 @@ export function useUpstreamService() {
     return updated
   }
 
-  // 删除配置（软删除 aimodels，硬删除 upstream）
+  // 删除配置（软删除 + 级联处理）
   async function remove(id: number, userId: number): Promise<boolean> {
-    // 先软删除关联的 aimodels
-    await db.update(aimodels)
-      .set({ deletedAt: new Date() })
-      .where(eq(aimodels.upstreamId, id))
+    const now = new Date()
 
-    const result = await db.delete(upstreams)
+    // 1. 获取该上游下的所有模型ID
+    const models = await db.query.aimodels.findMany({
+      where: eq(aimodels.upstreamId, id),
+      columns: { id: true },
+    })
+    const modelIds = models.map(m => m.id)
+
+    // 2. 软删除上游
+    const result = await db.update(upstreams)
+      .set({ deletedAt: now })
       .where(and(eq(upstreams.id, id), eq(upstreams.userId, userId)))
       .returning()
 
-    return result.length > 0
+    if (result.length === 0) {
+      return false
+    }
+
+    // 3. 软删除该上游下的所有模型
+    await db.update(aimodels)
+      .set({ deletedAt: now })
+      .where(eq(aimodels.upstreamId, id))
+
+    // 4. 清空所有使用这些模型的助手的模型关联
+    if (modelIds.length > 0) {
+      for (const modelId of modelIds) {
+        await db.update(assistants)
+          .set({ aimodelId: null })
+          .where(eq(assistants.aimodelId, modelId))
+      }
+    }
+
+    return true
   }
 
   /**

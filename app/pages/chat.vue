@@ -18,7 +18,6 @@ const {
   currentAssistantId,
   currentAssistant,
   getDefaultAssistant,
-  loadAssistants,
   selectAssistant,
   createAssistant,
   updateAssistant,
@@ -63,17 +62,20 @@ const {
 const currentInputState = computed(() => getInputState(currentConversationId.value))
 
 // 上游配置
-const { upstreams, loadUpstreams } = useUpstreams()
+const { upstreams } = useUpstreams()
 
 // 当前助手的预计首字时长（秒）
 const currentEstimatedTime = computed(() => {
-  if (!currentAssistant.value?.upstreamId || !currentAssistant.value?.aimodelId) {
+  if (!currentAssistant.value?.aimodelId) {
     return null
   }
-  const upstream = upstreams.value.find(u => u.id === currentAssistant.value?.upstreamId)
-  if (!upstream) return null
-  const aimodel = upstream.aimodels?.find(m => m.id === currentAssistant.value?.aimodelId)
-  return aimodel?.estimatedTime ?? null
+  for (const upstream of upstreams.value) {
+    const aimodel = upstream.aimodels?.find(m => m.id === currentAssistant.value?.aimodelId)
+    if (aimodel) {
+      return aimodel.estimatedTime ?? null
+    }
+  }
+  return null
 })
 
 // 助手编辑弹窗
@@ -96,10 +98,11 @@ const initialized = ref(false)
 
 // 初始化页面状态
 async function initializePage() {
-  await Promise.all([
-    loadAssistants(),
-    loadUpstreams(),
-  ])
+  // 数据已由插件初始化，这里直接使用即可
+  // 如果数据还在加载中，等待加载完成
+  while (isLoadingAssistants.value) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
 
   // 从 URL 恢复状态，无参数则使用默认助手
   const assistantIdFromUrl = route.query.a ? Number(route.query.a) : null
@@ -331,7 +334,7 @@ async function handleSendMessage(content: string, files?: import('~/shared/types
   if (!conversationId) return
 
   try {
-    await sendMessage(conversationId, content, files, currentAssistant.value?.modelName)
+    await sendMessage(conversationId, content, files)
   } catch (error: any) {
     toast.add({ title: error.message || '发送失败', color: 'error' })
   }
@@ -377,7 +380,6 @@ async function handleCompress() {
   try {
     const stats = await compressConversation(
       currentConversationId.value,
-      currentAssistant.value?.modelName,
       // 开始回调：跳转到压缩位置
       () => {
         nextTick(() => {
@@ -397,19 +399,12 @@ async function handleCompress() {
 }
 
 // 更新助手模型配置
-async function handleUpdateModel(upstreamId: number, aimodelId: number) {
+async function handleUpdateModel(aimodelId: number) {
   if (!currentAssistant.value) return
-
-  // 获取模型名称
-  const upstream = upstreams.value.find(u => u.id === upstreamId)
-  const aimodel = upstream?.aimodels?.find(m => m.id === aimodelId)
-  const modelName = aimodel?.modelName || null
 
   try {
     await updateAssistant(currentAssistant.value.id, {
-      upstreamId,
       aimodelId,
-      modelName,
     })
   } catch (error: any) {
     toast.add({ title: error.message || '更新失败', color: 'error' })
@@ -483,7 +478,6 @@ onUnmounted(() => {
         <!-- 输入框 -->
         <ChatMessageInput
           :upstreams="upstreams"
-          :current-upstream-id="currentAssistant?.upstreamId || null"
           :current-aimodel-id="currentAssistant?.aimodelId || null"
           :disabled="!currentAssistant"
           :is-streaming="isStreaming"

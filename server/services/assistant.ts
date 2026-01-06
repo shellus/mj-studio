@@ -17,9 +17,7 @@ export function useAssistantService() {
         description: assistants.description,
         avatar: assistants.avatar,
         systemPrompt: assistants.systemPrompt,
-        upstreamId: assistants.upstreamId,
         aimodelId: assistants.aimodelId,
-        modelName: assistants.modelName,
         isDefault: assistants.isDefault,
         createdAt: assistants.createdAt,
         conversationCount: sql<number>`count(${conversations.id})`.as('conversationCount'),
@@ -57,9 +55,7 @@ export function useAssistantService() {
     description?: string
     avatar?: string
     systemPrompt?: string
-    upstreamId?: number
     aimodelId?: number
-    modelName?: string
     isDefault?: boolean
   }): Promise<Assistant> {
     // 如果设为默认，先取消其他默认
@@ -75,9 +71,7 @@ export function useAssistantService() {
       description: data.description ?? null,
       avatar: data.avatar ?? null,
       systemPrompt: data.systemPrompt ?? null,
-      upstreamId: data.upstreamId ?? null,
       aimodelId: data.aimodelId ?? null,
-      modelName: data.modelName ?? null,
       isDefault: data.isDefault ?? false,
     }).returning()
 
@@ -90,9 +84,7 @@ export function useAssistantService() {
     description: string | null
     avatar: string | null
     systemPrompt: string | null
-    upstreamId: number | null
     aimodelId: number | null
-    modelName: string | null
     isDefault: boolean
     suggestions: string[] | null
   }>): Promise<Assistant | undefined> {

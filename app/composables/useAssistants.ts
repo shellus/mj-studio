@@ -6,9 +6,7 @@ export interface Assistant {
   description: string | null
   avatar: string | null
   systemPrompt: string | null
-  upstreamId: number | null
   aimodelId: number | null
-  modelName: string | null
   isDefault: boolean
   createdAt: string
   conversationCount: number
@@ -57,9 +55,7 @@ export function useAssistants() {
     description?: string
     avatar?: string
     systemPrompt?: string
-    upstreamId?: number
     aimodelId?: number
-    modelName?: string
     isDefault?: boolean
   }) {
     const assistant = await $fetch<Assistant>('/api/assistants', {
@@ -85,9 +81,7 @@ export function useAssistants() {
     description: string | null
     avatar: string | null
     systemPrompt: string | null
-    upstreamId: number | null
     aimodelId: number | null
-    modelName: string | null
     isDefault: boolean
   }>) {
     const updated = await $fetch<Assistant>(`/api/assistants/${id}`, {

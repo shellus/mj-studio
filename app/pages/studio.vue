@@ -6,16 +6,15 @@ definePageMeta({
 })
 
 const { loadTasks } = useTasks()
-const { upstreams, loadUpstreams } = useUpstreams()
+const { upstreams } = useUpstreams()
 const toast = useToast()
 
 // StudioWorkbench 组件引用
 const workbenchRef = ref<{ setContent: (prompt: string | null, modelParams: ImageModelParams | null, images: string[]) => void } | null>(null)
 
-// 页面加载时获取数据
+// 页面加载时获取任务列表
 onMounted(() => {
   loadTasks()
-  loadUpstreams()
 })
 
 // 提交图片任务

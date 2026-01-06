@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
   const body = await readBody(event)
 
-  const { name, description, avatar, systemPrompt, upstreamId, aimodelId, modelName, isDefault } = body
+  const { name, description, avatar, systemPrompt, aimodelId, isDefault } = body
 
   // 验证必填字段
   if (!name?.trim()) {
@@ -20,9 +20,7 @@ export default defineEventHandler(async (event) => {
     description: description?.trim() || undefined,
     avatar: avatar || undefined,
     systemPrompt: systemPrompt?.trim() || undefined,
-    upstreamId: upstreamId || undefined,
     aimodelId: aimodelId || undefined,
-    modelName: modelName || undefined,
     isDefault: isDefault ?? false,
   })
 

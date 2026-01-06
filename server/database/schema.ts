@@ -49,6 +49,7 @@ export const upstreams = sqliteTable('upstreams', {
   userApiKey: text('user_api_key'), // 用户在该平台的 Key（用于余额查询等）
   upstreamInfo: text('upstream_info', { mode: 'json' }).$type<UpstreamInfo>(), // 上游信息缓存（余额、用户信息等）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除：null=正常，有值=已删除
 })
 
 export type Upstream = typeof upstreams.$inferSelect
@@ -119,9 +120,7 @@ export const assistants = sqliteTable('assistants', {
   description: text('description'),
   avatar: text('avatar'), // 头像图片路径
   systemPrompt: text('system_prompt'),
-  upstreamId: integer('upstream_id'), // 关联上游配置
-  aimodelId: integer('aimodel_id'), // 关联 AI 模型
-  modelName: text('model_name'), // 当前使用的模型名（冗余，便于显示）
+  aimodelId: integer('aimodel_id'), // 关联 AI 模型（通过此字段可获取 upstream 信息）
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   suggestions: text('suggestions', { mode: 'json' }).$type<string[]>(), // 开场白建议缓存
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
@@ -150,9 +149,7 @@ export const messages = sqliteTable('messages', {
   role: text('role').$type<MessageRole>().notNull(),
   content: text('content').notNull(),
   files: text('files', { mode: 'json' }).$type<MessageFile[]>(), // 附件文件列表
-  upstreamId: integer('upstream_id'), // 关联上游配置，仅 assistant 消息
-  aimodelId: integer('aimodel_id'), // 关联 AI 模型，仅 assistant 消息
-  modelName: text('model_name'), // 使用的模型名（冗余，便于显示），仅 assistant 消息
+  modelDisplayName: text('model_display_name'), // 模型显示名称（格式："上游名称 / 模型显示名称"），仅 assistant 消息，历史快照用于显示
   mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应
   status: text('status').$type<MessageStatus>(), // AI 消息状态：created/pending/streaming/completed/stopped/failed
   sortId: integer('sort_id'), // 排序ID，用于压缩后消息重排序

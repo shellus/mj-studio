@@ -47,16 +47,8 @@ export default defineEventHandler(async (event) => {
   const assistantService = useAssistantService()
   const assistant = await assistantService.getById(result.conversation.assistantId)
 
-  if (!assistant || !assistant.upstreamId || !assistant.aimodelId || !assistant.modelName) {
+  if (!assistant || !assistant.aimodelId) {
     throw createError({ statusCode: 400, message: '请先为助手配置模型' })
-  }
-
-  // 获取上游配置
-  const upstreamService = useUpstreamService()
-  const upstream = await upstreamService.getByIdSimple(assistant.upstreamId)
-
-  if (!upstream) {
-    throw createError({ statusCode: 404, message: '上游配置不存在' })
   }
 
   // 获取 AI 模型配置
@@ -65,6 +57,14 @@ export default defineEventHandler(async (event) => {
 
   if (!aimodel) {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
+  }
+
+  // 获取上游配置
+  const upstreamService = useUpstreamService()
+  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
+
+  if (!upstream) {
+    throw createError({ statusCode: 404, message: '上游配置不存在' })
   }
 
   // 获取用户设置
@@ -115,7 +115,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const response = await chatService.chat(
-      assistant.modelName,
+      aimodel.modelName,
       '你是一个标题生成助手，擅长根据对话内容生成简洁准确的标题。',
       [],
       prompt,

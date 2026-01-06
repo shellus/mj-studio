@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Aimodel } from '../../../composables/useUpstreams'
 
-const { upstreams, isLoading, loadUpstreams, moveToTop, queryBalance } = useUpstreams()
+const { upstreams, isLoading, moveToTop, queryBalance } = useUpstreams()
 const toast = useToast()
 const router = useRouter()
 
@@ -9,10 +9,6 @@ const router = useRouter()
 const queryingBalanceIds = ref<Set<number>>(new Set())
 // 移动到顶部中的配置 ID
 const movingToTopIds = ref<Set<number>>(new Set())
-
-onMounted(() => {
-  loadUpstreams()
-})
 
 // 移动到顶部
 async function handleMoveToTop(id: number) {

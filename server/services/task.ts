@@ -469,7 +469,7 @@ export function useTaskService() {
     })
 
     // 更新预计时间
-    await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
+    await updateEstimatedTime(aimodel, task.id, task.createdAt)
   }
 
   // 提交到Gemini（同步API）
@@ -733,7 +733,7 @@ export function useTaskService() {
           if (fileName) {
             resourceUrl = getFileUrl(fileName)
           }
-          await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
+          await updateEstimatedTime(aimodel, task.id, task.createdAt)
         }
       } else if (result.data.state === -1) {
         // 失败
@@ -785,7 +785,7 @@ export function useTaskService() {
         // 下载失败时保留原始URL
 
         // 更新预计时间
-        await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
+        await updateEstimatedTime(aimodel, task, task.createdAt)
       }
 
       // 对 MJ 的 failReason 进行分类
@@ -843,7 +843,7 @@ export function useTaskService() {
         // 下载失败时保留原始 URL
 
         // 更新预计时间
-        await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
+        await updateEstimatedTime(aimodel, task, task.createdAt)
       }
 
       // 计算进度显示
@@ -867,15 +867,15 @@ export function useTaskService() {
   }
 
   // 更新预计时间
-  async function updateEstimatedTime(upstream: Upstream, aimodel: Aimodel, task: Task, startTime: Date): Promise<void> {
+  async function updateEstimatedTime(aimodel: Aimodel, taskId: number, startTime: Date): Promise<void> {
     try {
       const endTime = new Date()
       const actualTime = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
 
       // 更新 aimodel 的预计时间
-      await aimodelService.updateEstimatedTime(upstream.id, task.modelName, actualTime)
+      await aimodelService.updateEstimatedTime(aimodel.id, actualTime)
 
-      console.log(`[Task] #${task.id} 更新预计时间 | ${upstream.name}/${task.modelName}: ${actualTime}s`)
+      console.log(`[Task] #${taskId} 更新预计时间 | ${aimodel.name}: ${actualTime}s`)
     } catch (error) {
       console.error('更新预计时间失败:', error)
     }

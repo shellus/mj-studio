@@ -20,6 +20,7 @@ export interface ChatMessageCreated {
     role: 'user' | 'assistant'
     content: string
     files: any[] | null
+    modelDisplayName?: string | null  // 模型显示名称
     status: 'created' | 'pending' | 'streaming' | 'completed' | 'stopped' | 'failed' | null
     mark: string | null
     sortId: number | null

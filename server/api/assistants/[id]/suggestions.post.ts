@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: '无权访问此助手' })
   }
 
-  if (!assistant.upstreamId || !assistant.aimodelId || !assistant.modelName) {
+  if (!assistant.aimodelId) {
     // 助手未配置模型，返回空
     return { suggestions: [] }
   }
@@ -47,20 +47,20 @@ export default defineEventHandler(async (event) => {
     return { suggestions: assistant.suggestions }
   }
 
-  // 获取上游配置
-  const upstreamService = useUpstreamService()
-  const upstream = await upstreamService.getByIdSimple(assistant.upstreamId)
-
-  if (!upstream) {
-    throw createError({ statusCode: 404, message: '上游配置不存在' })
-  }
-
   // 获取 AI 模型配置
   const aimodelService = useAimodelService()
   const aimodel = await aimodelService.getById(assistant.aimodelId)
 
   if (!aimodel) {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
+  }
+
+  // 获取上游配置
+  const upstreamService = useUpstreamService()
+  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
+
+  if (!upstream) {
+    throw createError({ statusCode: 404, message: '上游配置不存在' })
   }
 
   // 获取用户设置
@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const response = await chatService.chat(
-      assistant.modelName,
+      aimodel.modelName,
       assistant.systemPrompt || '你是一个智能助手。',
       [],
       prompt,

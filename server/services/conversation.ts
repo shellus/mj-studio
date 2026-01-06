@@ -93,9 +93,7 @@ export function useConversationService() {
     role: 'user' | 'assistant'
     content: string
     files?: MessageFile[]
-    upstreamId?: number
-    aimodelId?: number
-    modelName?: string
+    modelDisplayName?: string // 模型显示名称（格式："上游名称 / 模型显示名称"）
     mark?: MessageMark
     status?: MessageStatus
     sortId?: number
@@ -105,9 +103,7 @@ export function useConversationService() {
       role: data.role,
       content: data.content,
       files: data.files ?? null,
-      upstreamId: data.upstreamId ?? null,
-      aimodelId: data.aimodelId ?? null,
-      modelName: data.modelName ?? null,
+      modelDisplayName: data.modelDisplayName ?? null,
       mark: data.mark ?? null,
       status: data.status ?? null,
       sortId: data.sortId ?? null,
@@ -264,9 +260,7 @@ export function useConversationService() {
         role: msg.role,
         content: msg.content,
         files: msg.files ?? undefined,
-        upstreamId: msg.upstreamId ?? undefined,
-        aimodelId: msg.aimodelId ?? undefined,
-        modelName: msg.modelName ?? undefined,
+        modelDisplayName: msg.modelDisplayName ?? undefined,
         mark: msg.mark ?? undefined,
         status: msg.status ?? undefined,
       })

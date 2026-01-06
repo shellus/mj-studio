@@ -7,8 +7,9 @@ import { MODEL_TYPE_ICONS } from '~/shared/constants'
 const props = defineProps<{
   upstreams: Upstream[]
   category: ModelCategory
-  upstreamId?: number | null
   aimodelId?: number | null
+  // 只读模式（用于查看，不可选择）
+  readOnly?: boolean
   // 下拉面板宽度，默认 w-80 (320px)
   dropdownWidth?: string
   // 使用列表布局而非 grid 布局
@@ -20,7 +21,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:upstreamId': [id: number | null]
   'update:aimodelId': [id: number | null]
 }>()
 
@@ -32,16 +32,26 @@ const dropdownRef = ref<HTMLElement>()
 const triggerRef = ref<HTMLElement>()
 const dropUp = ref(false)
 
+// 从 aimodelId 计算 upstreamId
+const computedUpstreamId = computed(() => {
+  if (!props.aimodelId) return null
+
+  for (const upstream of props.upstreams) {
+    if (upstream.aimodels?.some(m => m.id === props.aimodelId)) {
+      return upstream.id
+    }
+  }
+  return null
+})
+
 // 内部状态
-const selectedUpstreamId = ref<number | null>(props.upstreamId ?? null)
+const selectedUpstreamId = ref<number | null>(computedUpstreamId.value)
 const selectedAimodelId = ref<number | null>(props.aimodelId ?? null)
 
 // 同步 props 到内部状态
-watch(() => props.upstreamId, (val) => {
-  selectedUpstreamId.value = val ?? null
-})
 watch(() => props.aimodelId, (val) => {
   selectedAimodelId.value = val ?? null
+  selectedUpstreamId.value = computedUpstreamId.value
 })
 
 // 点击外部关闭下拉框
@@ -161,9 +171,10 @@ function isSelected(upstreamId: number, aimodelId: number): boolean {
 
 // 选择模型
 function handleSelectModel(upstreamId: number, aimodelId: number) {
+  if (props.readOnly) return
+
   selectedUpstreamId.value = upstreamId
   selectedAimodelId.value = aimodelId
-  emit('update:upstreamId', upstreamId)
   emit('update:aimodelId', aimodelId)
   isOpen.value = false
 }
@@ -219,9 +230,13 @@ defineExpose({
     <div v-else ref="triggerRef">
       <button
         type="button"
-        class="flex items-center justify-between gap-2 w-full min-w-48 px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) hover:bg-(--ui-bg-elevated) transition-colors text-sm"
-        :class="{ 'opacity-50 cursor-not-allowed': !hasModels }"
-        :disabled="!hasModels"
+        class="flex items-center justify-between gap-2 w-full min-w-48 px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) transition-colors text-sm"
+        :class="{
+          'opacity-50 cursor-not-allowed': !hasModels,
+          'hover:bg-(--ui-bg-elevated)': !readOnly && hasModels,
+          'cursor-default': readOnly
+        }"
+        :disabled="!hasModels || readOnly"
         @click="toggleDropdown"
       >
         <span class="flex items-center gap-2">
@@ -229,6 +244,7 @@ defineExpose({
           <span class="text-(--ui-text)">{{ currentDisplayText }}</span>
         </span>
         <UIcon
+          v-if="!readOnly"
           name="i-heroicons-chevron-down"
           class="w-4 h-4 text-(--ui-text-muted) transition-transform"
           :class="{ 'rotate-180': isOpen }"
@@ -259,6 +275,7 @@ defineExpose({
           <div class="flex items-center justify-between px-3 py-2 bg-(--ui-bg-muted)">
             <span class="text-xs font-medium text-(--ui-text-muted)">{{ group.upstreamName }}</span>
             <button
+              type="button"
               class="p-1 hover:bg-(--ui-bg-accented) rounded text-(--ui-text-muted) hover:text-(--ui-text)"
               @click.stop="router.push(`/settings/upstreams/${group.upstreamId}`)"
             >
@@ -271,6 +288,7 @@ defineExpose({
             <button
               v-for="aimodel in group.aimodels"
               :key="aimodel.id"
+              type="button"
               class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left text-sm transition-colors"
               :class="[
                 isSelected(group.upstreamId, aimodel.id)

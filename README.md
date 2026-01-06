@@ -91,8 +91,13 @@
 ### Docker 部署（推荐）
 
 ```bash
+
 # 创建 .env 文件
 echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 16)" > .env
+
+# 创建持久化目录
+mkdir -p data/ logs/ uploads/
+chown -R 1001:1001 data/ logs/ uploads/
 
 # 启动服务
 docker-compose up -d

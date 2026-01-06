@@ -51,11 +51,5 @@ const emit = defineEmits<{
         <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4 text-(--ui-text-muted)" />
       </button>
     </div>
-
-    <!-- 模型信息 -->
-    <div v-if="assistant.modelName" class="mt-2 text-xs text-(--ui-text-dimmed) flex items-center gap-1">
-      <UIcon name="i-heroicons-cpu-chip" class="w-3 h-3" />
-      {{ assistant.modelName }}
-    </div>
   </div>
 </template>

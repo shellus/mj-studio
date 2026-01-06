@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Assistant } from '~/composables/useAssistants'
-import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { Upstream } from '~/composables/useUpstreams'
 import type { FormSubmitEvent, FormError } from '@nuxt/ui'
 
 const props = defineProps<{
@@ -24,9 +24,7 @@ const formData = reactive({
   description: '',
   avatar: '',
   systemPrompt: '',
-  upstreamId: null as number | null,
   aimodelId: null as number | null,
-  modelName: null as string | null,
 })
 
 // 表单验证
@@ -46,9 +44,7 @@ watch(() => props.assistant, (assistant) => {
       description: assistant.description || '',
       avatar: assistant.avatar || '',
       systemPrompt: assistant.systemPrompt || '',
-      upstreamId: assistant.upstreamId,
       aimodelId: assistant.aimodelId,
-      modelName: assistant.modelName,
     })
   } else {
     Object.assign(formData, {
@@ -56,96 +52,10 @@ watch(() => props.assistant, (assistant) => {
       description: '',
       avatar: '',
       systemPrompt: '',
-      upstreamId: null,
       aimodelId: null,
-      modelName: null,
     })
   }
 }, { immediate: true })
-
-// 判断是否是绘图模型
-function isImageModel(modelType: string): boolean {
-  const imageModels = [
-    'midjourney', 'gemini', 'flux', 'dalle', 'doubao',
-    'gpt4o-image', 'grok-image', 'qwen-image'
-  ]
-  return imageModels.includes(modelType)
-}
-
-// 获取所有对话模型（扁平化：上游 + 模型）
-const allChatModels = computed(() => {
-  const result: Array<{
-    upstreamId: number
-    upstreamName: string
-    aimodelId: number
-    modelName: string  // 显示名称（aimodel.name）
-  }> = []
-
-  for (const upstream of props.upstreams) {
-    for (const aimodel of upstream.aimodels || []) {
-      const isChat = aimodel.category === 'chat' ||
-        (!aimodel.category && aimodel.apiFormat === 'openai-chat' && !isImageModel(aimodel.modelType))
-
-      if (isChat) {
-        result.push({
-          upstreamId: upstream.id,
-          upstreamName: upstream.name,
-          aimodelId: aimodel.id,
-          modelName: aimodel.name  // 使用 name 字段作为显示名称
-        })
-      }
-    }
-  }
-
-  return result
-})
-
-// 当前选中的显示文本
-const currentDisplayText = computed(() => {
-  if (!formData.upstreamId || !formData.aimodelId) {
-    return '选择模型'
-  }
-  const upstream = props.upstreams.find(u => u.id === formData.upstreamId)
-  if (!upstream) return '选择模型'
-  return `${upstream.name} / ${formData.modelName || '未知模型'}`
-})
-
-// 下拉菜单项（按上游分组）
-const modelDropdownItems = computed(() => {
-  const groups: any[][] = []
-
-  // 按上游分组
-  const upstreamMap = new Map<number, { name: string, models: { aimodelId: number, modelName: string }[] }>()
-  for (const item of allChatModels.value) {
-    if (!upstreamMap.has(item.upstreamId)) {
-      upstreamMap.set(item.upstreamId, { name: item.upstreamName, models: [] })
-    }
-    upstreamMap.get(item.upstreamId)!.models.push({ aimodelId: item.aimodelId, modelName: item.modelName })
-  }
-
-  // 构建分组菜单
-  for (const [upstreamId, { name, models }] of upstreamMap) {
-    const group: any[] = [
-      { label: name, type: 'label' }
-    ]
-    for (const { aimodelId, modelName } of models) {
-      group.push({
-        label: modelName,
-        onSelect: () => handleSelectModel(upstreamId, aimodelId, modelName)
-      })
-    }
-    groups.push(group)
-  }
-
-  return groups
-})
-
-// 选择模型
-function handleSelectModel(upstreamId: number, aimodelId: number, modelName: string) {
-  formData.upstreamId = upstreamId
-  formData.aimodelId = aimodelId
-  formData.modelName = modelName
-}
 
 // 处理头像上传
 async function handleAvatarUpload(e: Event) {
@@ -174,9 +84,7 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
     description: event.data.description?.trim() || null,
     avatar: event.data.avatar || null,
     systemPrompt: event.data.systemPrompt?.trim() || null,
-    upstreamId: event.data.upstreamId,
     aimodelId: event.data.aimodelId,
-    modelName: event.data.modelName,
   })
 }
 
@@ -246,22 +154,11 @@ function handleDeleteConfirm() {
               />
             </UFormField>
             <UFormField label="模型配置" name="modelConfig">
-              <UDropdownMenu :items="modelDropdownItems">
-                <UButton
-                  variant="outline"
-                  class="justify-between"
-                  :disabled="allChatModels.length === 0"
-                >
-                  <span class="flex items-center gap-2">
-                    <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4" />
-                    {{ currentDisplayText }}
-                  </span>
-                  <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
-                </UButton>
-              </UDropdownMenu>
-              <template v-if="allChatModels.length === 0" #help>
-                请先在设置中添加对话模型
-              </template>
+              <ModelSelector
+                :upstreams="upstreams"
+                category="chat"
+                v-model:aimodel-id="formData.aimodelId"
+              />
             </UFormField>
           </div>
         </div>

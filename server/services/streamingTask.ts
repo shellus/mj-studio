@@ -70,18 +70,18 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     }
 
     // 获取模型配置
-    if (!assistant.upstreamId || !assistant.aimodelId || !assistant.modelName) {
+    if (!assistant.aimodelId) {
       throw new Error('请先为助手配置模型')
-    }
-
-    const upstream = await upstreamService.getByIdSimple(assistant.upstreamId)
-    if (!upstream) {
-      throw new Error('上游配置不存在')
     }
 
     const aimodel = await aimodelService.getById(assistant.aimodelId)
     if (!aimodel) {
       throw new Error('模型配置不存在')
+    }
+
+    const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
+    if (!upstream) {
+      throw new Error('上游配置不存在')
     }
 
     // 构建历史消息上下文
@@ -140,7 +140,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 发起流式请求
     const generator = chatService.chatStream(
-      assistant.modelName,
+      aimodel.modelName,
       assistant.systemPrompt,
       historyMessages,
       userContent,
@@ -171,16 +171,13 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
           // 计算首字耗时并更新模型配置的预计时间
           const firstChunkTime = (Date.now() - requestStartTime) / 1000
-          if (assistant.upstreamId && assistant.modelName) {
-            try {
-              updatedEstimatedTime = await aimodelService.updateEstimatedTime(
-                assistant.upstreamId,
-                assistant.modelName,
-                firstChunkTime
-              )
-            } catch (err) {
-              console.error('更新预计首字时长失败:', err)
-            }
+          try {
+            updatedEstimatedTime = await aimodelService.updateEstimatedTime(
+              aimodel.id,
+              firstChunkTime
+            )
+          } catch (err) {
+            console.error('更新预计首字时长失败:', err)
           }
         }
 
@@ -205,10 +202,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         conversationId,
         messageId,
         status: 'stopped',
-        ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
+        ...(updatedEstimatedTime !== null ? {
           estimatedTime: updatedEstimatedTime,
-          upstreamId: assistant.upstreamId,
-          aimodelId: assistant.aimodelId,
+          upstreamId: aimodel.upstreamId,
+          aimodelId: aimodel.id,
         } : {}),
       })
       return
@@ -225,10 +222,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       conversationId,
       messageId,
       status: 'completed',
-      ...(updatedEstimatedTime !== null && assistant.upstreamId && assistant.aimodelId ? {
+      ...(updatedEstimatedTime !== null ? {
         estimatedTime: updatedEstimatedTime,
-        upstreamId: assistant.upstreamId,
-        aimodelId: assistant.aimodelId,
+        upstreamId: aimodel.upstreamId,
+        aimodelId: aimodel.id,
       } : {}),
     })
 

@@ -16,7 +16,7 @@ const router = useRouter()
 const toast = useToast()
 
 // 上游配置（用于模型选择）
-const { upstreams, loadUpstreams } = useUpstreams()
+const { upstreams } = useUpstreams()
 
 // 工作流执行
 const {
@@ -394,7 +394,6 @@ async function handleFileUpload(event: Event) {
 
 onMounted(() => {
   loadWorkflow()
-  loadUpstreams()
   loadRuns()
   window.addEventListener('keydown', handleKeydown)
 })

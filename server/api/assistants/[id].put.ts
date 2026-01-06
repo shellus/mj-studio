@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, description, avatar, systemPrompt, upstreamId, aimodelId, modelName, isDefault } = body
+  const { name, description, avatar, systemPrompt, aimodelId, isDefault } = body
 
   // 构建更新对象
   const updateData: Record<string, any> = {}
@@ -39,16 +39,8 @@ export default defineEventHandler(async (event) => {
     updateData.systemPrompt = systemPrompt?.trim() || null
   }
 
-  if (upstreamId !== undefined) {
-    updateData.upstreamId = upstreamId || null
-  }
-
   if (aimodelId !== undefined) {
     updateData.aimodelId = aimodelId || null
-  }
-
-  if (modelName !== undefined) {
-    updateData.modelName = modelName || null
   }
 
   if (isDefault !== undefined) {

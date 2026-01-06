@@ -5,7 +5,6 @@ import type { MessageFile } from '~/shared/types'
 
 const props = defineProps<{
   upstreams: Upstream[]
-  currentUpstreamId: number | null
   currentAimodelId: number | null
   disabled: boolean
   isStreaming?: boolean
@@ -20,7 +19,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   send: [content: string, files?: MessageFile[]]
   addMessage: [content: string, role: 'user' | 'assistant']
-  updateModel: [upstreamId: number, aimodelId: number]
+  updateModel: [aimodelId: number]
   stop: []
   compress: []
   scrollToCompress: []
@@ -280,22 +279,10 @@ function dismissCompressHint() {
 // 模型选择器引用
 const modelSelectorRef = ref<{ selectedUpstream: any; selectedAimodel: any } | null>(null)
 
-// 当前选中的配置（从 ModelSelector 获取）
-const selectedUpstreamId = ref<number | null>(props.currentUpstreamId)
-const selectedAimodelId = ref<number | null>(props.currentAimodelId)
-
-// 处理模型选择变化
-function handleUpstreamIdChange(id: number | null) {
-  selectedUpstreamId.value = id
-  if (id !== null && selectedAimodelId.value !== null) {
-    emit('updateModel', id, selectedAimodelId.value)
-  }
-}
-
-function handleAimodelIdChange(id: number | null) {
-  selectedAimodelId.value = id
-  if (selectedUpstreamId.value !== null && id !== null) {
-    emit('updateModel', selectedUpstreamId.value, id)
+// 处理模型变化
+function handleModelChange(aimodelId: number | null) {
+  if (aimodelId !== null) {
+    emit('updateModel', aimodelId)
   }
 }
 
@@ -405,10 +392,8 @@ function handleInput(e: Event) {
         :upstreams="upstreams"
         category="chat"
         list-layout
-        :upstream-id="currentUpstreamId"
         :aimodel-id="currentAimodelId"
-        @update:upstream-id="handleUpstreamIdChange"
-        @update:aimodel-id="handleAimodelIdChange"
+        @update:aimodel-id="handleModelChange"
       />
       <!-- 文件上传按钮 -->
       <UButton
@@ -548,7 +533,7 @@ function handleInput(e: Event) {
         <UButton
           color="primary"
           class="h-[48px] w-[56px]"
-          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || isUploading || !selectedUpstreamId || !selectedAimodelId"
+          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || isUploading || !currentAimodelId"
           @click="handleSend"
         >
           <UIcon name="i-heroicons-paper-airplane" class="w-5 h-5" />

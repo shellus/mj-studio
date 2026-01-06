@@ -21,7 +21,7 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { upstreams, loadUpstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
+const { upstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
@@ -100,8 +100,7 @@ function validate(state: typeof form): FormError[] {
 
 // 加载配置数据
 async function loadUpstreamData() {
-  await loadUpstreams()
-
+  // upstreams 已由插件加载，直接使用即可
   if (!isNew.value && upstreamId.value) {
     const upstream = upstreams.value.find(u => u.id === upstreamId.value)
     if (upstream) {
