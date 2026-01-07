@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
 import type { ImageModelType, ImageModelParams } from '../../shared/types'
+import { formatDuration } from '~/composables/useTimeFormat'
 import {
   TASK_CARD_MODEL_DISPLAY,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
@@ -137,18 +138,10 @@ const progressPercent = computed(() => {
   return Math.min((elapsed / bufferedTime) * 100, 100)
 })
 
-// 计算耗时
+// 格式化耗时显示（仅在任务完成时显示）
 const duration = computed(() => {
-  if (!props.task.createdAt) return null
-  const start = new Date(props.task.createdAt).getTime()
-  const end = props.task.status === 'success' || props.task.status === 'failed'
-    ? new Date(props.task.updatedAt).getTime()
-    : Date.now()
-  const seconds = Math.floor((end - start) / 1000)
-  if (seconds < 60) return `${seconds}秒`
-  const minutes = Math.floor(seconds / 60)
-  const remainSeconds = seconds % 60
-  return `${minutes}分${remainSeconds}秒`
+  if (!['success', 'failed'].includes(props.task.status)) return null
+  return formatDuration(props.task.duration!)
 })
 
 // 按钮列表（处理null）

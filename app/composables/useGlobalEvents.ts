@@ -101,6 +101,7 @@ export interface TaskStatusUpdated {
   error?: string | null
   buttons?: any[] | null
   updatedAt: string
+  duration?: number  // 实际耗时（秒），仅在任务完成时有值
 }
 
 export interface TaskDeleted {
