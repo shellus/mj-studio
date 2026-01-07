@@ -57,6 +57,13 @@
       "when": 1767661102993,
       "tag": "0007_remove-assistant-redundant-fields",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1767764361428,
+      "tag": "0008_remove-deprecated-user-settings",
+      "breakpoints": true
     }
   ]
 }

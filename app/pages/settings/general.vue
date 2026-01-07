@@ -12,13 +12,9 @@ const form = reactive({
   compressKeepCount: 4,
   titleMaxLength: 30,
   suggestionsCount: 5,
-  // 绘图设置
-  aiOptimizeUpstreamId: 0,
+  // 绘图设置（仅保存 aimodelId）
   aiOptimizeAimodelId: 0,
-  aiOptimizeModelName: '',
-  embeddedUpstreamId: 0,
   embeddedAimodelId: 0,
-  workbenchUpstreamId: 0,
   workbenchAimodelId: 0,
 })
 
@@ -40,13 +36,9 @@ function syncFormFromSettings() {
   form.compressKeepCount = settings.value[USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT] ?? 4
   form.titleMaxLength = settings.value[USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH] ?? 30
   form.suggestionsCount = settings.value[USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT] ?? 5
-  // 绘图设置
-  form.aiOptimizeUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID] ?? 0
+  // 绘图设置（仅加载 aimodelId，ModelSelector 会自动计算 upstreamId）
   form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] ?? 0
-  form.aiOptimizeModelName = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME] ?? ''
-  form.embeddedUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID] ?? 0
   form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] ?? 0
-  form.workbenchUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID] ?? 0
   form.workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID] ?? 0
 }
 
@@ -59,13 +51,9 @@ async function saveSettings() {
       [USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT]: form.compressKeepCount,
       [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: form.titleMaxLength,
       [USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT]: form.suggestionsCount,
-      // 绘图设置
-      [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]: form.aiOptimizeUpstreamId,
+      // 绘图设置（仅保存 aimodelId）
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: form.aiOptimizeAimodelId,
-      [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]: form.aiOptimizeModelName,
-      [USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID]: form.embeddedUpstreamId,
       [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: form.embeddedAimodelId,
-      [USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]: form.workbenchUpstreamId,
       [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: form.workbenchAimodelId,
     })
     toast.add({ title: '设置已保存', color: 'success' })
@@ -76,41 +64,19 @@ async function saveSettings() {
   }
 }
 
-// AI 优化模型选择（对话模型）
-const aiOptimizeUpstreamId = computed({
-  get: () => form.aiOptimizeUpstreamId || null,
-  set: (val: number | null) => { form.aiOptimizeUpstreamId = val || 0 },
-})
+// AI 优化模型选择（对话模型）- aimodelId 的计算属性
 const aiOptimizeAimodelId = computed({
   get: () => form.aiOptimizeAimodelId || null,
-  set: (val: number | null) => {
-    form.aiOptimizeAimodelId = val || 0
-    // 更新 modelName
-    if (val && form.aiOptimizeUpstreamId) {
-      const upstream = upstreams.value.find(u => u.id === form.aiOptimizeUpstreamId)
-      const aimodel = upstream?.aimodels?.find(m => m.id === val)
-      form.aiOptimizeModelName = aimodel?.modelName || ''
-    } else {
-      form.aiOptimizeModelName = ''
-    }
-  },
+  set: (val: number | null) => { form.aiOptimizeAimodelId = val || 0 },
 })
 
-// 嵌入式绘画模型选择（绘图模型）
-const embeddedUpstreamId = computed({
-  get: () => form.embeddedUpstreamId || null,
-  set: (val: number | null) => { form.embeddedUpstreamId = val || 0 },
-})
+// 嵌入式绘画模型选择（绘图模型）- aimodelId 的计算属性
 const embeddedAimodelId = computed({
   get: () => form.embeddedAimodelId || null,
   set: (val: number | null) => { form.embeddedAimodelId = val || 0 },
 })
 
-// 工作台默认模型选择（绘图模型）
-const workbenchUpstreamId = computed({
-  get: () => form.workbenchUpstreamId || null,
-  set: (val: number | null) => { form.workbenchUpstreamId = val || 0 },
-})
+// 工作台默认模型选择（绘图模型）- aimodelId 的计算属性
 const workbenchAimodelId = computed({
   get: () => form.workbenchAimodelId || null,
   set: (val: number | null) => { form.workbenchAimodelId = val || 0 },
@@ -152,7 +118,6 @@ const workbenchAimodelId = computed({
               list-layout
               no-auto-select
               align-right
-              v-model:upstream-id="aiOptimizeUpstreamId"
               v-model:aimodel-id="aiOptimizeAimodelId"
             />
           </div>
@@ -167,7 +132,6 @@ const workbenchAimodelId = computed({
               category="image"
               no-auto-select
               align-right
-              v-model:upstream-id="embeddedUpstreamId"
               v-model:aimodel-id="embeddedAimodelId"
             />
           </div>
@@ -182,7 +146,6 @@ const workbenchAimodelId = computed({
               category="image"
               no-auto-select
               align-right
-              v-model:upstream-id="workbenchUpstreamId"
               v-model:aimodel-id="workbenchAimodelId"
             />
           </div>

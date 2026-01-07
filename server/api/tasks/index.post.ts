@@ -18,20 +18,11 @@ export default defineEventHandler(async (event) => {
     modelParams,  // 模型专用参数（JSON）
     images = [],
     type = 'imagine',
-    upstreamId,
     aimodelId,
     modelType,
     apiFormat,
     modelName,
   } = body
-
-  // 验证上游配置
-  if (!upstreamId) {
-    throw createError({
-      statusCode: 400,
-      message: '请选择上游配置',
-    })
-  }
 
   // 验证 AI 模型
   if (!aimodelId) {
@@ -66,25 +57,25 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 验证上游配置属于当前用户
+  // 验证 AI 模型
+  const aimodelService = useAimodelService()
+  const aimodel = await aimodelService.getById(aimodelId)
+
+  if (!aimodel) {
+    throw createError({
+      statusCode: 400,
+      message: '无效的模型配置',
+    })
+  }
+
+  // 获取上游配置（从 aimodel 获取 upstreamId）
   const upstreamService = useUpstreamService()
-  const upstream = await upstreamService.getByIdSimple(upstreamId)
+  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
 
   if (!upstream || upstream.userId !== user.id) {
     throw createError({
       statusCode: 400,
       message: '无效的上游配置',
-    })
-  }
-
-  // 验证 AI 模型属于该上游配置
-  const aimodelService = useAimodelService()
-  const aimodel = await aimodelService.getById(aimodelId)
-
-  if (!aimodel || aimodel.upstreamId !== upstreamId) {
-    throw createError({
-      statusCode: 400,
-      message: '无效的模型配置',
     })
   }
 
@@ -137,7 +128,7 @@ export default defineEventHandler(async (event) => {
   // 1. 先保存到数据库
   const task = await taskService.createTask({
     userId: user.id,
-    upstreamId,
+    upstreamId: aimodel.upstreamId,
     aimodelId,
     taskType,
     modelType,

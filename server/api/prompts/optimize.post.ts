@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, upstreamId, aimodelId, modelName, targetModelType, targetModelName } = body
+  const { prompt, aimodelId, targetModelType, targetModelName } = body
 
   if (!prompt?.trim()) {
     throw createError({
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!upstreamId || !aimodelId || !modelName) {
+  if (!aimodelId) {
     throw createError({
       statusCode: 400,
       message: '请先在设置中配置 AI 优化模型',
@@ -59,15 +59,6 @@ export default defineEventHandler(async (event) => {
 
   const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
-
-  // 获取上游配置
-  const upstream = await upstreamService.getByIdSimple(upstreamId)
-  if (!upstream) {
-    throw createError({
-      statusCode: 404,
-      message: '上游配置不存在',
-    })
-  }
 
   // 获取 AI 模型配置
   const aimodel = await aimodelService.getById(aimodelId)
@@ -78,9 +69,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // 获取上游配置
+  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
+  if (!upstream) {
+    throw createError({
+      statusCode: 404,
+      message: '上游配置不存在',
+    })
+  }
+
   try {
-    // 使用 aimodel 中的 keyName
+    // 使用 aimodel 中的 keyName 和 modelName
     const keyName = aimodel.keyName
+    const modelName = aimodel.modelName
 
     const chatService = createChatService(upstream, keyName)
     const systemPrompt = buildSystemPrompt(targetModelType, targetModelName)

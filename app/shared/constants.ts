@@ -684,15 +684,9 @@ export const USER_SETTING_KEYS = {
   GENERAL_COMPRESS_KEEP_COUNT: 'general.compressKeepCount',
   GENERAL_TITLE_MAX_LENGTH: 'general.titleMaxLength',
   GENERAL_SUGGESTIONS_COUNT: 'general.suggestionsCount',
-  // 绘图设置（AI 优化）
-  DRAWING_AI_OPTIMIZE_UPSTREAM_ID: 'drawing.aiOptimizeUpstreamId',
+  // 绘图设置（仅保存 aimodelId）
   DRAWING_AI_OPTIMIZE_AIMODEL_ID: 'drawing.aiOptimizeAimodelId',
-  DRAWING_AI_OPTIMIZE_MODEL_NAME: 'drawing.aiOptimizeModelName',
-  // 绘图设置（嵌入式绘画）
-  DRAWING_EMBEDDED_UPSTREAM_ID: 'drawing.embeddedUpstreamId',
   DRAWING_EMBEDDED_AIMODEL_ID: 'drawing.embeddedAimodelId',
-  // 绘图设置（工作台默认模型）
-  DRAWING_WORKBENCH_UPSTREAM_ID: 'drawing.workbenchUpstreamId',
   DRAWING_WORKBENCH_AIMODEL_ID: 'drawing.workbenchAimodelId',
 } as const
 
@@ -743,12 +737,7 @@ export const USER_SETTING_DEFAULTS: Record<UserSettingKey, string | number | boo
   [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: 30,
   [USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT]: 5,
   // 绘图设置默认值（0 表示未设置，使用系统默认）
-  [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: 0,
-  [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]: '',
-  [USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: 0,
-  // 绘图工作台默认模型（0 表示未设置，使用系统默认）
-  [USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: 0,
 }

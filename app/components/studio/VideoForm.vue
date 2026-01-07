@@ -15,7 +15,6 @@ const emit = defineEmits<{
   submit: [data: {
     prompt: string
     images: string[]
-    upstreamId: number
     aimodelId: number
     modelType: VideoModelType
     apiFormat: ApiFormat
@@ -30,8 +29,19 @@ const { settings, isLoaded: settingsLoaded, loadSettings } = useUserSettings()
 const prompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
-const selectedUpstreamId = ref<number | null>(null)
 const selectedAimodelId = ref<number | null>(null)
+
+// 从 selectedAimodelId 计算 selectedUpstreamId
+const selectedUpstreamId = computed(() => {
+  if (!selectedAimodelId.value) return null
+
+  for (const upstream of props.upstreams) {
+    if (upstream.aimodels?.some(m => m.id === selectedAimodelId.value)) {
+      return upstream.id
+    }
+  }
+  return null
+})
 
 // 视频参数
 const aspectRatio = ref('16:9')
@@ -164,7 +174,7 @@ async function handleSubmit() {
     return
   }
 
-  if (!selectedUpstreamId.value || selectedAimodelId.value === null || !selectedAimodel.value) {
+  if (selectedAimodelId.value === null || !selectedAimodel.value) {
     toast.add({ title: '请先选择模型配置', color: 'warning' })
     return
   }
@@ -203,8 +213,7 @@ async function handleSubmit() {
     emit('submit', {
       prompt: prompt.value,
       images: referenceImages.value,
-      upstreamId: selectedUpstreamId.value,
-      aimodelId: selectedAimodelId.value,
+      aimodelId: selectedAimodelId.value!,
       modelType: selectedAimodel.value.modelType as VideoModelType,
       apiFormat: selectedAimodel.value.apiFormat,
       modelName: selectedAimodel.value.modelName,
@@ -248,7 +257,6 @@ defineExpose({
         ref="modelSelectorRef"
         :upstreams="upstreams"
         category="video"
-        v-model:upstream-id="selectedUpstreamId"
         v-model:aimodel-id="selectedAimodelId"
       />
     </UFormField>
@@ -444,7 +452,7 @@ defineExpose({
       block
       size="lg"
       :loading="isSubmitting"
-      :disabled="!prompt.trim() || !selectedUpstreamId || selectedAimodelId === null || upstreams.length === 0"
+      :disabled="!prompt.trim() || selectedAimodelId === null || upstreams.length === 0"
       class="bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600"
       @click="handleSubmit"
     >

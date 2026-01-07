@@ -10,7 +10,6 @@ const emit = defineEmits<{
   submitImage: [data: {
     prompt: string
     images: string[]
-    upstreamId: number
     aimodelId: number
     modelType: ImageModelType
     apiFormat: ApiFormat
@@ -20,7 +19,6 @@ const emit = defineEmits<{
   submitVideo: [data: {
     prompt: string
     images: string[]
-    upstreamId: number
     aimodelId: number
     modelType: VideoModelType
     apiFormat: ApiFormat
@@ -38,12 +36,6 @@ const tabs = [
   { label: '视频', value: 'video', icon: 'i-heroicons-video-camera' },
 ]
 
-// 检查是否有视频模型配置
-const hasVideoModels = computed(() => {
-  return props.upstreams.some(u =>
-    u.aimodels?.some(m => m.category === 'video' && !m.deletedAt)
-  )
-})
 
 // 图片表单引用
 const imageFormRef = ref<{
@@ -59,7 +51,6 @@ const videoFormRef = ref<{
 function handleImageSubmit(data: {
   prompt: string
   images: string[]
-  upstreamId: number
   aimodelId: number
   modelType: ImageModelType
   apiFormat: ApiFormat
@@ -73,7 +64,6 @@ function handleImageSubmit(data: {
 function handleVideoSubmit(data: {
   prompt: string
   images: string[]
-  upstreamId: number
   aimodelId: number
   modelType: VideoModelType
   apiFormat: ApiFormat
@@ -121,10 +111,8 @@ defineExpose({
           'flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
           activeTab === tab.value
             ? 'border-(--ui-primary) text-(--ui-primary)'
-            : 'border-transparent text-(--ui-text-muted) hover:text-(--ui-text)',
-          tab.value === 'video' && !hasVideoModels ? 'opacity-50 cursor-not-allowed' : ''
+            : 'border-transparent text-(--ui-text-muted) hover:text-(--ui-text)'
         ]"
-        :disabled="tab.value === 'video' && !hasVideoModels"
         @click="activeTab = tab.value"
       >
         <UIcon :name="tab.icon" class="w-4 h-4" />
@@ -147,20 +135,5 @@ defineExpose({
       :upstreams="upstreams"
       @submit="handleVideoSubmit"
     />
-
-    <!-- 没有视频模型配置时的提示 -->
-    <div
-      v-if="activeTab === 'video' && !hasVideoModels"
-      class="bg-(--ui-bg-elevated) rounded-lg p-8 border border-(--ui-border) text-center"
-    >
-      <UIcon name="i-heroicons-video-camera" class="w-12 h-12 text-(--ui-text-dimmed) mx-auto mb-3" />
-      <p class="text-(--ui-text-muted) mb-4">暂无视频模型配置</p>
-      <NuxtLink to="/settings/upstreams">
-        <UButton variant="soft">
-          <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
-          添加视频模型
-        </UButton>
-      </NuxtLink>
-    </div>
   </div>
 </template>

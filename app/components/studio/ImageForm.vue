@@ -26,7 +26,6 @@ const emit = defineEmits<{
   submit: [data: {
     prompt: string
     images: string[]
-    upstreamId: number
     aimodelId: number
     modelType: ImageModelType
     apiFormat: ApiFormat
@@ -140,11 +139,9 @@ onMounted(async () => {
 
 // 监听用户设置加载完成，设置工作台默认模型
 watch(settingsLoaded, (loaded) => {
-  if (loaded && !selectedUpstreamId.value && !selectedAimodelId.value) {
-    const workbenchUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_UPSTREAM_ID]
+  if (loaded && !selectedAimodelId.value) {
     const workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]
-    if (workbenchUpstreamId && workbenchAimodelId) {
-      selectedUpstreamId.value = workbenchUpstreamId as number
+    if (workbenchAimodelId) {
       selectedAimodelId.value = workbenchAimodelId as number
     }
   }
@@ -152,9 +149,8 @@ watch(settingsLoaded, (loaded) => {
 
 // AI 优化配置是否已设置
 const hasAiOptimizeConfig = computed(() => {
-  const upstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]
   const aimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]
-  return upstreamId && aimodelId
+  return !!aimodelId
 })
 
 // AI 优化提示词
@@ -176,9 +172,7 @@ async function handleOptimize() {
       headers: getAuthHeader(),
       body: {
         prompt: prompt.value,
-        upstreamId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID],
         aimodelId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID],
-        modelName: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME],
         targetModelType: selectedAimodel.value?.modelType,
         targetModelName: selectedAimodel.value?.modelName,
       },
@@ -420,8 +414,7 @@ async function handleSubmit() {
     emit('submit', {
       prompt: prompt.value,
       images: imagesToSubmit,
-      upstreamId: selectedUpstreamId.value,
-      aimodelId: selectedAimodelId.value,
+      aimodelId: selectedAimodelId.value!,
       modelType: selectedAimodel.value.modelType as ImageModelType,
       apiFormat: selectedAimodel.value.apiFormat,
       modelName: selectedAimodel.value.modelName,

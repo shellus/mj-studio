@@ -46,21 +46,19 @@ export default defineEventHandler(async (event) => {
   let aimodel: any
 
   // 优先使用用户设置的默认嵌入式绘画配置
-  const defaultUpstreamId = await userSettingsService.get<number>(
-    user.id,
-    USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID
-  )
   const defaultAimodelId = await userSettingsService.get<number>(
     user.id,
     USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID
   )
 
-  if (defaultUpstreamId && defaultAimodelId) {
-    const defaultUpstream = await upstreamService.getByIdSimple(defaultUpstreamId)
+  if (defaultAimodelId) {
     const defaultAimodel = await aimodelService.getById(defaultAimodelId)
-    if (defaultUpstream && defaultAimodel && defaultAimodel.upstreamId === defaultUpstreamId) {
-      upstream = defaultUpstream
-      aimodel = defaultAimodel
+    if (defaultAimodel) {
+      const defaultUpstream = await upstreamService.getByIdSimple(defaultAimodel.upstreamId)
+      if (defaultUpstream) {
+        upstream = defaultUpstream
+        aimodel = defaultAimodel
+      }
     }
   }
 

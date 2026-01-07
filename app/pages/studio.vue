@@ -21,7 +21,6 @@ onMounted(() => {
 async function handleImageSubmit(data: {
   prompt: string
   images: string[]
-  upstreamId: number
   aimodelId: number
   modelType: string
   apiFormat: string
@@ -37,7 +36,6 @@ async function handleImageSubmit(data: {
         modelParams: data.modelParams,
         images: data.images,
         type: data.apiFormat === 'mj-proxy' && data.images.length > 0 && !data.prompt ? 'blend' : 'imagine',
-        upstreamId: data.upstreamId,
         aimodelId: data.aimodelId,
         modelType: data.modelType,
         apiFormat: data.apiFormat,
@@ -66,7 +64,6 @@ async function handleImageSubmit(data: {
 async function handleVideoSubmit(data: {
   prompt: string
   images: string[]
-  upstreamId: number
   aimodelId: number
   modelType: VideoModelType
   apiFormat: ApiFormat
@@ -81,7 +78,6 @@ async function handleVideoSubmit(data: {
         prompt: data.prompt,
         modelParams: data.modelParams,
         images: data.images,
-        upstreamId: data.upstreamId,
         aimodelId: data.aimodelId,
         modelType: data.modelType,
         apiFormat: data.apiFormat,
