@@ -15,6 +15,9 @@ import {
   type ChatMessagesDeleted,
 } from './useGlobalEvents'
 
+// 单例模式：防止事件处理器重复注册
+let isConversationEventRegistered = false
+
 export interface Message {
   id: number
   conversationId: number
@@ -483,8 +486,10 @@ export function useConversations() {
     messages.value = messages.value.filter(m => !messageIds.includes(m.id))
   }
 
-  // 注册全局事件处理器（仅客户端）
-  if (import.meta.client) {
+  // 注册全局事件处理器（单例模式，防止重复注册）
+  if (import.meta.client && !isConversationEventRegistered) {
+    isConversationEventRegistered = true
+
     // 消息流式输出事件
     on<ChatMessageCreated>('chat.message.created', handleMessageCreated)
     on<ChatMessageDone>('chat.message.done', handleMessageDone)

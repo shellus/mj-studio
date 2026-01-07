@@ -85,6 +85,21 @@ export interface ChatMessagesDeleted {
   messageIds: number[]
 }
 
+// 助手事件类型
+export interface ChatAssistantUpdated {
+  assistant: {
+    id: number
+    name: string
+    description: string | null
+    avatar: string | null
+    systemPrompt: string | null
+    aimodelId: number | null
+    isDefault: boolean
+    suggestions: string[] | null
+    conversationCount: number
+  }
+}
+
 // 绘图/视频任务事件类型
 export interface TaskCreated {
   task: {

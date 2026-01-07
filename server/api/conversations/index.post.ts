@@ -2,7 +2,7 @@
 import { useConversationService } from '../../services/conversation'
 import { useAssistantService } from '../../services/assistant'
 import { emitToUser } from '../../services/globalEvents'
-import type { ChatConversationCreated } from '../../services/globalEvents'
+import type { ChatConversationCreated, ChatAssistantUpdated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -27,6 +27,24 @@ export default defineEventHandler(async (event) => {
     assistantId,
     title: title?.trim() || '新对话',
   })
+
+  // 更新助手的对话数量并广播助手更新事件
+  const updatedAssistant = await assistantService.refreshConversationCount(assistantId)
+  if (updatedAssistant) {
+    await emitToUser<ChatAssistantUpdated>(user.id, 'chat.assistant.updated', {
+      assistant: {
+        id: updatedAssistant.id,
+        name: updatedAssistant.name,
+        description: updatedAssistant.description,
+        avatar: updatedAssistant.avatar,
+        systemPrompt: updatedAssistant.systemPrompt,
+        aimodelId: updatedAssistant.aimodelId,
+        isDefault: updatedAssistant.isDefault,
+        suggestions: updatedAssistant.suggestions,
+        conversationCount: updatedAssistant.conversationCount,
+      },
+    })
+  }
 
   // 广播对话创建事件
   await emitToUser<ChatConversationCreated>(user.id, 'chat.conversation.created', {

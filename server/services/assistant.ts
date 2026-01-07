@@ -3,35 +3,13 @@ import { db } from '../database'
 import { assistants, conversations, type Assistant, type NewAssistant } from '../database/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
 
-// 助手列表返回类型（包含对话数量）
-export type AssistantWithCount = Assistant & { conversationCount: number }
-
 export function useAssistantService() {
-  // 获取用户的所有助手（包含对话数量）
-  async function listByUser(userId: number): Promise<AssistantWithCount[]> {
-    const result = await db
-      .select({
-        id: assistants.id,
-        userId: assistants.userId,
-        name: assistants.name,
-        description: assistants.description,
-        avatar: assistants.avatar,
-        systemPrompt: assistants.systemPrompt,
-        aimodelId: assistants.aimodelId,
-        isDefault: assistants.isDefault,
-        createdAt: assistants.createdAt,
-        conversationCount: sql<number>`count(${conversations.id})`.as('conversationCount'),
-      })
-      .from(assistants)
-      .leftJoin(conversations, eq(conversations.assistantId, assistants.id))
-      .where(eq(assistants.userId, userId))
-      .groupBy(assistants.id)
-      .orderBy(desc(assistants.createdAt))
-
-    return result.map(row => ({
-      ...row,
-      conversationCount: Number(row.conversationCount),
-    }))
+  // 获取用户的所有助手
+  async function listByUser(userId: number): Promise<Assistant[]> {
+    return db.query.assistants.findMany({
+      where: eq(assistants.userId, userId),
+      orderBy: desc(assistants.createdAt),
+    })
   }
 
   // 获取单个助手
@@ -134,6 +112,23 @@ export function useAssistantService() {
     return defaultAssistant!
   }
 
+  // 重新统计并更新助手的对话数量（从数据库计算，确保准确）
+  async function refreshConversationCount(assistantId: number): Promise<Assistant | undefined> {
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(conversations)
+      .where(eq(conversations.assistantId, assistantId))
+
+    const count = Number(countResult?.count ?? 0)
+
+    const [updated] = await db.update(assistants)
+      .set({ conversationCount: count })
+      .where(eq(assistants.id, assistantId))
+      .returning()
+
+    return updated
+  }
+
   return {
     listByUser,
     getById,
@@ -142,5 +137,6 @@ export function useAssistantService() {
     update,
     remove,
     ensureDefault,
+    refreshConversationCount,
   }
 }

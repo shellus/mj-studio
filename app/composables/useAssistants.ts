@@ -1,4 +1,6 @@
 // 助手状态管理
+import { useGlobalEvents, type ChatAssistantUpdated } from './useGlobalEvents'
+
 export interface Assistant {
   id: number
   userId: number
@@ -10,13 +12,41 @@ export interface Assistant {
   isDefault: boolean
   createdAt: string
   conversationCount: number
+  suggestions?: string[] | null
 }
+
+// 单例模式：防止事件处理器重复注册
+let isAssistantEventRegistered = false
 
 export function useAssistants() {
   const assistants = useState<Assistant[]>('assistants', () => [])
   const isLoading = useState('assistants-loading', () => false)
   // 使用 ref 而非 useState，避免跨页面状态残留，由 URL 驱动
   const currentAssistantId = ref<number | null>(null)
+
+  // 注册全局事件处理器（单例模式）
+  if (import.meta.client && !isAssistantEventRegistered) {
+    isAssistantEventRegistered = true
+    const { on } = useGlobalEvents()
+    on<ChatAssistantUpdated>('chat.assistant.updated', (data) => {
+      const { assistant } = data
+      const index = assistants.value.findIndex(a => a.id === assistant.id)
+      if (index >= 0) {
+        // 更新助手信息
+        assistants.value[index] = {
+          ...assistants.value[index],
+          ...assistant,
+        }
+
+        // 如果设为默认，更新其他助手的默认状态
+        if (assistant.isDefault) {
+          assistants.value.forEach((a, i) => {
+            if (i !== index) a.isDefault = false
+          })
+        }
+      }
+    })
+  }
 
   // 当前选中的助手
   const currentAssistant = computed(() => {
@@ -118,22 +148,6 @@ export function useAssistants() {
     }
   }
 
-  // 增加助手的对话数量
-  function incrementConversationCount(assistantId: number) {
-    const assistant = assistants.value.find(a => a.id === assistantId)
-    if (assistant) {
-      assistant.conversationCount++
-    }
-  }
-
-  // 减少助手的对话数量
-  function decrementConversationCount(assistantId: number) {
-    const assistant = assistants.value.find(a => a.id === assistantId)
-    if (assistant && assistant.conversationCount > 0) {
-      assistant.conversationCount--
-    }
-  }
-
   return {
     assistants,
     isLoading,
@@ -145,7 +159,5 @@ export function useAssistants() {
     createAssistant,
     updateAssistant,
     deleteAssistant,
-    incrementConversationCount,
-    decrementConversationCount,
   }
 }

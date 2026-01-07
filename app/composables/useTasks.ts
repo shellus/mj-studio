@@ -10,6 +10,9 @@ import {
   type TasksBlurUpdated,
 } from './useGlobalEvents'
 
+// 单例模式：防止事件处理器重复注册
+let isTaskEventRegistered = false
+
 // 精简的上游配置（用于任务列表/详情）
 export interface TaskUpstreamSummary {
   name: string
@@ -254,8 +257,9 @@ export function useTasks() {
     }
   }
 
-  // 注册事件处理器（仅客户端）
-  if (import.meta.client) {
+  // 注册事件处理器（单例模式，防止重复注册）
+  if (import.meta.client && !isTaskEventRegistered) {
+    isTaskEventRegistered = true
     on<TaskCreated>('task.created', handleTaskCreated)
     on<TaskStatusUpdated>('task.status.updated', handleTaskStatusUpdated)
     on<TaskDeleted>('task.deleted', handleTaskDeleted)

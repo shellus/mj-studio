@@ -125,6 +125,7 @@ export const assistants = sqliteTable('assistants', {
   aimodelId: integer('aimodel_id'), // 关联 AI 模型（通过此字段可获取 upstream 信息）
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   suggestions: text('suggestions', { mode: 'json' }).$type<string[]>(), // 开场白建议缓存
+  conversationCount: integer('conversation_count').notNull().default(0), // 对话数量（冗余字段，由后端维护）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

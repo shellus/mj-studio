@@ -1,5 +1,7 @@
 // PUT /api/assistants/[id] - 更新助手
 import { useAssistantService } from '../../services/assistant'
+import { emitToUser } from '../../services/globalEvents'
+import type { ChatAssistantUpdated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -53,6 +55,21 @@ export default defineEventHandler(async (event) => {
   if (!updated) {
     throw createError({ statusCode: 404, message: '助手不存在或无权修改' })
   }
+
+  // 广播助手更新事件
+  await emitToUser<ChatAssistantUpdated>(user.id, 'chat.assistant.updated', {
+    assistant: {
+      id: updated.id,
+      name: updated.name,
+      description: updated.description,
+      avatar: updated.avatar,
+      systemPrompt: updated.systemPrompt,
+      aimodelId: updated.aimodelId,
+      isDefault: updated.isDefault,
+      suggestions: updated.suggestions,
+      conversationCount: updated.conversationCount,
+    },
+  })
 
   return updated
 })

@@ -22,8 +22,6 @@ const {
   createAssistant,
   updateAssistant,
   deleteAssistant,
-  incrementConversationCount,
-  decrementConversationCount,
 } = useAssistants()
 
 // 对话状态
@@ -219,10 +217,6 @@ async function handleDeleteConversation(id: number) {
   try {
     await deleteConversation(id)
     toast.add({ title: '对话已删除', color: 'success' })
-    // 更新对话数量
-    if (assistantId) {
-      decrementConversationCount(assistantId)
-    }
     // 如果删除的是当前对话，更新 URL
     if (isCurrentConversation) {
       updateUrlParams(currentAssistantId.value, null)
@@ -321,8 +315,6 @@ async function handleSendMessage(content: string, files?: import('~/shared/types
       const title = content?.slice(0, 20) || files?.[0]?.name?.slice(0, 20) || '新对话'
       const conversation = await createConversation(currentAssistantId.value, title)
       conversationId = conversation.id
-      // 更新对话数量
-      incrementConversationCount(currentAssistantId.value)
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
@@ -348,7 +340,6 @@ async function handleAddMessage(content: string, role: 'user' | 'assistant') {
     try {
       const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
       conversationId = conversation.id
-      incrementConversationCount(currentAssistantId.value)
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
