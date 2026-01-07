@@ -103,6 +103,8 @@ export const tasks = sqliteTable('tasks', {
     type: number
   }>>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  startedAt: integer('started_at', { mode: 'timestamp' }), // 任务开始执行时间
+  duration: integer('duration'), // 实际耗时（秒）
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除：null=正常，有值=已删除
 })

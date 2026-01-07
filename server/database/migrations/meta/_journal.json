@@ -64,6 +64,13 @@
       "when": 1767764361428,
       "tag": "0008_remove-deprecated-user-settings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1767779698782,
+      "tag": "0009_add-task-startedAt-duration",
+      "breakpoints": true
     }
   ]
 }

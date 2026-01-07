@@ -688,6 +688,8 @@ export const USER_SETTING_KEYS = {
   DRAWING_AI_OPTIMIZE_AIMODEL_ID: 'drawing.aiOptimizeAimodelId',
   DRAWING_EMBEDDED_AIMODEL_ID: 'drawing.embeddedAimodelId',
   DRAWING_WORKBENCH_AIMODEL_ID: 'drawing.workbenchAimodelId',
+  // 视频设置
+  VIDEO_WORKBENCH_AIMODEL_ID: 'video.workbenchAimodelId',
 } as const
 
 export type UserSettingKey = typeof USER_SETTING_KEYS[keyof typeof USER_SETTING_KEYS]
@@ -740,4 +742,6 @@ export const USER_SETTING_DEFAULTS: Record<UserSettingKey, string | number | boo
   [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: 0,
   [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: 0,
+  // 视频设置默认值
+  [USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID]: 0,
 }

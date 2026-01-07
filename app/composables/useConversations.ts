@@ -465,14 +465,10 @@ export function useConversations() {
     // 只处理当前对话
     if (currentConversationId.value !== conversationId) return
 
-    // 更新消息内容
-    const index = messages.value.findIndex(m => m.id === message.id)
-    if (index >= 0) {
-      const existing = messages.value[index]!
-      messages.value[index] = {
-        ...existing,
-        content: message.content,
-      }
+    // 更新消息内容（直接修改属性以保持响应式）
+    const targetMessage = messages.value.find(m => m.id === message.id)
+    if (targetMessage) {
+      targetMessage.content = message.content
     }
   }
 

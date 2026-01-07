@@ -55,6 +55,16 @@ export function formatDateTime(dateStr: string): string {
 }
 
 /**
+ * 格式化耗时（秒数转为友好显示）
+ */
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`
+  const minutes = Math.floor(seconds / 60)
+  const remainSeconds = seconds % 60
+  return `${minutes}分${remainSeconds}秒`
+}
+
+/**
  * 时间格式化 composable
  */
 export function useTimeFormat() {
@@ -62,5 +72,6 @@ export function useTimeFormat() {
     formatTimeAgo,
     formatDate,
     formatDateTime,
+    formatDuration,
   }
 }

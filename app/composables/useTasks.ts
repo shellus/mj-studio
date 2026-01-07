@@ -48,6 +48,7 @@ export interface Task {
   createdAt: string
   updatedAt: string
   deletedAt: string | null
+  duration?: number  // 实际耗时（秒），仅在任务完成时有值
 }
 
 // 分页响应类型
@@ -187,7 +188,7 @@ export function useTasks() {
 
   // 处理任务状态更新事件
   function handleTaskStatusUpdated(data: TaskStatusUpdated) {
-    const { taskId, status, progress, resourceUrl, error, buttons } = data
+    const { taskId, status, progress, resourceUrl, error, buttons, duration } = data
 
     const index = tasks.value.findIndex(t => t.id === taskId)
     if (index < 0) return
@@ -202,6 +203,7 @@ export function useTasks() {
       resourceUrl: resourceUrl !== undefined ? resourceUrl : existing.resourceUrl,
       error: error !== undefined ? error : existing.error,
       buttons: buttons !== undefined ? buttons : existing.buttons,
+      duration: duration !== undefined ? duration : existing.duration,
     }
   }
 

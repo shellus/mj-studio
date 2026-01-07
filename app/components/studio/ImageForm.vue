@@ -63,7 +63,7 @@ const style = ref<'vivid' | 'natural'>('vivid')
 const aspectRatio = ref('1:1')
 const seed = ref(-1)
 const guidanceScale = ref(2.5)
-const watermark = ref(true)
+const watermark = ref(false)
 const background = ref<'auto' | 'transparent' | 'opaque'>('auto')
 
 // 尺寸选项
@@ -137,12 +137,22 @@ onMounted(async () => {
   }
 })
 
-// 监听用户设置加载完成，设置工作台默认模型
-watch(settingsLoaded, (loaded) => {
-  if (loaded && !selectedAimodelId.value) {
+// 监听用户设置和 upstreams 加载完成，设置工作台默认模型
+watch([settingsLoaded, () => props.upstreams], ([loaded, upstreams]) => {
+  // 如果已经选择了模型，不再自动选择
+  if (selectedAimodelId.value) return
+
+  // 使用用户设置的默认模型
+  if (loaded) {
     const workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]
     if (workbenchAimodelId) {
-      selectedAimodelId.value = workbenchAimodelId as number
+      // 验证模型是否存在于当前 upstreams 中
+      for (const upstream of upstreams) {
+        if (upstream.aimodels?.some(m => m.id === workbenchAimodelId)) {
+          selectedAimodelId.value = workbenchAimodelId as number
+          return
+        }
+      }
     }
   }
 }, { immediate: true })
@@ -472,6 +482,7 @@ defineExpose({
           :upstreams="upstreams"
           category="image"
           v-model:aimodel-id="selectedAimodelId"
+          no-auto-select
         />
       </UFormField>
 

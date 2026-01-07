@@ -113,6 +113,8 @@ export function useTaskService() {
     buttons: Task['buttons']
     isBlurred: boolean
     createdAt: Date
+    startedAt: Date  // 任务开始执行时间
+    duration: number  // 实际耗时（秒）
   }>): Promise<Task | undefined> {
     const [updated] = await db.update(tasks)
       .set({ ...data, updatedAt: new Date() })
@@ -129,6 +131,7 @@ export function useTaskService() {
         error: updated.error,
         buttons: updated.buttons,
         updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        duration: data.duration,
       })
     }
 
@@ -393,8 +396,10 @@ export function useTaskService() {
     const promptPreview = task.prompt ? (task.prompt.length > 30 ? task.prompt.slice(0, 30) + '...' : task.prompt) : '(无提示词)'
     console.log(`[Task] 提交 | #${taskId} ${task.modelType}/${task.apiFormat} | 上游:${upstream.name} 模型:${task.modelName} Key:${aimodel.keyName} | ${promptPreview}`)
 
-    // 更新状态为提交中
-    await updateTask(taskId, { status: 'submitting' })
+    // 更新状态为提交中，记录开始时间
+    const startedAt = new Date()
+    await updateTask(taskId, { status: 'submitting', startedAt })
+    task.startedAt = startedAt  // 同步到内存对象，供后续使用
 
     // 创建 AbortController 用于取消请求
     const controller = new AbortController()
@@ -462,14 +467,18 @@ export function useTaskService() {
       return
     }
 
+    // 计算实际耗时
+    const duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
+
     await updateTask(task.id, {
       status: 'success',
       progress: '100%',
       resourceUrl: getFileUrl(fileName),
+      duration,
     })
 
     // 更新预计时间
-    await updateEstimatedTime(aimodel, task.id, task.createdAt)
+    await updateEstimatedTime(aimodel, task.id, duration)
   }
 
   // 提交到Gemini（同步API）
@@ -724,16 +733,18 @@ export function useTaskService() {
 
       let status: TaskStatus = task.status
       let resourceUrl: string | null = null
+      let duration: number | undefined
 
       if (result.data.state === 1) {
         // 成功
         status = 'success'
+        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
         if (result.data.result_file) {
           const fileName = await downloadFile(result.data.result_file, logPrefix)
           if (fileName) {
             resourceUrl = getFileUrl(fileName)
           }
-          await updateEstimatedTime(aimodel, task.id, task.createdAt)
+          await updateEstimatedTime(aimodel, task.id, duration!)
         }
       } else if (result.data.state === -1) {
         // 失败
@@ -746,6 +757,7 @@ export function useTaskService() {
         progress: status === 'success' ? '100%' : null,
         resourceUrl,
         error: status === 'failed' ? '抠图处理失败' : null,
+        duration,
       })
     } catch (error: any) {
       console.error('同步抠抠图任务状态失败:', error.message)
@@ -777,7 +789,9 @@ export function useTaskService() {
 
       // 处理图片URL：成功时下载到本地
       let resourceUrl = mjTask.imageUrl || null
+      let duration: number | undefined
       if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/images/')) {
+        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
         const fileName = await downloadFile(resourceUrl, logPrefix)
         if (fileName) {
           resourceUrl = getFileUrl(fileName)
@@ -785,7 +799,7 @@ export function useTaskService() {
         // 下载失败时保留原始URL
 
         // 更新预计时间
-        await updateEstimatedTime(aimodel, task.id, task.createdAt)
+        await updateEstimatedTime(aimodel, task.id, duration!)
       }
 
       // 对 MJ 的 failReason 进行分类
@@ -810,6 +824,7 @@ export function useTaskService() {
         resourceUrl,
         error,
         buttons: mjTask.buttons || null,
+        duration,
       })
     } catch (error: any) {
       // 查询失败不更新状态，仅记录错误
@@ -835,7 +850,9 @@ export function useTaskService() {
 
       // 处理视频 URL：成功时下载到本地
       let resourceUrl = result.video_url || null
+      let duration: number | undefined
       if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/')) {
+        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
         const fileName = await downloadFile(resourceUrl, logPrefix)
         if (fileName) {
           resourceUrl = getFileUrl(fileName)
@@ -843,7 +860,7 @@ export function useTaskService() {
         // 下载失败时保留原始 URL
 
         // 更新预计时间
-        await updateEstimatedTime(aimodel, task.id, task.createdAt)
+        await updateEstimatedTime(aimodel, task.id, duration!)
       }
 
       // 计算进度显示
@@ -859,6 +876,7 @@ export function useTaskService() {
         progress,
         resourceUrl,
         error: result.error || (status === 'failed' ? '视频生成失败' : null),
+        duration,
       })
     } catch (error: any) {
       console.error('同步视频任务状态失败:', error.message, error.stack)
@@ -867,15 +885,12 @@ export function useTaskService() {
   }
 
   // 更新预计时间
-  async function updateEstimatedTime(aimodel: Aimodel, taskId: number, startTime: Date): Promise<void> {
+  async function updateEstimatedTime(aimodel: Aimodel, taskId: number, duration: number): Promise<void> {
     try {
-      const endTime = new Date()
-      const actualTime = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
-
       // 更新 aimodel 的预计时间
-      await aimodelService.updateEstimatedTime(aimodel.id, actualTime)
+      await aimodelService.updateEstimatedTime(aimodel.id, duration)
 
-      console.log(`[Task] #${taskId} 更新预计时间 | ${aimodel.name}: ${actualTime}s`)
+      console.log(`[Task] #${taskId} 更新预计时间 | ${aimodel.name}: ${duration}s`)
     } catch (error) {
       console.error('更新预计时间失败:', error)
     }
