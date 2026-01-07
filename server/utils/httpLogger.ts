@@ -137,7 +137,10 @@ function sanitizeBody(body: any): any {
 }
 
 // 脱敏 headers
-function sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
+function sanitizeHeaders(headers: Record<string, string> | undefined): Record<string, string> {
+  if (!headers || typeof headers !== 'object') {
+    return {}
+  }
   const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(headers)) {
     const lowerKey = key.toLowerCase()

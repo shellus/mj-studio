@@ -199,9 +199,9 @@ export function useTasks() {
       ...existing,
       status: status as Task['status'],
       progress: progress !== undefined ? `${progress}%` : existing.progress,
-      resourceUrl: resourceUrl ?? existing.resourceUrl,
-      error: error ?? existing.error,
-      buttons: buttons ?? existing.buttons,
+      resourceUrl: resourceUrl !== undefined ? resourceUrl : existing.resourceUrl,
+      error: error !== undefined ? error : existing.error,
+      buttons: buttons !== undefined ? buttons : existing.buttons,
     }
   }
 

@@ -47,6 +47,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       logTaskRequest(taskId, {
         url: url.replace(apiKey, '[REDACTED]'),
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body,
       })
     }
@@ -149,6 +150,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       logTaskRequest(taskId, {
         url: url.replace(apiKey, '[REDACTED]'),
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: logBody,
       })
     }
