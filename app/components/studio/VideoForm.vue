@@ -100,6 +100,26 @@ onMounted(async () => {
   }
 })
 
+// 监听用户设置和 upstreams 加载完成，设置工作台默认模型
+watch([settingsLoaded, () => props.upstreams], ([loaded, upstreams]) => {
+  // 如果已经选择了模型，不再自动选择
+  if (selectedAimodelId.value) return
+
+  // 使用用户设置的默认模型
+  if (loaded) {
+    const workbenchAimodelId = settings.value[USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID]
+    if (workbenchAimodelId) {
+      // 验证模型是否存在于当前 upstreams 中
+      for (const upstream of upstreams) {
+        if (upstream.aimodels?.some(m => m.id === workbenchAimodelId)) {
+          selectedAimodelId.value = workbenchAimodelId as number
+          return
+        }
+      }
+    }
+  }
+}, { immediate: true })
+
 // 模型选择器引用
 const modelSelectorRef = ref<{
   selectedUpstream: Upstream | undefined
@@ -258,6 +278,7 @@ defineExpose({
         :upstreams="upstreams"
         category="video"
         v-model:aimodel-id="selectedAimodelId"
+        no-auto-select
       />
     </UFormField>
 

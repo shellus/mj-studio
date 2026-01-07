@@ -16,6 +16,8 @@ const form = reactive({
   aiOptimizeAimodelId: 0,
   embeddedAimodelId: 0,
   workbenchAimodelId: 0,
+  // 视频设置
+  videoWorkbenchAimodelId: 0,
 })
 
 // 保存状态
@@ -40,6 +42,8 @@ function syncFormFromSettings() {
   form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] ?? 0
   form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] ?? 0
   form.workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID] ?? 0
+  // 视频设置
+  form.videoWorkbenchAimodelId = settings.value[USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID] ?? 0
 }
 
 // 保存设置
@@ -55,6 +59,8 @@ async function saveSettings() {
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: form.aiOptimizeAimodelId,
       [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: form.embeddedAimodelId,
       [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: form.workbenchAimodelId,
+      // 视频设置
+      [USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID]: form.videoWorkbenchAimodelId,
     })
     toast.add({ title: '设置已保存', color: 'success' })
   } catch (error: any) {
@@ -80,6 +86,12 @@ const embeddedAimodelId = computed({
 const workbenchAimodelId = computed({
   get: () => form.workbenchAimodelId || null,
   set: (val: number | null) => { form.workbenchAimodelId = val || 0 },
+})
+
+// 视频工作台默认模型选择 - aimodelId 的计算属性
+const videoWorkbenchAimodelId = computed({
+  get: () => form.videoWorkbenchAimodelId || null,
+  set: (val: number | null) => { form.videoWorkbenchAimodelId = val || 0 },
 })
 </script>
 
@@ -147,6 +159,26 @@ const workbenchAimodelId = computed({
               no-auto-select
               align-right
               v-model:aimodel-id="workbenchAimodelId"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 视频设置 -->
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
+        <h3 class="text-base font-medium text-(--ui-text) mb-4">视频</h3>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-(--ui-text)">工作台默认模型</span>
+              <p class="text-xs text-(--ui-text-muted) mt-1">视频工作台的默认选择</p>
+            </div>
+            <ModelSelector
+              :upstreams="upstreams"
+              category="video"
+              no-auto-select
+              align-right
+              v-model:aimodel-id="videoWorkbenchAimodelId"
             />
           </div>
         </div>

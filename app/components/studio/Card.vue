@@ -234,9 +234,14 @@ const showRefImages = ref(false)
 // 下载图片
 function downloadImage() {
   if (!props.task.resourceUrl) return
+
+  // 从 URL 中提取原文件名
+  const urlPath = props.task.resourceUrl.split('?')[0] // 移除查询参数
+  const originalFileName = urlPath.split('/').pop() || `mj-${props.task.id}.png`
+
   const a = document.createElement('a')
   a.href = props.task.resourceUrl
-  a.download = `mj-${props.task.id}.png`
+  a.download = originalFileName
   a.target = '_blank'
   a.click()
 }
