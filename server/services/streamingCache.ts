@@ -76,15 +76,32 @@ export function getStreamingSession(messageId: number): StreamingSession | null 
   return streamingSessions.get(messageId) || null
 }
 
+// 获取会话内容（仅内容字符串）
+export function getStreamingContent(messageId: number): string {
+  return streamingSessions.get(messageId)?.content || ''
+}
+
 // 检查是否有进行中的会话
 export function hasStreamingSession(messageId: number): boolean {
   return streamingSessions.has(messageId)
 }
 
-// 结束流式会话（返回累积内容并清理）
+// 结束流式会话（通知所有订阅者后清理）
 export function endStreamingSession(messageId: number): string {
   const session = streamingSessions.get(messageId)
   const content = session?.content || ''
+
+  // 关闭所有订阅流
+  if (session?.streams) {
+    for (const stream of session.streams) {
+      try {
+        stream.close()  // 关闭 SSE 连接
+      } catch (err) {
+        // 忽略关闭错误
+      }
+    }
+  }
+
   streamingSessions.delete(messageId)
   return content
 }

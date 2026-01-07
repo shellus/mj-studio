@@ -57,10 +57,12 @@ export default defineEventHandler(async (event) => {
 
   // 确定要重放的用户消息
   let userMessageContent: string
+  let replayUserMessageId: number  // 记录用户消息 ID
 
   if (message.role === 'user') {
     // 重放用户消息：基于这条用户消息重新生成 AI 回复
     userMessageContent = message.content
+    replayUserMessageId = message.id
   } else {
     // 重放 AI 消息：删除这条 AI 消息，找到对应的用户消息重新生成
     const msgIndex = result.messages.findIndex(m => m.id === messageId)
@@ -72,6 +74,7 @@ export default defineEventHandler(async (event) => {
     }
 
     userMessageContent = lastUserMsg.content
+    replayUserMessageId = lastUserMsg.id
 
     // 删除这条 AI 消息
     await conversationService.removeMessage(messageId, user.id)
@@ -114,6 +117,7 @@ export default defineEventHandler(async (event) => {
   setImmediate(() => {
     startStreamingTask({
       messageId: assistantMessage.id,
+      userMessageId: replayUserMessageId,  // 传递重放的用户消息 ID
       conversationId: message.conversationId,
       userId: user.id,
       userContent: userMessageContent,

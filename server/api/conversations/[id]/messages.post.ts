@@ -148,6 +148,7 @@ export default defineEventHandler(async (event) => {
   setImmediate(() => {
     startStreamingTask({
       messageId: assistantMessage.id,
+      userMessageId: userMessage?.id ?? null,  // 传递用户消息 ID，压缩请求时为 null
       conversationId,
       userId: user.id,
       userContent: content?.trim() || '',

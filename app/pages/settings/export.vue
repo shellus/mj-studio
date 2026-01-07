@@ -88,13 +88,30 @@ function handleExport() {
   const exportData = {
     version: 2, // 版本号升级，以区分新格式
     exportedAt: new Date().toISOString(),
-    assistants: selectedAssistants.map(a => ({
-      name: a.name,
-      description: a.description,
-      avatar: a.avatar,
-      systemPrompt: a.systemPrompt,
-      isDefault: a.isDefault,
-    })),
+    assistants: selectedAssistants.map(a => {
+      // 查找助手关联的模型信息
+      let upstreamName: string | undefined
+      let aimodelName: string | undefined
+      if (a.aimodelId) {
+        const upstream = upstreams.value.find(u => u.aimodels?.some(m => m.id === a.aimodelId))
+        if (upstream) {
+          upstreamName = upstream.name
+          const aimodel = upstream.aimodels?.find(m => m.id === a.aimodelId)
+          if (aimodel) {
+            aimodelName = aimodel.name
+          }
+        }
+      }
+      return {
+        name: a.name,
+        description: a.description,
+        avatar: a.avatar,
+        systemPrompt: a.systemPrompt,
+        isDefault: a.isDefault,
+        upstreamName, // 导出上游名称用于导入时匹配
+        aimodelName, // 导出模型名称用于导入时匹配
+      }
+    }),
     upstreams: selectedUpstreamsData.map(u => ({
       name: u.name,
       baseUrl: u.baseUrl,
@@ -109,6 +126,7 @@ function handleExport() {
         modelType: m.modelType,
         apiFormat: m.apiFormat,
         modelName: m.modelName,
+        name: m.name,
         estimatedTime: m.estimatedTime,
         keyName: m.keyName,
       })),
@@ -156,12 +174,25 @@ async function handleImport(event: Event) {
     if (Array.isArray(data.assistants)) {
       for (const item of data.assistants) {
         try {
+          // 根据 upstreamName 和 aimodelName 查找匹配的 aimodelId
+          let aimodelId: number | undefined
+          if (item.upstreamName && item.aimodelName) {
+            const upstream = upstreams.value.find(u => u.name === item.upstreamName)
+            if (upstream) {
+              const aimodel = upstream.aimodels?.find(m => m.name === item.aimodelName)
+              if (aimodel) {
+                aimodelId = aimodel.id
+              }
+            }
+          }
+
           await createAssistant({
             name: item.name,
             description: item.description || undefined,
             avatar: item.avatar || undefined,
             systemPrompt: item.systemPrompt || undefined,
             isDefault: false,
+            aimodelId, // 如果找到匹配的模型就设置，否则为 undefined
           })
           assistantCount++
         } catch (e) {

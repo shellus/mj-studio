@@ -45,6 +45,11 @@ export default defineEventHandler(async (event) => {
   // 创建流
   const stream = createEventStream(event)
 
+  // 先推送已缓存的内容（如果有）
+  if (session.content) {
+    stream.push(JSON.stringify(session.content))
+  }
+
   // 注册到会话的订阅者列表
   if (!session.streams) {
     session.streams = new Set()

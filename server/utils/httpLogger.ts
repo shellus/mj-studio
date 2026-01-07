@@ -89,7 +89,7 @@ function truncateBase64(value: string): string {
   return `[base64 ${size} bytes]`
 }
 
-// 递归处理请求体，脱敏敏感信息
+// 递归处理请求体，脱敏敏感信息（深拷贝，不修改原始数据）
 function sanitizeBody(body: any): any {
   if (typeof body !== 'object' || body === null) {
     return body
@@ -101,6 +101,12 @@ function sanitizeBody(body: any): any {
     // 处理 messages 数组
     if (key === 'messages' && Array.isArray(value)) {
       result[key] = truncateMessages(value)
+      continue
+    }
+
+    // 处理 system 字段（Claude API）
+    if (key === 'system' && typeof value === 'string') {
+      result[key] = generateContentPreview(value)
       continue
     }
 
@@ -134,7 +140,8 @@ function sanitizeBody(body: any): any {
 function sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() === 'authorization') {
+    const lowerKey = key.toLowerCase()
+    if (lowerKey === 'authorization' || lowerKey === 'x-api-key') {
       result[key] = sanitizeAuthHeader(value)
     } else {
       result[key] = value

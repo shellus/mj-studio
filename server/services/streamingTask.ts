@@ -15,6 +15,7 @@ import {
   endStreamingSession,
   getStreamingSession,
   getSessionAbortController,
+  getStreamingContent,  // 新增：获取内容但不清理
 } from './streamingCache'
 import { emitToUser } from './globalEvents'
 import type { ChatMessageDone } from './globalEvents'
@@ -23,6 +24,7 @@ import type { LogContext } from '../utils/logger'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
+  userMessageId: number | null // 用户消息 ID（压缩请求时为 null）
   conversationId: number
   userId: number
   userContent: string         // 用户消息内容
@@ -36,6 +38,7 @@ interface StreamingTaskParams {
 export async function startStreamingTask(params: StreamingTaskParams): Promise<void> {
   const {
     messageId,
+    userMessageId,
     conversationId,
     userId,
     userContent,
@@ -111,9 +114,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           break
         }
       }
-      // 排除 compress-request 和当前正在生成的消息
+      // 排除：compress-request 消息、当前 AI 消息、当前用户消息（会通过 userContent 单独传递）
       historyMessages = historyMessages.filter(m =>
-        m.mark !== 'compress-request' && m.id !== messageId
+        m.mark !== 'compress-request'
+        && m.id !== messageId  // 排除当前 AI 消息
+        && m.id !== userMessageId  // 排除当前用户消息（用 ID 精确匹配）
       )
     }
 
@@ -195,11 +200,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     // 检查是否被中止
     if (abortController.signal.aborted) {
       // 被中止的情况：保存已生成的内容，状态设为 stopped
-      const cachedContent = endStreamingSession(messageId)
+      const cachedContent = getStreamingContent(messageId)  // 获取内容但不清理
       const contentToSave = cachedContent || fullContent
       await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
 
-      // 广播 done 事件
+      // 广播 done 事件（在清理缓存之前）
       await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
         conversationId,
         messageId,
@@ -210,6 +215,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           aimodelId: aimodel.id,
         } : {}),
       })
+
+      // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
+      setTimeout(() => {
+        endStreamingSession(messageId)
+      }, 2000)
       return
     }
 
@@ -217,9 +227,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 保存内容并更新状态
     await conversationService.updateMessageContentAndStatus(messageId, fullContent, 'completed', responseMark)
-    endStreamingSession(messageId)
 
-    // 广播 done 事件
+    // 广播 done 事件（在清理缓存之前）
     await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
       conversationId,
       messageId,
@@ -231,10 +240,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       } : {}),
     })
 
+    // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
+    setTimeout(() => {
+      endStreamingSession(messageId)
+    }, 2000)  // 延迟 2 秒
+
   } catch (error: any) {
     // 错误处理：保存错误信息
     const errorMessage = error.message || '生成失败'
-    endStreamingSession(messageId)
 
     // 更新消息为错误状态
     await conversationService.updateMessageContentAndStatus(
@@ -251,6 +264,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       status: 'failed',
       error: errorMessage,
     })
+
+    // 延迟清理缓存
+    setTimeout(() => {
+      endStreamingSession(messageId)
+    }, 2000)
   }
 }
 
