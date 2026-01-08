@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, description, avatar, systemPrompt, aimodelId, isDefault } = body
+  const { name, description, avatar, systemPrompt, aimodelId, isDefault, enableThinking } = body
 
   // 构建更新对象
   const updateData: Record<string, any> = {}
@@ -49,6 +49,10 @@ export default defineEventHandler(async (event) => {
     updateData.isDefault = isDefault
   }
 
+  if (enableThinking !== undefined) {
+    updateData.enableThinking = enableThinking
+  }
+
   const service = useAssistantService()
   const updated = await service.update(assistantId, user.id, updateData)
 
@@ -68,6 +72,7 @@ export default defineEventHandler(async (event) => {
       isDefault: updated.isDefault,
       suggestions: updated.suggestions,
       conversationCount: updated.conversationCount,
+      enableThinking: updated.enableThinking,
     },
   })
 

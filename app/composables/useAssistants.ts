@@ -13,6 +13,7 @@ export interface Assistant {
   createdAt: string
   conversationCount: number
   suggestions?: string[] | null
+  enableThinking: boolean
 }
 
 // 单例模式：防止事件处理器重复注册

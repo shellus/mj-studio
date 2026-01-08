@@ -5,6 +5,7 @@ import { useUpstreamService } from './upstream'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../utils/httpLogger'
+import { OPENAI_REASONING_EFFORT } from '../../app/shared/constants'
 
 // OpenAI 多模态消息内容类型
 type ChatMessageContent =
@@ -18,6 +19,7 @@ interface ChatMessage {
 
 interface ChatStreamChunk {
   content: string
+  thinking?: string  // 思考/推理内容
   done: boolean
 }
 
@@ -200,16 +202,22 @@ export function createChatService(upstream: Upstream, keyName?: string) {
     signal?: AbortSignal,
     logContext?: LogContext,
     conversationId?: number,
-    messageId?: number
+    messageId?: number,
+    enableThinking?: boolean  // 启用思考/推理功能
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${upstream.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
-    const body = {
+    const body: Record<string, unknown> = {
       model: modelName,
       messages,
       stream: true,
+    }
+
+    // 启用思考功能时添加 reasoning_effort 参数
+    if (enableThinking) {
+      body.reasoning_effort = OPENAI_REASONING_EFFORT
     }
 
     // 记录 HTTP 请求日志
@@ -242,6 +250,7 @@ export function createChatService(upstream: Upstream, keyName?: string) {
     }
 
     let totalContent = ''
+    let totalThinking = ''  // 思考/推理内容
 
     try {
       const response = await fetch(url, {
@@ -325,7 +334,17 @@ export function createChatService(upstream: Upstream, keyName?: string) {
 
           try {
             const parsed = JSON.parse(data)
-            const content = parsed.choices?.[0]?.delta?.content || ''
+            const delta = parsed.choices?.[0]?.delta
+
+            // 解析思考/推理内容（OpenAI 格式使用 reasoning_content 字段）
+            const reasoningContent = delta?.reasoning_content || ''
+            if (reasoningContent) {
+              totalThinking += reasoningContent
+              yield { content: '', thinking: reasoningContent, done: false }
+            }
+
+            // 解析正式回复内容
+            const content = delta?.content || ''
             if (content) {
               totalContent += content
               yield { content, done: false }

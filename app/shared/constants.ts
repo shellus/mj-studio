@@ -513,6 +513,22 @@ export const MODELS_WITH_WATERMARK: ImageModelType[] = ['doubao']
  */
 export const MODELS_WITH_BACKGROUND: ImageModelType[] = ['gpt4o-image']
 
+// ==================== 思考功能配置 ====================
+
+/**
+ * 支持思考功能的对话模型类型列表
+ * - 使用 OpenAI 格式的 reasoning_effort 参数
+ */
+export const CHAT_MODELS_WITH_THINKING: ChatModelType[] = ['claude', 'gpt']
+
+/**
+ * OpenAI 推理模型默认 effort 级别
+ * - low: 低推理深度
+ * - medium: 中等推理深度（推荐）
+ * - high: 高推理深度
+ */
+export const OPENAI_REASONING_EFFORT = 'medium' as const
+
 // ==================== 图片上传限制 ====================
 
 /**

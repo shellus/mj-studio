@@ -415,6 +415,19 @@ async function handleUpdateModel(aimodelId: number) {
   }
 }
 
+// 更新助手思考开关
+async function handleUpdateThinking(enableThinking: boolean) {
+  if (!currentAssistant.value) return
+
+  try {
+    await updateAssistant(currentAssistant.value.id, {
+      enableThinking,
+    })
+  } catch (error: any) {
+    toast.add({ title: error.message || '更新失败', color: 'error' })
+  }
+}
+
 // 滚动到压缩请求位置
 function handleScrollToCompress() {
   messageListRef.value?.scrollToCompressRequest()
@@ -490,6 +503,7 @@ onUnmounted(() => {
           :content="currentInputState.content"
           :uploading-files="currentInputState.uploadingFiles"
           :show-compress-hint="currentInputState.showCompressHint"
+          :enable-thinking="currentAssistant?.enableThinking || false"
           @send="handleSendMessage"
           @add-message="handleAddMessage"
           @stop="handleStop"
@@ -499,6 +513,7 @@ onUnmounted(() => {
           @update:content="updateInputContent(currentConversationId, $event)"
           @update:uploading-files="updateUploadingFiles(currentConversationId, $event)"
           @update:show-compress-hint="updateCompressHint(currentConversationId, $event)"
+          @update:enable-thinking="handleUpdateThinking"
         />
       </div>
 

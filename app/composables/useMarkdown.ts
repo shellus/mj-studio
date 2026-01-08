@@ -315,13 +315,23 @@ export async function renderMarkdown(content: string): Promise<string> {
   // 清理零宽字符（U+200B 等），避免影响代码块解析
   let cleanContent = content.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
 
-  // 将 <think>...</think> 转换为折叠块
+  // 将 <think>...</think> 或 <thinking>...</thinking> 转换为折叠块
   cleanContent = cleanContent.replace(
-    /<think>([\s\S]*?)<\/think>\s*/g,
+    /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>\s*/g,
     (_, thinkContent) => {
       const trimmed = thinkContent.trim()
       if (!trimmed) return ''
       return `<details class="think-block"><summary>思考过程</summary>\n\n${trimmed}\n\n</details>\n\n`
+    }
+  )
+
+  // 处理未闭合的思考标签（流式输出中，思考未完成时直接显示内容）
+  cleanContent = cleanContent.replace(
+    /<think(?:ing)?>\n?([\s\S]*)$/,
+    (_, thinkContent) => {
+      const trimmed = thinkContent.trim()
+      if (!trimmed) return '*思考中...*\n\n'
+      return `*思考中...*\n\n${trimmed}`
     }
   )
 

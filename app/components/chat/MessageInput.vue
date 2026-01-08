@@ -14,6 +14,7 @@ const props = defineProps<{
   content: string
   uploadingFiles: UploadingFile[]
   showCompressHint: boolean
+  enableThinking: boolean  // 思考开关状态
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   'update:content': [value: string]
   'update:uploadingFiles': [files: UploadingFile[]]
   'update:showCompressHint': [value: boolean]
+  'update:enableThinking': [value: boolean]
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement>()
@@ -392,9 +394,19 @@ function handleInput(e: Event) {
         :upstreams="upstreams"
         category="chat"
         list-layout
+        compact
         :aimodel-id="currentAimodelId"
         @update:aimodel-id="handleModelChange"
       />
+      <!-- 思考开关 -->
+      <label class="flex items-center gap-2">
+        <UIcon name="i-heroicons-light-bulb" class="w-4 h-4" title="思考开关" />
+        <USwitch
+          :model-value="props.enableThinking"
+          size="sm"
+          @update:model-value="emit('update:enableThinking', $event)"
+        />
+      </label>
       <!-- 文件上传按钮 -->
       <UButton
         variant="ghost"

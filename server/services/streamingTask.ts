@@ -87,6 +87,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       throw new Error('上游配置不存在')
     }
 
+    // 从助手配置读取思考开关
+    const enableThinking = assistant.enableThinking || false
+
     // 构建历史消息上下文
     let historyMessages = result.messages
 
@@ -153,10 +156,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       abortController.signal,
       logContext,
       conversationId,
-      messageId
+      messageId,
+      enableThinking
     )
 
     let fullContent = ''
+    let fullThinking = ''  // 思考内容
+    let thinkingStarted = false  // 是否已输出思考开标签
+    let thinkingEnded = false    // 是否已输出思考闭标签
     let firstChunkReceived = false
     const requestStartTime = Date.now() // 记录请求开始时间
     let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
@@ -167,7 +174,24 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         break
       }
 
+      // 处理思考内容
+      if (chunk.thinking) {
+        fullThinking += chunk.thinking
+        // 首次收到思考内容时，输出开标签
+        if (!thinkingStarted) {
+          thinkingStarted = true
+          appendStreamingContent(messageId, '<thinking>\n')
+        }
+        appendStreamingContent(messageId, chunk.thinking)
+      }
+
       if (chunk.content) {
+        // 如果有思考内容且尚未闭合，先输出闭标签
+        if (thinkingStarted && !thinkingEnded) {
+          thinkingEnded = true
+          appendStreamingContent(messageId, '\n</thinking>\n\n')
+        }
+
         fullContent += chunk.content
 
         // 首个内容块：更新状态为 streaming，并更新预计首字时长
@@ -199,6 +223,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 检查是否被中止
     if (abortController.signal.aborted) {
+      // 如果有未闭合的思考标签，需要闭合
+      if (thinkingStarted && !thinkingEnded) {
+        appendStreamingContent(messageId, '\n</thinking>\n\n')
+      }
+
       // 被中止的情况：保存已生成的内容，状态设为 stopped
       const cachedContent = getStreamingContent(messageId)  // 获取内容但不清理
       const contentToSave = cachedContent || fullContent
@@ -225,8 +254,19 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 正常完成：保存内容并更新状态
 
+    // 如果有未闭合的思考标签，需要闭合
+    if (thinkingStarted && !thinkingEnded) {
+      appendStreamingContent(messageId, '\n</thinking>\n\n')
+    }
+
+    // 使用缓存的完整内容（包含标签），保持与流式输出一致
+    const cachedContent = getStreamingContent(messageId)
+    const finalContent = cachedContent || (fullThinking
+      ? `<thinking>\n${fullThinking}\n</thinking>\n\n${fullContent}`
+      : fullContent)
+
     // 保存内容并更新状态
-    await conversationService.updateMessageContentAndStatus(messageId, fullContent, 'completed', responseMark)
+    await conversationService.updateMessageContentAndStatus(messageId, finalContent, 'completed', responseMark)
 
     // 广播 done 事件（在清理缓存之前）
     await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {

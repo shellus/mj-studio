@@ -595,7 +595,7 @@ export function useConversations() {
   }
 
   // 发送消息（全局 SSE 会推送响应）
-  async function sendMessage(conversationId: number, content: string, files?: MessageFile[], modelName?: string | null) {
+  async function sendMessage(conversationId: number, content: string, files?: MessageFile[]) {
     try {
       // 发送 POST 请求创建消息（消息会通过全局 SSE 推送）
       await $fetch<{ userMessageId: number | null; assistantMessageId: number }>(`/api/conversations/${conversationId}/messages`, {

@@ -204,7 +204,8 @@ export function createClaudeChatService(upstream: Upstream, keyName?: string) {
     signal?: AbortSignal,
     logContext?: LogContext,
     conversationId?: number,
-    messageId?: number
+    messageId?: number,
+    enableThinking?: boolean  // Claude API 格式暂不支持，预留参数保持接口一致
   ): AsyncGenerator<ChatStreamChunk> {
     const url = `${upstream.baseUrl}/v1/messages`
     const messages = buildMessages(historyMessages, userMessage, userFiles)

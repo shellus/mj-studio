@@ -18,6 +18,8 @@ const props = defineProps<{
   noAutoSelect?: boolean
   // 下拉框右对齐（向左展开）
   alignRight?: boolean
+  // 紧凑模式（无边框，更小尺寸，适合工具栏）
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -230,24 +232,29 @@ defineExpose({
     <div v-else ref="triggerRef">
       <button
         type="button"
-        class="flex items-center justify-between gap-2 w-full min-w-48 px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) transition-colors text-sm"
-        :class="{
-          'opacity-50 cursor-not-allowed': !hasModels,
-          'hover:bg-(--ui-bg-elevated)': !readOnly && hasModels,
-          'cursor-default': readOnly
-        }"
+        class="flex items-center justify-between transition-colors"
+        :class="[
+          compact
+            ? 'gap-2 px-2 py-1 rounded text-sm hover:bg-(--ui-bg-accented)'
+            : 'gap-2 w-full min-w-48 px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) text-sm',
+          {
+            'opacity-50 cursor-not-allowed': !hasModels,
+            'hover:bg-(--ui-bg-elevated)': !readOnly && hasModels && !compact,
+            'cursor-default': readOnly
+          }
+        ]"
         :disabled="!hasModels || readOnly"
         @click="toggleDropdown"
       >
         <span class="flex items-center gap-2">
-          <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4 text-(--ui-text-muted)" />
+          <UIcon name="i-heroicons-cpu-chip" :class="'w-4 h-4'" class="text-(--ui-text-muted)" />
           <span class="text-(--ui-text)">{{ currentDisplayText }}</span>
         </span>
         <UIcon
           v-if="!readOnly"
           name="i-heroicons-chevron-down"
-          class="w-4 h-4 text-(--ui-text-muted) transition-transform"
-          :class="{ 'rotate-180': isOpen }"
+          :class="['w-4 h-4', { 'rotate-180': isOpen }]"
+          class="text-(--ui-text-muted) transition-transform"
         />
       </button>
     </div>

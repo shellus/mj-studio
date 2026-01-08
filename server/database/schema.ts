@@ -126,6 +126,7 @@ export const assistants = sqliteTable('assistants', {
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   suggestions: text('suggestions', { mode: 'json' }).$type<string[]>(), // 开场白建议缓存
   conversationCount: integer('conversation_count').notNull().default(0), // 对话数量（冗余字段，由后端维护）
+  enableThinking: integer('enable_thinking', { mode: 'boolean' }).notNull().default(false), // 是否启用思考功能
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

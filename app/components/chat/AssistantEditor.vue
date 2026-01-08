@@ -25,6 +25,7 @@ const formData = reactive({
   avatar: '',
   systemPrompt: '',
   aimodelId: null as number | null,
+  enableThinking: false,
 })
 
 // 表单验证
@@ -45,6 +46,7 @@ watch(() => props.assistant, (assistant) => {
       avatar: assistant.avatar || '',
       systemPrompt: assistant.systemPrompt || '',
       aimodelId: assistant.aimodelId,
+      enableThinking: assistant.enableThinking || false,
     })
   } else {
     Object.assign(formData, {
@@ -53,6 +55,7 @@ watch(() => props.assistant, (assistant) => {
       avatar: '',
       systemPrompt: '',
       aimodelId: null,
+      enableThinking: false,
     })
   }
 }, { immediate: true })
@@ -85,6 +88,7 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
     avatar: event.data.avatar || null,
     systemPrompt: event.data.systemPrompt?.trim() || null,
     aimodelId: event.data.aimodelId,
+    enableThinking: event.data.enableThinking,
   })
 }
 
@@ -159,6 +163,10 @@ function handleDeleteConfirm() {
                 category="chat"
                 v-model:aimodel-id="formData.aimodelId"
               />
+            </UFormField>
+            <UFormField label="思考模式" name="enableThinking">
+              <USwitch v-model="formData.enableThinking" />
+              <span class="ml-2 text-sm text-(--ui-text-muted)">启用后 AI 会先进行深度思考再回答</span>
             </UFormField>
           </div>
         </div>
