@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
     // 设置响应头
     setResponseStatus(event, 206)
     setHeader(event, 'Content-Type', mimeType)
-    setHeader(event, 'Content-Length', chunkSize.toString())
+    setHeader(event, 'Content-Length', chunkSize)
     setHeader(event, 'Content-Range', `bytes ${start}-${end}/${size}`)
     setHeader(event, 'Accept-Ranges', 'bytes')
     setHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable')
@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
   const isLargeFile = size > 10 * 1024 * 1024 // 10MB
 
   setHeader(event, 'Content-Type', mimeType)
-  setHeader(event, 'Content-Length', size.toString())
+  setHeader(event, 'Content-Length', size)
   setHeader(event, 'Accept-Ranges', 'bytes')
   setHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable')
 

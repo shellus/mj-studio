@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
     conversationId: message.conversationId,
     role: 'assistant',
     content: '',
-    modelDisplayName,
+    modelDisplayName: modelDisplayName ?? undefined,
     status: 'created',
   })
 
@@ -108,8 +108,7 @@ export default defineEventHandler(async (event) => {
       status: 'created',
       mark: null,
       sortId: null,
-      createdAt: assistantMessage.createdAt,
-      updatedAt: assistantMessage.updatedAt,
+      createdAt: assistantMessage.createdAt instanceof Date ? assistantMessage.createdAt.toISOString() : assistantMessage.createdAt,
     },
   })
 

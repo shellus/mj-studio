@@ -29,6 +29,9 @@ export function useUserService() {
       password: data.password,
       name: data.name ?? null,
     }).returning()
+    if (!user) {
+      throw new Error('创建用户失败')
+    }
     return user
   }
 

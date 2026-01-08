@@ -810,11 +810,12 @@ export function useTaskService() {
         logTaskResponse(task.id, {
           status: 200,
           statusText: 'OK (Poll)',
-          data: {
+          body: {
             status: mjTask.status,
             failReason: mjTask.failReason,
             progress: mjTask.progress,
           },
+          durationMs: 0,
         })
       }
 

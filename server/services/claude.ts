@@ -18,6 +18,7 @@ interface ClaudeMessage {
 
 interface ChatStreamChunk {
   content: string
+  thinking?: string  // 思考/推理内容（Claude API 格式暂不支持，保留用于类型一致性）
   done: boolean
 }
 
@@ -32,14 +33,18 @@ function filesToClaudeContent(files: MessageFile[]): ClaudeContentBlock[] {
         // 从 data URL 中提取纯 base64 数据
         const match = base64.match(/^data:([^;]+);base64,(.+)$/)
         if (match) {
-          contents.push({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: match[1],
-              data: match[2],
-            },
-          })
+          const mediaType = match[1]
+          const data = match[2]
+          if (mediaType && data) {
+            contents.push({
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mediaType,
+                data: data,
+              },
+            })
+          }
         }
       }
     }
@@ -64,8 +69,11 @@ function buildClaudeMessageContent(text: string, files?: MessageFile[] | null): 
     contents.push({ type: 'text', text })
   }
 
-  if (contents.length === 1 && contents[0].type === 'text') {
-    return text
+  if (contents.length === 1) {
+    const firstContent = contents[0]
+    if (firstContent?.type === 'text') {
+      return text
+    }
   }
 
   return contents

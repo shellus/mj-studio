@@ -25,7 +25,6 @@ export interface ChatMessageCreated {
     mark: string | null
     sortId: number | null
     createdAt?: string
-    updatedAt?: string
   }
 }
 
@@ -97,6 +96,7 @@ export interface ChatAssistantUpdated {
     isDefault: boolean
     suggestions: string[] | null
     conversationCount: number
+    enableThinking: boolean
   }
 }
 

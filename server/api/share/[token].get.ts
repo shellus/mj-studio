@@ -10,7 +10,10 @@ function extractUniqueIds(content: string): string[] {
   const ids: string[] = []
   let match
   while ((match = regex.exec(content)) !== null) {
-    ids.push(match[1].trim())
+    const id = match[1]
+    if (id) {
+      ids.push(id.trim())
+    }
   }
   return ids
 }

@@ -47,6 +47,9 @@ export function useConversationService() {
       updatedAt: now,
     }).returning()
 
+    if (!conversation) {
+      throw new Error('创建对话失败')
+    }
     return conversation
   }
 
@@ -108,6 +111,10 @@ export function useConversationService() {
       status: data.status ?? null,
       sortId: data.sortId ?? null,
     }).returning()
+
+    if (!message) {
+      throw new Error('添加消息失败')
+    }
 
     // 如果没有指定 sortId，则设置为 id（普通消息）
     if (!data.sortId) {

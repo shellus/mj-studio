@@ -107,7 +107,8 @@ export async function downloadFile(url: string, logPrefix?: string): Promise<str
     }
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream'
-    const ext = getExtFromMimeType(contentType.split(';')[0])
+    const mimeTypePart = contentType.split(';')[0]
+    const ext = getExtFromMimeType(mimeTypePart || 'application/octet-stream')
 
     const buffer = Buffer.from(await response.arrayBuffer())
     const fileName = generateFileName(buffer, ext)
@@ -175,6 +176,10 @@ export function saveBase64File(base64Data: string, originalName?: string): SaveF
 
     const mimeType = matches[1]
     const data = matches[2]
+    if (!mimeType || !data) {
+      console.error('[File] 无效的 base64 格式')
+      return null
+    }
     const buffer = Buffer.from(data, 'base64')
 
     // 从原始文件名或 MIME 类型获取扩展名

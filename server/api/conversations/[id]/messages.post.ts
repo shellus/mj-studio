@@ -102,8 +102,7 @@ export default defineEventHandler(async (event) => {
         status: null,
         mark: userMessage.mark || null,
         sortId: userMessage.sortId || null,
-        createdAt: userMessage.createdAt,
-        updatedAt: userMessage.updatedAt,
+        createdAt: userMessage.createdAt instanceof Date ? userMessage.createdAt.toISOString() : userMessage.createdAt,
       },
     })
 
@@ -119,7 +118,7 @@ export default defineEventHandler(async (event) => {
     conversationId,
     role: 'assistant',
     content: '', // 初始内容为空
-    modelDisplayName, // 设置模型显示名称
+    modelDisplayName: modelDisplayName ?? undefined, // 设置模型显示名称
     status: 'created',
     mark: responseMark,
     sortId: responseSortId,
@@ -138,8 +137,7 @@ export default defineEventHandler(async (event) => {
       status: 'created',
       mark: assistantMessage.mark || null,
       sortId: assistantMessage.sortId || null,
-      createdAt: assistantMessage.createdAt,
-      updatedAt: assistantMessage.updatedAt,
+      createdAt: assistantMessage.createdAt instanceof Date ? assistantMessage.createdAt.toISOString() : assistantMessage.createdAt,
     },
   })
 

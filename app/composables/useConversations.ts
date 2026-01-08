@@ -309,10 +309,10 @@ export function useConversations() {
 
     // 按 message.id 做 upsert
     const existingIndex = messages.value.findIndex(m => m.id === message.id)
+    const existing = messages.value[existingIndex]
 
-    if (existingIndex >= 0) {
+    if (existingIndex >= 0 && existing) {
       // 更新现有消息（直接修改属性，保持对象引用不变）
-      const existing = messages.value[existingIndex]
       existing.conversationId = message.conversationId
       existing.role = message.role
       // 只在消息不是 streaming 状态时更新 content（避免覆盖流式内容）
@@ -677,9 +677,11 @@ export function useConversations() {
     // 清理所有输入状态
     for (const convId in inputStates.value) {
       const state = inputStates.value[convId]
-      for (const file of state.uploadingFiles) {
-        if (file.previewUrl) {
-          URL.revokeObjectURL(file.previewUrl)
+      if (state) {
+        for (const file of state.uploadingFiles) {
+          if (file.previewUrl) {
+            URL.revokeObjectURL(file.previewUrl)
+          }
         }
       }
     }

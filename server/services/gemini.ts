@@ -127,7 +127,11 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
     for (const img of images) {
       const match = img.match(/^data:(image\/[^;]+);base64,(.+)$/)
       if (match) {
-        parts.push({ inlineData: { mimeType: match[1], data: match[2] } })
+        const mimeType = match[1]
+        const data = match[2]
+        if (mimeType && data) {
+          parts.push({ inlineData: { mimeType, data } })
+        }
       }
     }
     parts.push({ text: prompt })

@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
         isDefault: updatedAssistant.isDefault,
         suggestions: updatedAssistant.suggestions,
         conversationCount: updatedAssistant.conversationCount,
+        enableThinking: updatedAssistant.enableThinking,
       },
     })
   }

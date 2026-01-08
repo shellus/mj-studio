@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   // 验证模型类型
   const validModelTypes = taskType === 'video' ? VIDEO_MODEL_TYPES : IMAGE_MODEL_TYPES
-  if (!modelType || !validModelTypes.includes(modelType)) {
+  if (!modelType || !(validModelTypes as readonly string[]).includes(modelType)) {
     throw createError({
       statusCode: 400,
       message: '请选择有效的模型类型',

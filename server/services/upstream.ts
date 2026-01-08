@@ -83,6 +83,9 @@ export function useUpstreamService() {
       userApiKey: data.userApiKey ?? null,
     }).returning()
 
+    if (!upstream) {
+      throw new Error('创建上游配置失败')
+    }
     return upstream
   }
 
@@ -157,7 +160,8 @@ export function useUpstreamService() {
       const found = upstream.apiKeys.find(k => k.name === targetName)
       if (found) return found.key
       // 如果找不到指定的 key，返回第一个
-      return upstream.apiKeys[0].key
+      const firstKey = upstream.apiKeys[0]
+      if (firstKey) return firstKey.key
     }
 
     // 兼容旧数据：使用 apiKey 字段

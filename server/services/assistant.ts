@@ -53,6 +53,9 @@ export function useAssistantService() {
       isDefault: data.isDefault ?? false,
     }).returning()
 
+    if (!assistant) {
+      throw new Error('创建助手失败')
+    }
     return assistant
   }
 
@@ -106,7 +109,10 @@ export function useAssistantService() {
         })
       } else {
         // 将第一个设为默认
-        defaultAssistant = await update(allAssistants[0].id, userId, { isDefault: true })
+        const firstAssistant = allAssistants[0]
+        if (firstAssistant) {
+          defaultAssistant = await update(firstAssistant.id, userId, { isDefault: true })
+        }
       }
     }
     return defaultAssistant!

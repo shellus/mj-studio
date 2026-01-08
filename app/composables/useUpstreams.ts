@@ -149,8 +149,9 @@ export function useUpstreams() {
     // 查询成功后更新本地状态
     if (result.success && result.upstreamInfo) {
       const index = upstreams.value.findIndex(u => u.id === id)
-      if (index >= 0) {
-        upstreams.value[index].upstreamInfo = result.upstreamInfo
+      const upstream = upstreams.value[index]
+      if (index >= 0 && upstream) {
+        upstream.upstreamInfo = result.upstreamInfo
       }
     }
 

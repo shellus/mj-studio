@@ -78,7 +78,9 @@ export default defineEventHandler(async (event) => {
   // 前2条
   for (let i = 0; i < Math.min(2, messages.length); i++) {
     const msg = messages[i]
-    contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
+    if (msg) {
+      contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
+    }
   }
 
   // 后2条（如果和前2条不重叠）
@@ -86,7 +88,9 @@ export default defineEventHandler(async (event) => {
     const startIdx = Math.max(messages.length - 2, 2)
     for (let i = startIdx; i < messages.length; i++) {
       const msg = messages[i]
-      contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
+      if (msg) {
+        contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
+      }
     }
   }
 

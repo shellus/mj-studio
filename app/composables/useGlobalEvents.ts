@@ -16,11 +16,11 @@ export interface ChatMessageCreated {
     role: 'user' | 'assistant'
     content: string
     files: any[] | null
+    modelDisplayName?: string | null
     status: 'created' | 'pending' | 'streaming' | 'completed' | 'stopped' | 'failed' | null
     mark: string | null
     sortId: number | null
     createdAt?: string
-    updatedAt?: string
   }
 }
 
@@ -92,6 +92,7 @@ export interface ChatAssistantUpdated {
     isDefault: boolean
     suggestions: string[] | null
     conversationCount: number
+    enableThinking: boolean
   }
 }
 

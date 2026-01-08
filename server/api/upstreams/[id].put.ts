@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
         modelName: m.modelName,
         name: m.name,  // 显示名称
         estimatedTime: m.estimatedTime,
-        keyName: m.keyName,
+        keyName: m.keyName ?? 'default',
       }))
     )
   }

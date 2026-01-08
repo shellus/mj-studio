@@ -38,6 +38,9 @@ function dataUrlToBlob(dataUrl: string): Blob {
   }
   const mimeType = match[1]
   const base64Data = match[2]
+  if (!mimeType || !base64Data) {
+    throw new Error('Invalid data URL format')
+  }
   const binaryString = atob(base64Data)
   const bytes = new Uint8Array(binaryString.length)
   for (let i = 0; i < binaryString.length; i++) {
@@ -170,6 +173,9 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
 
     const imageDataUrl = images[0]
+    if (!imageDataUrl) {
+      return generateImage(prompt, modelName, taskId, signal, modelParams)
+    }
 
     // Flux 模型：使用 /v1/images/edits 端点和 multipart/form-data
     if (isFluxModel(modelName)) {
@@ -187,7 +193,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     } else {
       // 其他模型：提取纯 base64
       const base64Match = imageDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
-      imageValue = base64Match ? base64Match[1] : imageDataUrl
+      imageValue = base64Match?.[1] ?? imageDataUrl
     }
 
     const body: Record<string, any> = {

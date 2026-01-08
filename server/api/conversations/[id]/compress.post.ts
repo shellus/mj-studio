@@ -48,7 +48,8 @@ export default defineEventHandler(async (event) => {
   // 找到最后一个 compress-response 消息的位置（上次压缩点）
   let lastCompressIndex = -1
   for (let i = validMessages.length - 1; i >= 0; i--) {
-    if (validMessages[i].mark === 'compress-response') {
+    const msg = validMessages[i]
+    if (msg && msg.mark === 'compress-response') {
       lastCompressIndex = i
       break
     }
@@ -83,6 +84,9 @@ export default defineEventHandler(async (event) => {
   // 计算 sortId
   // 压缩请求的 sortId = 待压缩消息最后一条的 sortId + 1
   const lastCompressMsg = messagesToCompress[messagesToCompress.length - 1]
+  if (!lastCompressMsg) {
+    throw createError({ statusCode: 400, message: '可压缩的消息太少' })
+  }
   const compressRequestSortId = (lastCompressMsg.sortId || lastCompressMsg.id) + 1
 
   // 插入压缩请求消息
@@ -97,8 +101,11 @@ export default defineEventHandler(async (event) => {
   // 更新保留消息的 sortId（压缩响应的 sortId 会在 messages.post.ts 中设置）
   // 保留消息的 sortId 从 compressRequestSortId + 2 开始（+1 是压缩响应）
   for (let i = 0; i < keepMessages.length; i++) {
-    const newSortId = compressRequestSortId + 2 + i
-    await conversationService.updateMessageSortId(keepMessages[i].id, newSortId)
+    const keepMsg = keepMessages[i]
+    if (keepMsg) {
+      const newSortId = compressRequestSortId + 2 + i
+      await conversationService.updateMessageSortId(keepMsg.id, newSortId)
+    }
   }
 
   return {

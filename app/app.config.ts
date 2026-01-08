@@ -11,7 +11,9 @@ export default defineAppConfig({
     },
     // Modal 遮罩背景改为深色
     modal: {
-      overlay: 'bg-black/70 backdrop-blur-sm',
+      slots: {
+        overlay: 'bg-black/70 backdrop-blur-sm',
+      },
     },
   },
 })

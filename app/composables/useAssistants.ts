@@ -32,11 +32,21 @@ export function useAssistants() {
     on<ChatAssistantUpdated>('chat.assistant.updated', (data) => {
       const { assistant } = data
       const index = assistants.value.findIndex(a => a.id === assistant.id)
-      if (index >= 0) {
-        // 更新助手信息
+      const existing = assistants.value[index]
+      if (index >= 0 && existing) {
+        // 更新助手信息（只更新事件中包含的字段，保留本地的 userId 和 createdAt）
         assistants.value[index] = {
-          ...assistants.value[index],
-          ...assistant,
+          ...existing,
+          id: assistant.id,
+          name: assistant.name,
+          description: assistant.description,
+          avatar: assistant.avatar,
+          systemPrompt: assistant.systemPrompt,
+          aimodelId: assistant.aimodelId,
+          isDefault: assistant.isDefault,
+          suggestions: assistant.suggestions,
+          conversationCount: assistant.conversationCount,
+          enableThinking: assistant.enableThinking,
         }
 
         // 如果设为默认，更新其他助手的默认状态

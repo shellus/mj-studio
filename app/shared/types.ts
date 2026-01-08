@@ -171,7 +171,7 @@ export interface MessageFile {
  * - 用于标识上游 API 平台，便于余额查询等功能
  * - oneapi: OneAPI/NewAPI 格式，GET /api/user/self
  */
-export type UpstreamPlatform = 'oneapi'
+export type UpstreamPlatform = 'oneapi' | 'n1n' | 'yunwu'
 
 /**
  * 上游信息缓存

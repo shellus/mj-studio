@@ -17,7 +17,7 @@ interface ChatMessage {
   content: string | ChatMessageContent[]
 }
 
-interface ChatStreamChunk {
+export interface ChatStreamChunk {
   content: string
   thinking?: string  // 思考/推理内容
   done: boolean
@@ -64,7 +64,8 @@ function buildMessageContent(text: string, files?: MessageFile[] | null): string
   contents.push(...fileContents)
 
   // 如果只有文本没有有效的文件内容，返回纯文本
-  if (contents.length === 1 && contents[0].type === 'text') {
+  const firstContent = contents[0]
+  if (contents.length === 1 && firstContent?.type === 'text') {
     return text
   }
 
