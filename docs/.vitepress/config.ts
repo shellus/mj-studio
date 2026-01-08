@@ -64,15 +64,6 @@ export default withMermaid(
         ],
       },
       {
-        text: '工作流',
-        items: [
-          { text: '画布工作流设计', link: '/workflow/画布工作流设计' },
-          { text: '节点类型系统', link: '/workflow/工作流节点类型系统' },
-          { text: '执行系统', link: '/workflow/工作流执行系统' },
-          { text: 'ComfyUI 集成', link: '/workflow/ComfyUI集成指南' },
-        ],
-      },
-      {
         text: '开发规范',
         items: [
           { text: '设计系统', link: '/dev-spec/设计系统' },

@@ -42,7 +42,6 @@ watch(user, (val) => {
 // 导航项
 const navItems = [
   { label: '创作', to: '/studio', icon: 'i-heroicons-paint-brush' },
-  { label: '工作流', to: '/workflows', icon: 'i-heroicons-square-3-stack-3d' },
   { label: '对话', to: '/chat', icon: 'i-heroicons-chat-bubble-left-right' },
   { label: '文档', to: '/docs/', icon: 'i-heroicons-question-mark-circle', external: true },
   { label: '设置', to: '/settings', icon: 'i-heroicons-cog-6-tooth' },
