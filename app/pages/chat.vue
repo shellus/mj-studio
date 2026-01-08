@@ -254,6 +254,19 @@ async function handleGenerateTitle(id: number) {
   }
 }
 
+// 分享对话
+async function handleShare(id: number) {
+  try {
+    const result = await $fetch<{ token: string }>(`/api/conversations/${id}/share`, {
+      method: 'POST',
+    })
+    const shareUrl = `/share/${result.token}`
+    window.open(shareUrl, '_blank')
+  } catch (error: any) {
+    toast.add({ title: error.message || '生成分享链接失败', color: 'error' })
+  }
+}
+
 // 删除消息
 async function handleDeleteMessage(id: number) {
   try {
@@ -507,6 +520,7 @@ onUnmounted(() => {
           @delete="handleDeleteConversation"
           @rename="handleRenameConversation"
           @generate-title="handleGenerateTitle"
+          @share="handleShare"
         />
       </div>
     </div>
@@ -543,6 +557,7 @@ onUnmounted(() => {
             @delete="handleDeleteConversation"
             @rename="handleRenameConversation"
             @generate-title="handleGenerateTitle"
+            @export-pdf="handleExportPdf"
           />
         </div>
       </template>

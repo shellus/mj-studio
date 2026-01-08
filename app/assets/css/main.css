@@ -49,3 +49,43 @@
 .markdown-content .shiki {
   border-radius: 0.5rem;
 }
+
+/* 思考过程折叠块 */
+.think-block {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--color-zinc-100);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.dark .think-block {
+  background: var(--color-zinc-800);
+}
+
+.think-block summary {
+  cursor: pointer;
+  color: var(--color-zinc-500);
+  font-size: 12px;
+  user-select: none;
+}
+
+.think-block summary:hover {
+  color: var(--color-zinc-700);
+}
+
+.dark .think-block summary:hover {
+  color: var(--color-zinc-300);
+}
+
+.think-block[open] summary {
+  margin-bottom: 8px;
+}
+
+.think-block > *:not(summary) {
+  color: var(--color-zinc-600);
+}
+
+.dark .think-block > *:not(summary) {
+  color: var(--color-zinc-400);
+}
