@@ -54,6 +54,7 @@ export default withMermaid(
           { text: '生图功能', link: '/features/生图功能介绍' },
           { text: '视频生成', link: '/features/视频生成功能介绍' },
           { text: '嵌入式绘图组件', link: '/features/嵌入式绘图组件介绍' },
+          { text: 'MCP介绍', link: '/features/MCP接口功能介绍.md' },
         ],
       },
       {
