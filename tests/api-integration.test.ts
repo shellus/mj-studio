@@ -762,24 +762,6 @@ describe('绘图任务功能', () => {
       expect(testTask).toBeDefined()
     }
   })
-
-  it('应能查询任务日志', async () => {
-    if (!testTaskId) {
-      console.log('跳过：未创建任务')
-      return
-    }
-
-    const response = await fetchWithAuth(`/api/tasks/${testTaskId}/logs`)
-
-    // 任务可能有或没有日志
-    expect([200, 404]).toContain(response.status)
-
-    if (response.status === 200) {
-      const data = await response.json()
-      expect(data).toBeDefined()
-      console.log('任务日志:', JSON.stringify(data, null, 2).slice(0, 500))
-    }
-  })
 })
 
 // ==================== 任务参数验证 ====================

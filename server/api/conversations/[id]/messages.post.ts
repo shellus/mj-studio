@@ -4,9 +4,7 @@ import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useAimodelService } from '../../../services/aimodel'
 import { startStreamingTask } from '../../../services/streamingTask'
-import { emitToUser } from '../../../services/globalEvents'
 import type { MessageMark, MessageFile } from '../../../database/schema'
-import type { ChatMessageCreated } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -81,32 +79,15 @@ export default defineEventHandler(async (event) => {
       responseMark = 'compress-response'
     }
   } else {
-    // 普通消息：创建用户消息
-    userMessage = await conversationService.addMessage({
+    // 普通消息：创建用户消息（service.addMessage 会自动广播 chat.message.created 事件）
+    userMessage = await conversationService.addMessage(user.id, {
       conversationId,
       role: 'user',
       content: content?.trim() || '',
       files: files && files.length > 0 ? files : undefined,
     })
 
-    // 广播用户消息创建事件
-    await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
-      conversationId,
-      message: {
-        id: userMessage.id,
-        conversationId,
-        role: 'user',
-        content: userMessage.content,
-        files: userMessage.files || null,
-        modelDisplayName: null,  // 用户消息没有模型
-        status: null,
-        mark: userMessage.mark || null,
-        sortId: userMessage.sortId || null,
-        createdAt: userMessage.createdAt instanceof Date ? userMessage.createdAt.toISOString() : userMessage.createdAt,
-      },
-    })
-
-    // 如果是首条消息，更新对话标题
+    // 如果是首条消息，更新对话标题（service.updateTitle 会自动广播 chat.conversation.updated 事件）
     if (result.messages.length === 0) {
       const title = conversationService.generateTitle(content?.trim() || (files?.[0]?.name || '新对话'))
       await conversationService.updateTitle(conversationId, user.id, title)
@@ -114,7 +95,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // 创建 AI 消息（status: created，content 为空）
-  const assistantMessage = await conversationService.addMessage({
+  // service.addMessage 会自动广播 chat.message.created 事件
+  const assistantMessage = await conversationService.addMessage(user.id, {
     conversationId,
     role: 'assistant',
     content: '', // 初始内容为空
@@ -122,23 +104,6 @@ export default defineEventHandler(async (event) => {
     status: 'created',
     mark: responseMark,
     sortId: responseSortId,
-  })
-
-  // 广播 AI 消息创建事件
-  await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
-    conversationId,
-    message: {
-      id: assistantMessage.id,
-      conversationId,
-      role: 'assistant',
-      content: '',
-      files: null,
-      modelDisplayName,  // AI 消息的模型显示名称
-      status: 'created',
-      mark: assistantMessage.mark || null,
-      sortId: assistantMessage.sortId || null,
-      createdAt: assistantMessage.createdAt instanceof Date ? assistantMessage.createdAt.toISOString() : assistantMessage.createdAt,
-    },
   })
 
   // 异步启动流式生成任务（不阻塞响应）

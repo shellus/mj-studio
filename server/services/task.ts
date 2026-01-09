@@ -16,7 +16,7 @@ import { classifyFetchError, classifyError, extractFetchErrorInfo, ERROR_MESSAGE
 import { logTaskResponse } from '../utils/httpLogger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
-import { emitToUser, type TaskStatusUpdated, type TaskCreated } from './globalEvents'
+import { emitToUser, type TaskStatusUpdated, type TaskCreated, type TaskDeleted, type TaskRestored, type TaskBlurUpdated, type TasksBlurUpdated } from './globalEvents'
 import { getErrorMessage } from '../../app/shared/types'
 
 // 存储每个任务的 AbortController，用于取消请求
@@ -300,6 +300,11 @@ export function useTaskService() {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
       .returning()
+
+    if (updated) {
+      await emitToUser<TaskDeleted>(userId, 'task.deleted', { taskId: id })
+    }
+
     return !!updated
   }
 
@@ -369,6 +374,11 @@ export function useTaskService() {
       .set({ deletedAt: null, updatedAt: new Date() })
       .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNotNull(tasks.deletedAt)))
       .returning()
+
+    if (updated) {
+      await emitToUser<TaskRestored>(userId, 'task.restored', { taskId: id })
+    }
+
     return !!updated
   }
 
@@ -387,9 +397,35 @@ export function useTaskService() {
       condition = and(condition, inArray(tasks.id, taskIds))
     }
 
-    await db.update(tasks)
+    const updated = await db.update(tasks)
       .set({ isBlurred, updatedAt: new Date() })
       .where(condition!)
+      .returning({ id: tasks.id })
+
+    if (updated.length > 0) {
+      const updatedIds = updated.map(t => t.id)
+      await emitToUser<TasksBlurUpdated>(userId, 'tasks.blur.updated', {
+        taskIds: updatedIds,
+        isBlurred,
+      })
+    }
+  }
+
+  // 更新单个任务模糊状态
+  async function updateBlur(id: number, userId: number, isBlurred: boolean): Promise<boolean> {
+    const [updated] = await db.update(tasks)
+      .set({ isBlurred, updatedAt: new Date() })
+      .where(and(eq(tasks.id, id), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+      .returning()
+
+    if (updated) {
+      await emitToUser<TaskBlurUpdated>(userId, 'task.blur.updated', {
+        taskId: id,
+        isBlurred,
+      })
+    }
+
+    return !!updated
   }
 
   // 提交任务（根据apiFormat选择服务）
@@ -941,6 +977,19 @@ export function useTaskService() {
       throw new Error('创建任务失败')
     }
 
+    // 广播任务创建事件
+    await emitToUser<TaskCreated>(userId, 'task.created', {
+      task: {
+        id: newTask.id,
+        userId: newTask.userId,
+        taskType: newTask.taskType,
+        modelType: newTask.modelType,
+        prompt: newTask.prompt ?? '',
+        status: newTask.status,
+        createdAt: newTask.createdAt instanceof Date ? newTask.createdAt.toISOString() : newTask.createdAt,
+      },
+    })
+
     const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
@@ -994,6 +1043,7 @@ export function useTaskService() {
     restoreTask,
     emptyTrash,
     batchBlur,
+    updateBlur,
     submitTask,
     syncTaskStatus,
     executeAction,

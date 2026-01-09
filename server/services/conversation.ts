@@ -2,6 +2,7 @@
 import { db } from '../database'
 import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile } from '../database/schema'
 import { eq, and, desc, inArray } from 'drizzle-orm'
+import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated, type ChatConversationDeleted, type ChatMessageCreated, type ChatMessageUpdated, type ChatMessageDeleted, type ChatMessagesDeleted } from './globalEvents'
 
 export function useConversationService() {
   // 获取用户在某个助手下的所有对话
@@ -50,6 +51,19 @@ export function useConversationService() {
     if (!conversation) {
       throw new Error('创建对话失败')
     }
+
+    // 广播对话创建事件
+    await emitToUser<ChatConversationCreated>(data.userId, 'chat.conversation.created', {
+      conversation: {
+        id: conversation.id,
+        userId: conversation.userId,
+        assistantId: conversation.assistantId,
+        title: conversation.title,
+        createdAt: conversation.createdAt instanceof Date ? conversation.createdAt.toISOString() : conversation.createdAt,
+        updatedAt: conversation.updatedAt instanceof Date ? conversation.updatedAt.toISOString() : conversation.updatedAt,
+      },
+    })
+
     return conversation
   }
 
@@ -59,6 +73,17 @@ export function useConversationService() {
       .set({ title, updatedAt: new Date() })
       .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
       .returning()
+
+    if (updated) {
+      // 广播对话更新事件
+      await emitToUser<ChatConversationUpdated>(userId, 'chat.conversation.updated', {
+        conversation: {
+          id: updated.id,
+          title: updated.title,
+          updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        },
+      })
+    }
 
     return updated
   }
@@ -71,12 +96,14 @@ export function useConversationService() {
   }
 
   // 删除对话（级联删除消息）
-  async function remove(id: number, userId: number): Promise<boolean> {
+  async function remove(id: number, userId: number): Promise<{ success: boolean; assistantId?: number }> {
     // 先验证对话属于该用户
     const conversation = await getById(id)
     if (!conversation || conversation.userId !== userId) {
-      return false
+      return { success: false }
     }
+
+    const assistantId = conversation.assistantId
 
     // 删除所有消息
     await db.delete(messages)
@@ -87,11 +114,20 @@ export function useConversationService() {
       .where(eq(conversations.id, id))
       .returning()
 
-    return result.length > 0
+    if (result.length > 0) {
+      // 广播对话删除事件
+      await emitToUser<ChatConversationDeleted>(userId, 'chat.conversation.deleted', {
+        conversationId: id,
+        assistantId,
+      })
+    }
+
+    return { success: result.length > 0, assistantId }
   }
 
   // 添加消息
-  async function addMessage(data: {
+  // userId 参数用于广播事件，支持未来多用户协同场景
+  async function addMessage(userId: number, data: {
     conversationId: number
     role: 'user' | 'assistant'
     content: string
@@ -126,6 +162,23 @@ export function useConversationService() {
 
     // 更新对话时间
     await touch(data.conversationId)
+
+    // 广播消息创建事件
+    await emitToUser<ChatMessageCreated>(userId, 'chat.message.created', {
+      conversationId: data.conversationId,
+      message: {
+        id: message.id,
+        conversationId: message.conversationId,
+        role: message.role,
+        content: message.content,
+        files: message.files,
+        modelDisplayName: message.modelDisplayName,
+        mark: message.mark,
+        status: message.status,
+        sortId: message.sortId,
+        createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
+      },
+    })
 
     return message
   }
@@ -162,6 +215,35 @@ export function useConversationService() {
     })
   }
 
+  // 更新消息内容（带权限验证和事件广播）
+  async function updateMessageContent(messageId: number, userId: number, content: string): Promise<boolean> {
+    // 获取消息并验证权限
+    const message = await getMessageById(messageId)
+    if (!message) return false
+
+    const conversation = await getById(message.conversationId)
+    if (!conversation || conversation.userId !== userId) {
+      return false
+    }
+
+    // 更新消息内容（保持原状态不变）
+    await db.update(messages)
+      .set({ content })
+      .where(eq(messages.id, messageId))
+
+    // 广播消息更新事件
+    await emitToUser<ChatMessageUpdated>(userId, 'chat.message.updated', {
+      conversationId: message.conversationId,
+      message: {
+        id: messageId,
+        content,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+
+    return true
+  }
+
   // 删除消息
   async function removeMessage(messageId: number, userId: number): Promise<boolean> {
     // 先获取消息对应的对话
@@ -179,6 +261,14 @@ export function useConversationService() {
     const result = await db.delete(messages)
       .where(eq(messages.id, messageId))
       .returning()
+
+    if (result.length > 0) {
+      // 广播消息删除事件
+      await emitToUser<ChatMessageDeleted>(userId, 'chat.message.deleted', {
+        conversationId: message.conversationId,
+        messageId,
+      })
+    }
 
     return result.length > 0
   }
@@ -212,6 +302,12 @@ export function useConversationService() {
       .returning()
 
     if (result.length === 0) return null
+
+    // 广播批量删除事件
+    await emitToUser<ChatMessagesDeleted>(userId, 'chat.messages.deleted', {
+      conversationId: message.conversationId,
+      messageIds: messageIdsToDelete,
+    })
 
     return {
       conversationId: message.conversationId,
@@ -262,7 +358,7 @@ export function useConversationService() {
     // 复制消息到新对话
     const newMessages: Message[] = []
     for (const msg of messagesToCopy) {
-      const newMsg = await addMessage({
+      const newMsg = await addMessage(userId, {
         conversationId: newConversation.id,
         role: msg.role,
         content: msg.content,
@@ -290,6 +386,7 @@ export function useConversationService() {
     updateMessageStatus,
     updateMessageContentAndStatus,
     getMessageById,
+    updateMessageContent,
     removeMessage,
     removeMessagesUntil,
     generateTitle,

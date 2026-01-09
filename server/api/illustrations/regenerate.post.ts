@@ -3,7 +3,6 @@ import { useTaskService } from '../../services/task'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
-import { emitToUser, type TaskCreated, type TaskDeleted } from '../../services/globalEvents'
 import { USER_SETTING_KEYS } from '~~/app/shared/constants'
 
 export default defineEventHandler(async (event) => {
@@ -29,12 +28,10 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
-  // 1. 查找并删除旧任务
+  // 1. 查找并删除旧任务（service 层会自动广播 task.deleted 事件）
   const existingTask = await taskService.findByUniqueId(uniqueId.trim(), user.id)
   if (existingTask) {
     await taskService.deleteTask(existingTask.id, user.id)
-    // 广播删除事件
-    await emitToUser<TaskDeleted>(user.id, 'task.deleted', { taskId: existingTask.id })
   }
 
   // 2. 获取模型配置
@@ -83,7 +80,7 @@ export default defineEventHandler(async (event) => {
     USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT
   )
 
-  // 3. 创建新任务
+  // 3. 创建新任务（service 层会自动广播 task.created 事件）
   const modelParams = negative?.trim() ? { negativePrompt: negative.trim() } : undefined
   const task = await taskService.createTask({
     userId: user.id,
@@ -101,20 +98,7 @@ export default defineEventHandler(async (event) => {
     sourceType: 'chat',
   })
 
-  // 4. 广播任务创建事件
-  await emitToUser<TaskCreated>(user.id, 'task.created', {
-    task: {
-      id: task.id,
-      userId: task.userId,
-      taskType: task.taskType,
-      modelType: task.modelType,
-      prompt: task.prompt ?? '',
-      status: task.status,
-      createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : task.createdAt,
-    },
-  })
-
-  // 5. 提交任务
+  // 4. 提交任务
   taskService.submitTask(task.id).catch((err) => {
     console.error('[Illustration] 重新生成任务失败:', err)
   })

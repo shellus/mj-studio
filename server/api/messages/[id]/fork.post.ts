@@ -1,7 +1,5 @@
 // POST /api/messages/[id]/fork - 从指定消息分叉对话
 import { useConversationService } from '../../../services/conversation'
-import { emitToUser } from '../../../services/globalEvents'
-import type { ChatConversationCreated } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -17,23 +15,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const service = useConversationService()
+  // service.fork 内部调用 create 和 addMessage，会自动广播相应事件
   const result = await service.fork(messageId, user.id)
 
   if (!result) {
     throw createError({ statusCode: 404, message: '消息不存在或无权操作' })
   }
-
-  // 广播对话创建事件
-  await emitToUser<ChatConversationCreated>(user.id, 'chat.conversation.created', {
-    conversation: {
-      id: result.conversation.id,
-      userId: result.conversation.userId,
-      assistantId: result.conversation.assistantId,
-      title: result.conversation.title,
-      createdAt: result.conversation.createdAt instanceof Date ? result.conversation.createdAt.toISOString() : result.conversation.createdAt,
-      updatedAt: result.conversation.updatedAt instanceof Date ? result.conversation.updatedAt.toISOString() : result.conversation.updatedAt,
-    },
-  })
 
   return {
     success: true,

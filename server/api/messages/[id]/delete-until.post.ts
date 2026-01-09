@@ -1,7 +1,5 @@
 // POST /api/messages/[id]/delete-until - 删除指定消息及之前的所有消息
 import { useConversationService } from '../../../services/conversation'
-import { emitToUser } from '../../../services/globalEvents'
-import type { ChatMessagesDeleted } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -17,17 +15,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const service = useConversationService()
+  // service.removeMessagesUntil 会自动广播 chat.messages.deleted 事件
   const result = await service.removeMessagesUntil(messageId, user.id)
 
   if (!result) {
     throw createError({ statusCode: 404, message: '消息不存在或无权操作' })
   }
-
-  // 广播批量删除消息事件
-  await emitToUser<ChatMessagesDeleted>(user.id, 'chat.messages.deleted', {
-    conversationId: result.conversationId,
-    messageIds: result.messageIds,
-  })
 
   return {
     success: true,

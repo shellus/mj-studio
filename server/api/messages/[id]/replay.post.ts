@@ -4,8 +4,6 @@ import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useAimodelService } from '../../../services/aimodel'
 import { startStreamingTask } from '../../../services/streamingTask'
-import { emitToUser } from '../../../services/globalEvents'
-import type { ChatMessageCreated, ChatMessageDeleted } from '../../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -76,40 +74,18 @@ export default defineEventHandler(async (event) => {
     userMessageContent = lastUserMsg.content
     replayUserMessageId = lastUserMsg.id
 
-    // 删除这条 AI 消息
+    // 删除这条 AI 消息（service 层会自动广播 chat.message.deleted 事件）
     await conversationService.removeMessage(messageId, user.id)
-
-    // 广播消息删除事件
-    await emitToUser<ChatMessageDeleted>(user.id, 'chat.message.deleted', {
-      conversationId: message.conversationId,
-      messageId,
-    })
   }
 
   // 创建 AI 消息（status: created，content 为空）
-  const assistantMessage = await conversationService.addMessage({
+  // service.addMessage 会自动广播 chat.message.created 事件
+  const assistantMessage = await conversationService.addMessage(user.id, {
     conversationId: message.conversationId,
     role: 'assistant',
     content: '',
     modelDisplayName: modelDisplayName ?? undefined,
     status: 'created',
-  })
-
-  // 广播 AI 消息创建事件
-  await emitToUser<ChatMessageCreated>(user.id, 'chat.message.created', {
-    conversationId: message.conversationId,
-    message: {
-      id: assistantMessage.id,
-      conversationId: message.conversationId,
-      role: 'assistant',
-      content: '',
-      files: null,
-      modelDisplayName,  // AI 消息的模型显示名称
-      status: 'created',
-      mark: null,
-      sortId: null,
-      createdAt: assistantMessage.createdAt instanceof Date ? assistantMessage.createdAt.toISOString() : assistantMessage.createdAt,
-    },
   })
 
   // 异步启动流式生成任务

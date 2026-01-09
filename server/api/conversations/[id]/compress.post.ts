@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
   const compressRequestSortId = (lastCompressMsg.sortId || lastCompressMsg.id) + 1
 
   // 插入压缩请求消息
-  const compressRequest = await conversationService.addMessage({
+  const compressRequest = await conversationService.addMessage(user.id, {
     conversationId,
     role: 'user',
     content: finalPrompt,

@@ -2,6 +2,7 @@
 import { db } from '../database'
 import { assistants, conversations, type Assistant, type NewAssistant } from '../database/schema'
 import { eq, and, desc, sql } from 'drizzle-orm'
+import { emitToUser, type ChatAssistantUpdated } from './globalEvents'
 
 export function useAssistantService() {
   // 获取用户的所有助手
@@ -68,6 +69,7 @@ export function useAssistantService() {
     aimodelId: number | null
     isDefault: boolean
     suggestions: string[] | null
+    enableThinking: boolean
   }>): Promise<Assistant | undefined> {
     // 如果设为默认，先取消其他默认
     if (data.isDefault) {
@@ -80,6 +82,24 @@ export function useAssistantService() {
       .set(data)
       .where(and(eq(assistants.id, id), eq(assistants.userId, userId)))
       .returning()
+
+    if (updated) {
+      // 广播助手更新事件
+      await emitToUser<ChatAssistantUpdated>(userId, 'chat.assistant.updated', {
+        assistant: {
+          id: updated.id,
+          name: updated.name,
+          description: updated.description,
+          avatar: updated.avatar,
+          systemPrompt: updated.systemPrompt,
+          aimodelId: updated.aimodelId,
+          isDefault: updated.isDefault,
+          suggestions: updated.suggestions,
+          conversationCount: updated.conversationCount,
+          enableThinking: updated.enableThinking,
+        },
+      })
+    }
 
     return updated
   }
@@ -119,7 +139,12 @@ export function useAssistantService() {
   }
 
   // 重新统计并更新助手的对话数量（从数据库计算，确保准确）
+  // 会自动广播 chat.assistant.updated 事件
   async function refreshConversationCount(assistantId: number): Promise<Assistant | undefined> {
+    // 先获取助手信息以获取 userId
+    const assistant = await getById(assistantId)
+    if (!assistant) return undefined
+
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(conversations)
@@ -131,6 +156,24 @@ export function useAssistantService() {
       .set({ conversationCount: count })
       .where(eq(assistants.id, assistantId))
       .returning()
+
+    if (updated) {
+      // 广播助手更新事件
+      await emitToUser<ChatAssistantUpdated>(assistant.userId, 'chat.assistant.updated', {
+        assistant: {
+          id: updated.id,
+          name: updated.name,
+          description: updated.description,
+          avatar: updated.avatar,
+          systemPrompt: updated.systemPrompt,
+          aimodelId: updated.aimodelId,
+          isDefault: updated.isDefault,
+          suggestions: updated.suggestions,
+          conversationCount: updated.conversationCount,
+          enableThinking: updated.enableThinking,
+        },
+      })
+    }
 
     return updated
   }

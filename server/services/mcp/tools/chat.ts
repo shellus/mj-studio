@@ -96,7 +96,7 @@ export async function chat(
   const historyMessages = result?.messages || []
 
   // 创建用户消息
-  const userMessage = await conversationService.addMessage({
+  const userMessage = await conversationService.addMessage(user.id, {
     conversationId: actualConversationId,
     role: 'user',
     content: message.trim(),
@@ -106,7 +106,7 @@ export async function chat(
   const modelDisplayName = `${aimodel.upstreamName} / ${aimodel.name}`
 
   // 创建 AI 消息
-  const assistantMessage = await conversationService.addMessage({
+  const assistantMessage = await conversationService.addMessage(user.id, {
     conversationId: actualConversationId,
     role: 'assistant',
     content: '',

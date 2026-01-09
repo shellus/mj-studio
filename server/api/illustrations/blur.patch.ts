@@ -1,6 +1,5 @@
 // PATCH /api/illustrations/blur - 切换插图模糊状态
 import { useTaskService } from '../../services/task'
-import { emitToUser, type TaskBlurUpdated } from '../../services/globalEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -33,14 +32,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 更新模糊状态
-  await taskService.updateTask(task.id, { isBlurred })
-
-  // 广播模糊状态更新事件
-  await emitToUser<TaskBlurUpdated>(user.id, 'task.blur.updated', {
-    taskId: task.id,
-    isBlurred,
-  })
+  // 更新模糊状态（service 层会自动广播事件）
+  await taskService.updateBlur(task.id, user.id, isBlurred)
 
   return {
     success: true,
