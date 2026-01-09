@@ -12,3 +12,4 @@ services:
       - ./logs:/app/logs
     environment:
       - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
+      - NUXT_PUBLIC_URL=${NUXT_PUBLIC_URL:-}

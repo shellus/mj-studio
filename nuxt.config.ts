@@ -59,9 +59,9 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // JWT 密钥从环境变量读取
     // 公开 URL（用于返回完整的资源链接）
-    publicUrl: process.env.PUBLIC_URL || '',
+    // 运行时通过 NUXT_PUBLIC_URL 环境变量覆盖
+    publicUrl: '',
   },
 
   // Vite 配置：HMR 端口和远程访问

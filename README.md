@@ -95,6 +95,9 @@
 # 创建 .env 文件
 echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 16)" > .env
 
+# 可选：配置 NUXT_PUBLIC_URL（用于 MCP 协议返回完整资源链接）
+# echo "NUXT_PUBLIC_URL=https://your-domain.com" >> .env
+
 # 创建持久化目录
 mkdir -p data/ logs/ uploads/
 chown -R 1001:1001 data/ logs/ uploads/
@@ -109,6 +112,7 @@ docker-compose up -d
 
 ```bash
 echo "NUXT_SESSION_PASSWORD=$(openssl rand -hex 16)" > .env
+# 可选：echo "NUXT_PUBLIC_URL=https://your-domain.com" >> .env
 pnpm install && pnpm dev
 ```
 
