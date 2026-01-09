@@ -1,7 +1,7 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
 import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
-import type { ModelParams, ImageModelParams, JimengVideoParams, VeoVideoParams, SoraVideoParams, GrokVideoParams } from '../../app/shared/types'
+import type { ModelParams, ImageModelParams, JimengVideoParams, VeoVideoParams, SoraVideoParams, GrokVideoParams, TaskUpstreamSummary } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService } from './mj'
 import { createGeminiService } from './gemini'
@@ -12,23 +12,26 @@ import { createVideoUnifiedService, type VideoCreateParams } from './videoUnifie
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
-import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
+import { classifyFetchError, classifyError, extractFetchErrorInfo, ERROR_MESSAGES } from './errorClassifier'
 import { logTaskResponse } from '../utils/httpLogger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 import { emitToUser, type TaskStatusUpdated } from './globalEvents'
+import { getErrorMessage } from '../../app/shared/types'
 
 // 存储每个任务的 AbortController，用于取消请求
 const taskAbortControllers = new Map<number, AbortController>()
 
 // 检查是否为 abort 错误（ofetch 会包装原始错误）
-function isAbortError(error: any): boolean {
+function isAbortError(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') return false
+  const err = error as { name?: string; cause?: { name?: string }; message?: string }
   return (
-    error?.name === 'AbortError' ||
-    error?.cause?.name === 'AbortError' ||
-    error?.message?.includes('aborted') ||
-    error?.message?.includes('abort')
-  )
+    err.name === 'AbortError' ||
+    err.cause?.name === 'AbortError' ||
+    err.message?.includes('aborted') ||
+    err.message?.includes('abort')
+  ) || false
 }
 
 export function useTaskService() {
@@ -172,13 +175,6 @@ export function useTaskService() {
       task: result.task,
       upstream: getUpstreamSummary(result.upstream, result.aimodel),
     }
-  }
-
-  // 精简的上游配置信息（用于任务列表/详情）
-  type TaskUpstreamSummary = {
-    name: string
-    estimatedTime: number | null
-    aimodelName: string  // AI 模型的显示名称
   }
 
   // 从完整配置中提取精简信息
@@ -495,14 +491,14 @@ export function useTaskService() {
         result = await gemini.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
       }
       await updateTask(task.id, {
         status: 'failed',
-        error: error.message || 'Gemini生成失败',
+        error: getErrorMessage(error),
       })
     }
   }
@@ -523,14 +519,14 @@ export function useTaskService() {
         result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, modelParams)
       }
       await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
       }
       await updateTask(task.id, {
         status: 'failed',
-        error: error.message || 'DALL-E生成失败',
+        error: getErrorMessage(error),
       })
     }
   }
@@ -549,14 +545,14 @@ export function useTaskService() {
         result = await openai.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
       }
       await updateTask(task.id, {
         status: 'failed',
-        error: error.message || 'OpenAI Chat生成失败',
+        error: getErrorMessage(error),
       })
     }
   }
@@ -600,7 +596,7 @@ export function useTaskService() {
         status: 'processing',
         upstreamTaskId: String(result.data.task_id),
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       await updateTask(task.id, {
         status: 'failed',
         error: classifyFetchError(error),
@@ -634,7 +630,7 @@ export function useTaskService() {
         status: 'processing',
         upstreamTaskId: result.result,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       await updateTask(task.id, {
         status: 'failed',
         error: classifyFetchError(error),
@@ -692,7 +688,7 @@ export function useTaskService() {
         status: 'processing',
         upstreamTaskId: result.id,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       await updateTask(task.id, {
         status: 'failed',
         error: classifyFetchError(error),
@@ -759,8 +755,8 @@ export function useTaskService() {
         error: status === 'failed' ? '抠图处理失败' : null,
         duration,
       })
-    } catch (error: any) {
-      console.error('同步抠抠图任务状态失败:', error.message)
+    } catch (error: unknown) {
+      console.error('同步抠抠图任务状态失败:', getErrorMessage(error))
       return task
     }
   }
@@ -827,9 +823,9 @@ export function useTaskService() {
         buttons: mjTask.buttons || null,
         duration,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 查询失败不更新状态，仅记录错误
-      console.error('同步任务状态失败:', error.message)
+      console.error('同步任务状态失败:', getErrorMessage(error))
       return task
     }
   }
@@ -879,8 +875,8 @@ export function useTaskService() {
         error: result.error || (status === 'failed' ? '视频生成失败' : null),
         duration,
       })
-    } catch (error: any) {
-      console.error('同步视频任务状态失败:', error.message, error.stack)
+    } catch (error: unknown) {
+      console.error('同步视频任务状态失败:', getErrorMessage(error))
       return task
     }
   }
@@ -951,7 +947,7 @@ export function useTaskService() {
       })
 
       return (await getTask(newTask.id))!
-    } catch (error: any) {
+    } catch (error: unknown) {
       await updateTask(newTask.id, {
         status: 'failed',
         error: classifyFetchError(error),

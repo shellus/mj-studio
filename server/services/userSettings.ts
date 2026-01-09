@@ -6,13 +6,14 @@ import {
   USER_SETTING_KEYS,
   USER_SETTING_DEFAULTS,
   type UserSettingKey,
+  type UserSettingValue,
 } from '../../app/shared/constants'
 
 export function useUserSettingsService() {
   /**
    * 获取用户的单个设置值
    */
-  async function get<T = string>(userId: number, key: UserSettingKey): Promise<T> {
+  async function get<T extends UserSettingValue = string>(userId: number, key: UserSettingKey): Promise<T> {
     const [setting] = await db
       .select()
       .from(userSettings)
@@ -29,20 +30,20 @@ export function useUserSettingsService() {
   /**
    * 获取用户的所有设置
    */
-  async function getAll(userId: number): Promise<Record<UserSettingKey, any>> {
+  async function getAll(userId: number): Promise<Record<UserSettingKey, UserSettingValue>> {
     const settings = await db
       .select()
       .from(userSettings)
       .where(eq(userSettings.userId, userId))
 
     // 从默认值开始
-    const result = { ...USER_SETTING_DEFAULTS } as Record<UserSettingKey, any>
+    const result = { ...USER_SETTING_DEFAULTS } as Record<UserSettingKey, UserSettingValue>
 
     // 覆盖用户自定义值
     for (const setting of settings) {
       const key = setting.key as UserSettingKey
       if (key in USER_SETTING_DEFAULTS) {
-        result[key] = JSON.parse(setting.value)
+        result[key] = JSON.parse(setting.value) as UserSettingValue
       }
     }
 
@@ -52,7 +53,7 @@ export function useUserSettingsService() {
   /**
    * 设置用户的单个设置值
    */
-  async function set(userId: number, key: UserSettingKey, value: any): Promise<void> {
+  async function set(userId: number, key: UserSettingKey, value: UserSettingValue): Promise<void> {
     const now = new Date()
     const jsonValue = JSON.stringify(value)
 
@@ -77,9 +78,9 @@ export function useUserSettingsService() {
   /**
    * 批量设置用户设置
    */
-  async function setMany(userId: number, settings: Partial<Record<UserSettingKey, any>>): Promise<void> {
+  async function setMany(userId: number, settings: Partial<Record<UserSettingKey, UserSettingValue>>): Promise<void> {
     for (const [key, value] of Object.entries(settings)) {
-      if (key in USER_SETTING_DEFAULTS) {
+      if (key in USER_SETTING_DEFAULTS && value !== undefined) {
         await set(userId, key as UserSettingKey, value)
       }
     }

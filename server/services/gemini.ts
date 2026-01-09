@@ -3,7 +3,7 @@
 
 import type { GenerateResult } from './types'
 import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
-import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface GeminiResponse {
@@ -63,8 +63,8 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       if (taskId) {
         // 响应中的图片数据截断记录
         const logData = JSON.parse(JSON.stringify(response))
-        logData.candidates?.forEach((c: any) => {
-          c.content?.parts?.forEach((p: any) => {
+        logData.candidates?.forEach((c: { content?: { parts?: Array<{ inlineData?: { data?: string } }> } }) => {
+          c.content?.parts?.forEach((p: { inlineData?: { data?: string } }) => {
             if (p.inlineData?.data) {
               p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
             }
@@ -94,14 +94,15 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
 
       const textPart = candidate.content?.parts?.find(part => part.text)
       return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -146,7 +147,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
     if (taskId) {
       // 请求中的图片数据截断记录
       const logBody = JSON.parse(JSON.stringify(body))
-      logBody.contents?.[0]?.parts?.forEach((p: any) => {
+      logBody.contents?.[0]?.parts?.forEach((p: { inlineData?: { data?: string } }) => {
         if (p.inlineData?.data) {
           p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
         }
@@ -169,8 +170,8 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
 
       if (taskId) {
         const logData = JSON.parse(JSON.stringify(response))
-        logData.candidates?.forEach((c: any) => {
-          c.content?.parts?.forEach((p: any) => {
+        logData.candidates?.forEach((c: { content?: { parts?: Array<{ inlineData?: { data?: string } }> } }) => {
+          c.content?.parts?.forEach((p: { inlineData?: { data?: string } }) => {
             if (p.inlineData?.data) {
               p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
             }
@@ -200,14 +201,15 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
 
       const textPart = candidate.content?.parts?.find(part => part.text)
       return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }

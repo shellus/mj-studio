@@ -11,6 +11,7 @@ import type { ChatConversationUpdated } from '../../../services/globalEvents'
 import type { LogContext } from '../../../utils/logger'
 import { logTitleResponse } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
+import { getErrorMessage } from '../../../../app/shared/types'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -161,10 +162,10 @@ export default defineEventHandler(async (event) => {
     }
 
     return { title }
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw createError({
       statusCode: 500,
-      message: error.message || '生成标题失败',
+      message: getErrorMessage(error),
     })
   }
 })

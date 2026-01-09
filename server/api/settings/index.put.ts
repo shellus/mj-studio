@@ -1,6 +1,6 @@
 // PUT /api/settings - 更新用户设置
 import { useUserSettingsService } from '../../services/userSettings'
-import { USER_SETTING_KEYS, type UserSettingKey } from '../../../app/shared/constants'
+import { USER_SETTING_KEYS, type UserSettingKey, type UserSettingValue } from '../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -12,11 +12,11 @@ export default defineEventHandler(async (event) => {
 
   // 验证键名
   const validKeys = Object.values(USER_SETTING_KEYS) as string[]
-  const updates: Partial<Record<UserSettingKey, any>> = {}
+  const updates: Partial<Record<UserSettingKey, UserSettingValue>> = {}
 
   for (const [key, value] of Object.entries(body)) {
     if (validKeys.includes(key)) {
-      updates[key as UserSettingKey] = value
+      updates[key as UserSettingKey] = value as UserSettingValue
     }
   }
 

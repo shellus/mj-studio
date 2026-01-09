@@ -324,3 +324,121 @@ export interface ModelTypeConfig {
   /** 使用的 Key 名称，默认 "default" */
   keyName?: string
 }
+
+// ==================== 认证用户类型 ====================
+
+/**
+ * 认证用户信息
+ * - 用于 JWT payload 和前端用户状态
+ * - 使用场景：登录、用户信息显示
+ */
+export interface AuthUser {
+  id: number
+  email: string
+  name: string | null
+  avatar?: string | null
+}
+
+// ==================== AI 模型输入类型 ====================
+
+/**
+ * AI 模型输入（创建/更新时使用）
+ * - 使用场景：上游配置表单提交
+ */
+export interface AimodelInput {
+  /** 编辑时的 ID，新建时为空 */
+  id?: number
+  category: ModelCategory
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string
+  /** 显示名称（用户可自定义） */
+  name: string
+  estimatedTime?: number
+  keyName?: string
+}
+
+// ==================== 分页响应类型 ====================
+
+/**
+ * 分页响应
+ * - 用于任务列表、回收站等分页接口
+ */
+export interface PaginatedResponse<T> {
+  tasks: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// ==================== 任务上游摘要类型 ====================
+
+/**
+ * 任务上游摘要（精简版，用于任务列表/详情）
+ * - 使用场景：任务卡片、任务详情弹窗
+ */
+export interface TaskUpstreamSummary {
+  name: string
+  estimatedTime: number | null
+  /** AI 模型的显示名称 */
+  aimodelName: string
+}
+
+// ==================== 错误处理工具 ====================
+
+/**
+ * 从 unknown 类型的错误中提取错误信息
+ * - 替代 error: any 模式
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === 'string') {
+    return error
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return '未知错误'
+}
+
+/**
+ * 检查是否为 abort 错误
+ */
+export function isAbortError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return (
+      error.name === 'AbortError' ||
+      error.message.includes('aborted') ||
+      error.message.includes('abort')
+    )
+  }
+  if (error && typeof error === 'object') {
+    const e = error as { name?: string; message?: string; cause?: { name?: string } }
+    return (
+      e.name === 'AbortError' ||
+      e.cause?.name === 'AbortError' ||
+      e.message?.includes('aborted') ||
+      e.message?.includes('abort') ||
+      false
+    )
+  }
+  return false
+}
+
+/**
+ * 从 fetch 错误响应中提取详细信息
+ */
+export async function getResponseErrorMessage(response: Response): Promise<string> {
+  try {
+    const data = await response.json()
+    if (data && typeof data === 'object') {
+      // 尝试多种常见的错误字段
+      return data.message || data.error?.message || data.error || data.detail || response.statusText
+    }
+  } catch {
+    // JSON 解析失败，使用 statusText
+  }
+  return response.statusText || `HTTP ${response.status}`
+}

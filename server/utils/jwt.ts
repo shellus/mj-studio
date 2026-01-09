@@ -1,6 +1,9 @@
 // JWT 工具函数
 import { SignJWT, jwtVerify } from 'jose'
 import type { H3Event } from 'h3'
+import type { AuthUser } from '../../app/shared/types'
+
+export type { AuthUser }
 
 export interface JwtPayload {
   userId: number
@@ -69,13 +72,6 @@ export async function getUserFromEvent(event: H3Event): Promise<JwtPayload | nul
     return null
   }
   return verifyJwt(token)
-}
-
-// 用户信息（兼容原 nuxt-auth-utils 格式）
-export interface AuthUser {
-  id: number
-  email: string
-  name: string | null
 }
 
 // 要求认证（验证失败抛出 401 错误）

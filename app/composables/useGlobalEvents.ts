@@ -1,145 +1,28 @@
-// 全局事件订阅类型定义
-// 与 server/services/globalEvents.ts 中的类型保持一致
+// 全局事件订阅
+// 从共享模块导入事件类型
 
-export interface GlobalEventEnvelope<T = unknown> {
-  id: string
-  ts: number
-  type: string
-  data: T
-}
+export type {
+  GlobalEventEnvelope,
+  GlobalEventHandler,
+  ChatMessageCreated,
+  ChatMessageDone,
+  ChatMessageDeleted,
+  ChatMessageUpdated,
+  ChatMessagesDeleted,
+  ChatConversationCreated,
+  ChatConversationDeleted,
+  ChatConversationUpdated,
+  ChatAssistantUpdated,
+  TaskCreated,
+  TaskStatusUpdated,
+  TaskDeleted,
+  TaskRestored,
+  TaskBlurUpdated,
+  TasksBlurUpdated,
+  MJButton,
+} from '../shared/events'
 
-export interface ChatMessageCreated {
-  conversationId: number
-  message: {
-    id: number
-    conversationId: number
-    role: 'user' | 'assistant'
-    content: string
-    files: any[] | null
-    modelDisplayName?: string | null
-    status: 'created' | 'pending' | 'streaming' | 'completed' | 'stopped' | 'failed' | null
-    mark: string | null
-    sortId: number | null
-    createdAt?: string
-  }
-}
-
-// ChatMessageDelta 已废弃，流式增量内容通过独立端点 GET /api/messages/[id]/stream 订阅
-
-export interface ChatMessageDone {
-  conversationId: number
-  messageId: number
-  status: 'completed' | 'stopped' | 'failed'
-  error?: string
-  estimatedTime?: number
-  upstreamId?: number
-  aimodelId?: number
-}
-
-// 对话事件类型
-export interface ChatConversationCreated {
-  conversation: {
-    id: number
-    userId: number
-    assistantId: number
-    title: string
-    createdAt: string
-    updatedAt: string
-  }
-}
-
-export interface ChatConversationDeleted {
-  conversationId: number
-  assistantId: number
-}
-
-export interface ChatConversationUpdated {
-  conversation: {
-    id: number
-    title: string
-    updatedAt: string
-  }
-}
-
-export interface ChatMessageDeleted {
-  conversationId: number
-  messageId: number
-}
-
-export interface ChatMessageUpdated {
-  conversationId: number
-  message: {
-    id: number
-    content: string
-    updatedAt: string
-  }
-}
-
-export interface ChatMessagesDeleted {
-  conversationId: number
-  messageIds: number[]
-}
-
-// 助手事件类型
-export interface ChatAssistantUpdated {
-  assistant: {
-    id: number
-    name: string
-    description: string | null
-    avatar: string | null
-    systemPrompt: string | null
-    aimodelId: number | null
-    isDefault: boolean
-    suggestions: string[] | null
-    conversationCount: number
-    enableThinking: boolean
-  }
-}
-
-// 绘图/视频任务事件类型
-export interface TaskCreated {
-  task: {
-    id: number
-    userId: number
-    taskType: 'image' | 'video'
-    modelType: string
-    prompt: string
-    status: string
-    createdAt: string
-  }
-}
-
-export interface TaskStatusUpdated {
-  taskId: number
-  status: string
-  progress?: number
-  resourceUrl?: string | null
-  error?: string | null
-  buttons?: any[] | null
-  updatedAt: string
-  duration?: number  // 实际耗时（秒），仅在任务完成时有值
-}
-
-export interface TaskDeleted {
-  taskId: number
-}
-
-export interface TaskRestored {
-  taskId: number
-}
-
-export interface TaskBlurUpdated {
-  taskId: number
-  isBlurred: boolean
-}
-
-export interface TasksBlurUpdated {
-  taskIds: number[]
-  isBlurred: boolean
-}
-
-// 事件处理器类型
-export type GlobalEventHandler<T = unknown> = (data: T, envelope: GlobalEventEnvelope<T>) => void
+import type { GlobalEventEnvelope, GlobalEventHandler } from '../shared/events'
 
 // 全局状态
 const isConnected = ref(false)
@@ -147,7 +30,7 @@ const isConnecting = ref(false)
 const lastEventId = ref<string | null>(null)
 
 // 事件处理器注册表
-const handlers = new Map<string, Set<GlobalEventHandler<any>>>()
+const handlers = new Map<string, Set<GlobalEventHandler<unknown>>>()
 
 // 当前连接的 AbortController
 let abortController: AbortController | null = null
@@ -164,13 +47,13 @@ export function useGlobalEvents() {
     if (!handlers.has(eventType)) {
       handlers.set(eventType, new Set())
     }
-    handlers.get(eventType)!.add(handler)
+    handlers.get(eventType)!.add(handler as GlobalEventHandler<unknown>)
 
     // 返回取消注册函数
     return () => {
       const typeHandlers = handlers.get(eventType)
       if (typeHandlers) {
-        typeHandlers.delete(handler)
+        typeHandlers.delete(handler as GlobalEventHandler<unknown>)
         if (typeHandlers.size === 0) {
           handlers.delete(eventType)
         }
@@ -184,7 +67,7 @@ export function useGlobalEvents() {
     if (typeHandlers) {
       for (const handler of typeHandlers) {
         try {
-          handler(data, envelope)
+          handler(data, envelope as GlobalEventEnvelope<unknown>)
         } catch (err) {
           console.error(`[GlobalEvents] 事件处理器错误 (${eventType}):`, err)
         }
@@ -269,8 +152,8 @@ export function useGlobalEvents() {
           }
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
         console.log('[GlobalEvents] 连接已取消')
         return
       }

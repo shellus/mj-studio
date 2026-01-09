@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return { suggestions }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('生成开场白失败:', error)
     // 失败不抛错，返回空
     return { suggestions: [] }

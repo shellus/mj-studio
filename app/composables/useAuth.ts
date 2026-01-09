@@ -1,13 +1,10 @@
 // JWT 认证 composable
+import type { AuthUser } from '../shared/types'
+
+export type { AuthUser }
+
 const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
-
-export interface AuthUser {
-  id: number
-  email: string
-  name: string | null
-  avatar?: string | null
-}
 
 // 全局状态
 const token = ref<string | null>(null)

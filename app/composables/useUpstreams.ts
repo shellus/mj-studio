@@ -1,7 +1,9 @@
 // 上游配置管理
-import type { ApiKeyConfig, ModelCategory, ModelType, ApiFormat, UpstreamPlatform, UpstreamInfo } from '../shared/types'
+import type { ApiKeyConfig, ModelCategory, ModelType, ApiFormat, UpstreamPlatform, UpstreamInfo, AimodelInput } from '../shared/types'
 
-// AI 模型配置类型（子表数据）
+export type { AimodelInput }
+
+// AI 模型配置类型（子表数据，API 响应格式）
 export interface Aimodel {
   id: number
   upstreamId: number
@@ -15,7 +17,7 @@ export interface Aimodel {
   createdAt: string
 }
 
-// 完整的上游配置类型（包含 aimodels）
+// 完整的上游配置类型（包含 aimodels，API 响应格式）
 export interface Upstream {
   id: number
   userId: number
@@ -30,18 +32,6 @@ export interface Upstream {
   upstreamInfo?: UpstreamInfo | null
   createdAt: string
   aimodels: Aimodel[]
-}
-
-// 创建/更新时的 AI 模型输入类型
-export interface AimodelInput {
-  id?: number  // 编辑时包含 ID，用于关联
-  category: ModelCategory
-  modelType: ModelType
-  apiFormat: ApiFormat
-  modelName: string
-  name: string  // 显示名称（用户可自定义）
-  estimatedTime?: number
-  keyName?: string
 }
 
 export function useUpstreams() {

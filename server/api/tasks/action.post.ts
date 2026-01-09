@@ -1,6 +1,7 @@
 // POST /api/tasks/action - 执行按钮动作
 import { useTaskService } from '../../services/task'
 import { emitToUser, type TaskCreated } from '../../services/globalEvents'
+import { getErrorMessage } from '../../../app/shared/types'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -54,10 +55,10 @@ export default defineEventHandler(async (event) => {
       taskId: newTask.id,
       message: '动作已执行',
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw createError({
       statusCode: 500,
-      message: error.message || '执行动作失败',
+      message: getErrorMessage(error),
     })
   }
 })

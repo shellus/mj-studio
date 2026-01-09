@@ -4,7 +4,7 @@
 
 import type { GenerateResult } from './types'
 import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
-import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface OpenAIChatMessage {
@@ -105,14 +105,15 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       }
 
       return { success: true, resourceUrl: imageUrl }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -147,7 +148,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
     if (taskId) {
       // 请求中的图片数据截断记录
       const logBody = JSON.parse(JSON.stringify(body))
-      logBody.messages?.[0]?.content?.forEach((p: any) => {
+      logBody.messages?.[0]?.content?.forEach((p: { image_url?: { url?: string } }) => {
         if (p.image_url?.url?.startsWith('data:')) {
           p.image_url.url = `[base64 ${p.image_url.url.length} chars]`
         }
@@ -187,14 +188,15 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       }
 
       return { success: true, resourceUrl: imageUrl }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }

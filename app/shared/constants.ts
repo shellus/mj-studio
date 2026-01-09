@@ -744,9 +744,14 @@ export const DEFAULT_SUGGESTIONS_PROMPT = `现在用户开始了一次新对话�
 4. 直接输出 JSON，不要加其他说明`
 
 /**
+ * 用户设置值类型
+ */
+export type UserSettingValue = string | number | boolean
+
+/**
  * 用户设置默认值
  */
-export const USER_SETTING_DEFAULTS: Record<UserSettingKey, string | number | boolean> = {
+export const USER_SETTING_DEFAULTS: Record<UserSettingKey, UserSettingValue> = {
   [USER_SETTING_KEYS.PROMPT_COMPRESS]: DEFAULT_COMPRESS_PROMPT,
   [USER_SETTING_KEYS.PROMPT_GENERATE_TITLE]: DEFAULT_GENERATE_TITLE_PROMPT,
   [USER_SETTING_KEYS.PROMPT_SUGGESTIONS]: DEFAULT_SUGGESTIONS_PROMPT,

@@ -1,5 +1,6 @@
 // 余额查询服务
 import type { UpstreamPlatform, UpstreamInfo } from '../database/schema'
+import { getErrorMessage } from '../../app/shared/types'
 
 export interface BalanceResult {
   success: boolean
@@ -47,8 +48,8 @@ export async function queryBalance(
       default:
         return { success: false, error: '不支持的余额查询类型' }
     }
-  } catch (error: any) {
-    return { success: false, error: error.message || '查询失败' }
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 

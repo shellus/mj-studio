@@ -6,6 +6,7 @@ import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../app/shared/constants'
+import { getErrorMessage, isAbortError } from '../../app/shared/types'
 
 // OpenAI 多模态消息内容类型
 type ChatMessageContent =
@@ -182,14 +183,15 @@ export function createChatService(upstream: Upstream, keyName?: string) {
       }
 
       return { success: true, content }
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
         return { success: false, error: '请求已取消' }
       }
+      const errorMsg = getErrorMessage(error)
       if (logContext) {
-        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
       }
-      return { success: false, error: error.message || '请求失败' }
+      return { success: false, error: errorMsg }
     }
   }
 
@@ -264,7 +266,7 @@ export function createChatService(upstream: Upstream, keyName?: string) {
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-        let errorBody: any
+        let errorBody: unknown
         try {
           errorBody = JSON.parse(errorText)
           errorMessage = errorBody.error?.message || errorMessage
@@ -372,27 +374,29 @@ export function createChatService(upstream: Upstream, keyName?: string) {
         logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
       }
       yield { content: '', done: true }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const durationMs = Date.now() - startTime
 
-      if (error.name === 'AbortError') {
+      if (isAbortError(error)) {
         yield { content: '', done: true }
         return
       }
+
+      const errorMsg = getErrorMessage(error)
 
       // 记录 HTTP 响应日志（网络错误）
       if (conversationId !== undefined && messageId !== undefined) {
         logConversationResponse(conversationId, messageId, {
           status: null,
-          error: error.message || '请求失败',
-          errorType: error.name || 'Error',
+          error: errorMsg,
+          errorType: error instanceof Error ? error.name : 'Error',
           durationMs,
         })
       }
 
       // 记录控制台错误日志
       if (logContext) {
-        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
       }
       throw error
     }

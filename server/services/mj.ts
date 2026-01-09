@@ -2,6 +2,7 @@
 // 兼容多个中转站，只需更换 BASE_URL 和 API Key
 
 import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
+import { extractFetchErrorInfo } from './errorClassifier'
 
 interface MJSubmitResponse {
   code: number
@@ -76,14 +77,15 @@ export function createMJService(baseUrl: string, apiKey: string) {
       }
 
       return result
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -125,14 +127,15 @@ export function createMJService(baseUrl: string, apiKey: string) {
       }
 
       return result
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -169,14 +172,15 @@ export function createMJService(baseUrl: string, apiKey: string) {
       }
 
       return result
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }

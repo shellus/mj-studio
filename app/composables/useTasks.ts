@@ -1,5 +1,6 @@
 // 任务状态管理
-import type { ModelType, ApiFormat, TaskType, ModelParams } from '../shared/types'
+import type { ModelType, ApiFormat, TaskType, ModelParams, TaskUpstreamSummary, PaginatedResponse } from '../shared/types'
+import type { MJButton } from '../shared/events'
 import {
   useGlobalEvents,
   type TaskCreated,
@@ -10,17 +11,12 @@ import {
   type TasksBlurUpdated,
 } from './useGlobalEvents'
 
+export type { TaskUpstreamSummary }
+
 // 单例模式：防止事件处理器重复注册
 let isTaskEventRegistered = false
 
-// 精简的上游配置（用于任务列表/详情）
-export interface TaskUpstreamSummary {
-  name: string
-  estimatedTime: number | null
-  aimodelName: string  // AI 模型的显示名称
-}
-
-// 后端Task类型
+// 前端 Task 类型（API 响应格式，与数据库 Task 不同）
 export interface Task {
   id: number
   userId: number
@@ -41,25 +37,11 @@ export interface Task {
   resourceUrl: string | null
   error: string | null
   isBlurred: boolean
-  buttons: Array<{
-    customId: string
-    emoji: string
-    label: string
-    style: number
-    type: number
-  }> | null
+  buttons: MJButton[] | null
   createdAt: string
   updatedAt: string
   deletedAt: string | null
   duration?: number  // 实际耗时（秒），仅在任务完成时有值
-}
-
-// 分页响应类型
-interface PaginatedResponse<T> {
-  tasks: T[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 export function useTasks() {

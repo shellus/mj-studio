@@ -39,8 +39,26 @@ interface ErrorInput {
   message?: string
   code?: string
   type?: string
-  data?: any
+  data?: unknown
   errorName?: string  // error.name，如 'FetchError', 'AbortError'
+}
+
+// Fetch 错误类型（用于 classifyFetchError 的类型安全）
+interface FetchErrorLike {
+  status?: number
+  statusCode?: number
+  statusText?: string
+  statusMessage?: string
+  message?: string
+  code?: string
+  type?: string
+  name?: string
+  data?: {
+    error?: {
+      code?: string
+      type?: string
+    }
+  } | unknown
 }
 
 // 检查字符串是否包含任意关键词（不区分大小写）
@@ -148,17 +166,60 @@ export function classifyError(input: ErrorInput): string {
 }
 
 // 从 ofetch 错误中提取信息并分类
-export function classifyFetchError(error: any): string {
+export function classifyFetchError(error: unknown): string {
+  // 处理非对象类型的错误
+  if (error === null || error === undefined) {
+    return ERROR_MESSAGES.UNKNOWN
+  }
+  if (typeof error === 'string') {
+    return classifyError({ message: error })
+  }
+  if (typeof error !== 'object') {
+    return ERROR_MESSAGES.UNKNOWN
+  }
+
+  const err = error as FetchErrorLike
+  const data = err.data as FetchErrorLike['data']
+  const errorData = data && typeof data === 'object' && 'error' in data ? (data as { error?: { code?: string; type?: string } }).error : undefined
+
   return classifyError({
-    status: error.status || error.statusCode,
-    statusText: error.statusText || error.statusMessage,
-    message: error.message,
-    code: error.data?.error?.code || error.code,
-    type: error.data?.error?.type || error.type,
-    data: error.data,
-    errorName: error.name,
+    status: err.status || err.statusCode,
+    statusText: err.statusText || err.statusMessage,
+    message: err.message,
+    code: errorData?.code || err.code,
+    type: errorData?.type || err.type,
+    data: data,
+    errorName: err.name,
   })
 }
 
 // 导出错误消息常量供其他模块使用
 export { ERROR_MESSAGES }
+
+// 从 unknown 错误中提取 fetch 错误属性（用于日志记录）
+export function extractFetchErrorInfo(error: unknown): {
+  status: number | null
+  statusText: string | undefined
+  body: unknown
+  message: string
+  errorType: string
+} {
+  if (error === null || error === undefined) {
+    return { status: null, statusText: undefined, body: undefined, message: 'Unknown error', errorType: 'Error' }
+  }
+  if (typeof error === 'string') {
+    return { status: null, statusText: undefined, body: undefined, message: error, errorType: 'Error' }
+  }
+  if (typeof error !== 'object') {
+    return { status: null, statusText: undefined, body: undefined, message: String(error), errorType: 'Error' }
+  }
+
+  const err = error as FetchErrorLike
+  return {
+    status: err.status || err.statusCode || null,
+    statusText: err.statusText || err.statusMessage,
+    body: err.data,
+    message: err.message || 'Unknown error',
+    errorType: err.name || 'Error',
+  }
+}

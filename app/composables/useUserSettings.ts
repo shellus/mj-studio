@@ -4,13 +4,14 @@ import {
   USER_SETTING_KEYS,
   USER_SETTING_DEFAULTS,
   type UserSettingKey,
+  type UserSettingValue,
 } from '../shared/constants'
 
 export function useUserSettings() {
   const { getAuthHeader } = useAuth()
 
   // 设置数据
-  const settings = useState<Record<UserSettingKey, any>>('user-settings', () => ({ ...USER_SETTING_DEFAULTS }))
+  const settings = useState<Record<UserSettingKey, UserSettingValue>>('user-settings', () => ({ ...USER_SETTING_DEFAULTS }))
   const isLoading = useState('user-settings-loading', () => false)
   const isLoaded = useState('user-settings-loaded', () => false)
 
@@ -20,7 +21,7 @@ export function useUserSettings() {
 
     isLoading.value = true
     try {
-      const data = await $fetch<Record<UserSettingKey, any>>('/api/settings', {
+      const data = await $fetch<Record<UserSettingKey, UserSettingValue>>('/api/settings', {
         headers: getAuthHeader(),
       })
       settings.value = data
@@ -33,8 +34,8 @@ export function useUserSettings() {
   }
 
   // 更新设置
-  async function updateSettings(updates: Partial<Record<UserSettingKey, any>>): Promise<void> {
-    const data = await $fetch<Record<UserSettingKey, any>>('/api/settings', {
+  async function updateSettings(updates: Partial<Record<UserSettingKey, UserSettingValue>>): Promise<void> {
+    const data = await $fetch<Record<UserSettingKey, UserSettingValue>>('/api/settings', {
       method: 'PUT',
       headers: getAuthHeader(),
       body: updates,
@@ -43,7 +44,7 @@ export function useUserSettings() {
   }
 
   // 获取单个设置值
-  function get<T>(key: UserSettingKey): T {
+  function get<T extends UserSettingValue>(key: UserSettingKey): T {
     return settings.value[key] as T
   }
 

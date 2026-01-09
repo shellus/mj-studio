@@ -29,9 +29,9 @@ onMounted(async () => {
 
 // 同步设置到表单
 function syncFormFromSettings() {
-  form.compressPrompt = settings.value[USER_SETTING_KEYS.PROMPT_COMPRESS] || ''
-  form.generateTitlePrompt = settings.value[USER_SETTING_KEYS.PROMPT_GENERATE_TITLE] || ''
-  form.suggestionsPrompt = settings.value[USER_SETTING_KEYS.PROMPT_SUGGESTIONS] || ''
+  form.compressPrompt = settings.value[USER_SETTING_KEYS.PROMPT_COMPRESS] as string || ''
+  form.generateTitlePrompt = settings.value[USER_SETTING_KEYS.PROMPT_GENERATE_TITLE] as string || ''
+  form.suggestionsPrompt = settings.value[USER_SETTING_KEYS.PROMPT_SUGGESTIONS] as string || ''
 }
 
 // 保存设置
@@ -44,8 +44,9 @@ async function saveSettings() {
       [USER_SETTING_KEYS.PROMPT_SUGGESTIONS]: form.suggestionsPrompt,
     })
     toast.add({ title: '设置已保存', color: 'success' })
-  } catch (error: any) {
-    toast.add({ title: '保存失败', description: error.message, color: 'error' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '未知错误'
+    toast.add({ title: '保存失败', description: message, color: 'error' })
   } finally {
     isSaving.value = false
   }

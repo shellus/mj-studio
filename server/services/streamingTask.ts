@@ -21,6 +21,7 @@ import { emitToUser } from './globalEvents'
 import type { ChatMessageDone } from './globalEvents'
 import type { MessageMark, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
+import { getErrorMessage } from '../../app/shared/types'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
@@ -285,9 +286,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       endStreamingSession(messageId)
     }, 2000)  // 延迟 2 秒
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 错误处理：保存错误信息
-    const errorMessage = error.message || '生成失败'
+    const errorMessage = getErrorMessage(error)
 
     // 更新消息为错误状态
     await conversationService.updateMessageContentAndStatus(

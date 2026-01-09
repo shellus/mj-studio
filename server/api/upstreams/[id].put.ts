@@ -1,19 +1,8 @@
 // PUT /api/upstreams/[id] - 更新上游配置（包含 aimodels）
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
-import type { ModelCategory, ModelType, ApiFormat } from '../../database/schema'
+import type { AimodelInput } from '../../../app/shared/types'
 import { IMAGE_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
-
-interface AimodelInput {
-  id?: number  // 有 ID 表示更新，无 ID 表示新建
-  category: ModelCategory
-  modelType: ModelType
-  apiFormat: ApiFormat
-  modelName: string
-  name: string  // 显示名称
-  estimatedTime?: number
-  keyName?: string
-}
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)

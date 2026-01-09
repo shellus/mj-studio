@@ -2,6 +2,7 @@
 import { createChatService } from '../../services/chat'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
+import { getErrorMessage } from '../../../app/shared/types'
 
 function buildSystemPrompt(targetModelType?: string, targetModelName?: string): string {
   const modelInfo = targetModelType || targetModelName
@@ -121,10 +122,10 @@ export default defineEventHandler(async (event) => {
       optimizedPrompt,
       negativePrompt,
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw createError({
       statusCode: 500,
-      message: error.message || '优化提示词失败',
+      message: getErrorMessage(error),
     })
   }
 })

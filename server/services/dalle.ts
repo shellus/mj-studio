@@ -8,7 +8,7 @@
 import type { GenerateResult } from './types'
 import type { ImageModelParams } from '../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../utils/httpLogger'
-import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
+import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 
 interface DalleResponse {
@@ -149,15 +149,16 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 记录错误响应
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -282,15 +283,16 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 记录错误响应
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }
@@ -366,15 +368,16 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         resourceUrl: imageData.url,
         imageBase64: imageData.b64_json,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 记录错误响应
       if (taskId) {
+        const errorInfo = extractFetchErrorInfo(error)
         logTaskResponse(taskId, {
-          status: error.status || error.statusCode || null,
-          statusText: error.statusText || error.statusMessage,
-          body: error.data,
-          error: error.message,
-          errorType: error.name || 'Error',
+          status: errorInfo.status,
+          statusText: errorInfo.statusText,
+          body: errorInfo.body,
+          error: errorInfo.message,
+          errorType: errorInfo.errorType,
           durationMs: Date.now() - startTime,
         })
       }

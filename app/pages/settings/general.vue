@@ -34,16 +34,16 @@ onMounted(async () => {
 
 // 同步设置到表单
 function syncFormFromSettings() {
-  form.blurByDefault = settings.value[USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT] ?? true
-  form.compressKeepCount = settings.value[USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT] ?? 4
-  form.titleMaxLength = settings.value[USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH] ?? 30
-  form.suggestionsCount = settings.value[USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT] ?? 5
+  form.blurByDefault = settings.value[USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT] as boolean ?? true
+  form.compressKeepCount = settings.value[USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT] as number ?? 4
+  form.titleMaxLength = settings.value[USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH] as number ?? 30
+  form.suggestionsCount = settings.value[USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT] as number ?? 5
   // 绘图设置（仅加载 aimodelId，ModelSelector 会自动计算 upstreamId）
-  form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] ?? 0
-  form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] ?? 0
-  form.workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID] ?? 0
+  form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] as number ?? 0
+  form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] as number ?? 0
+  form.workbenchAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID] as number ?? 0
   // 视频设置
-  form.videoWorkbenchAimodelId = settings.value[USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID] ?? 0
+  form.videoWorkbenchAimodelId = settings.value[USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID] as number ?? 0
 }
 
 // 保存设置
@@ -63,8 +63,9 @@ async function saveSettings() {
       [USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID]: form.videoWorkbenchAimodelId,
     })
     toast.add({ title: '设置已保存', color: 'success' })
-  } catch (error: any) {
-    toast.add({ title: '保存失败', description: error.message, color: 'error' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '未知错误'
+    toast.add({ title: '保存失败', description: message, color: 'error' })
   } finally {
     isSaving.value = false
   }

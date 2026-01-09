@@ -1,13 +1,6 @@
 // 回收站状态管理
 import type { Task } from './useTasks'
-
-// 分页响应类型
-interface PaginatedResponse {
-  tasks: Task[]
-  total: number
-  page: number
-  pageSize: number
-}
+import type { PaginatedResponse } from '../shared/types'
 
 export function useTrash() {
   const tasks = useState<Task[]>('trash-tasks', () => [])
@@ -26,7 +19,7 @@ export function useTrash() {
     }
 
     try {
-      const result = await $fetch<PaginatedResponse>('/api/tasks/trash', {
+      const result = await $fetch<PaginatedResponse<Task>>('/api/tasks/trash', {
         query: {
           page: currentPage.value,
           pageSize: pageSize.value,

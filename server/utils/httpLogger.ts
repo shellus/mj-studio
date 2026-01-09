@@ -6,6 +6,20 @@ import { join } from 'path'
 
 const LOGS_DIR = 'logs'
 
+// 日志数据类型
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+type LogData = Record<string, JsonValue>
+
+// 日志请求体类型（接受任意可序列化对象）
+type LogRequestBody = unknown
+
+// 消息类型
+interface LogMessage {
+  role?: string
+  content?: string | JsonValue
+  [key: string]: JsonValue | undefined
+}
+
 // 安全执行日志操作，失败静默
 function safeLog(fn: () => void): void {
   try {
@@ -44,7 +58,7 @@ function generateContentPreview(content: string): string {
 }
 
 // 裁剪消息内容
-function truncateMessageContent(content: string | any): string {
+function truncateMessageContent(content: string | JsonValue): string {
   // 如果是字符串，裁剪
   if (typeof content === 'string') {
     return generateContentPreview(content)
@@ -55,9 +69,9 @@ function truncateMessageContent(content: string | any): string {
 }
 
 // 裁剪消息数组
-function truncateMessages(messages: any[]): any {
+function truncateMessages(messages: LogMessage[]): LogData {
   if (!Array.isArray(messages) || messages.length === 0) {
-    return messages
+    return { _truncated: true, _summary: '[empty]', _first: [], _last: null }
   }
 
   const size = calcSize(JSON.stringify(messages))
@@ -65,21 +79,22 @@ function truncateMessages(messages: any[]): any {
 
   // 获取开头两条消息
   const firstMessages = messages.slice(0, 2).map(msg => ({
-    role: msg.role,
-    content: truncateMessageContent(msg.content),
+    role: msg.role ?? 'unknown',
+    content: truncateMessageContent(msg.content ?? ''),
   }))
 
   // 获取最后一条消息
-  const lastMessage = {
-    role: messages[messages.length - 1].role,
-    content: truncateMessageContent(messages[messages.length - 1].content),
-  }
+  const lastMsg = messages[messages.length - 1]
+  const lastMessage = lastMsg ? {
+    role: lastMsg.role ?? 'unknown',
+    content: truncateMessageContent(lastMsg.content ?? ''),
+  } : null
 
   return {
     _truncated: true,
     _summary: summary,
-    _first: firstMessages,
-    _last: lastMessage,
+    _first: firstMessages as unknown as JsonValue,
+    _last: lastMessage as unknown as JsonValue,
   }
 }
 
@@ -90,17 +105,30 @@ function truncateBase64(value: string): string {
 }
 
 // 递归处理请求体，脱敏敏感信息（深拷贝，不修改原始数据）
-function sanitizeBody(body: any): any {
-  if (typeof body !== 'object' || body === null) {
-    return body
+function sanitizeBody(body: LogRequestBody): JsonValue {
+  if (body === null || body === undefined) {
+    return null
   }
 
-  const result: any = Array.isArray(body) ? [] : {}
+  if (typeof body !== 'object') {
+    // 基础类型直接返回（作为 JsonValue）
+    if (typeof body === 'string' || typeof body === 'number' || typeof body === 'boolean') {
+      return body
+    }
+    return String(body)
+  }
 
-  for (const [key, value] of Object.entries(body)) {
+  if (Array.isArray(body)) {
+    return body.map(item => sanitizeBody(item))
+  }
+
+  const result: Record<string, JsonValue> = {}
+  const obj = body as Record<string, unknown>
+
+  for (const [key, value] of Object.entries(obj)) {
     // 处理 messages 数组
     if (key === 'messages' && Array.isArray(value)) {
-      result[key] = truncateMessages(value)
+      result[key] = truncateMessages(value as LogMessage[]) as unknown as JsonValue
       continue
     }
 
@@ -125,11 +153,21 @@ function sanitizeBody(body: any): any {
       }
     }
     // 递归处理对象和数组
-    else if (typeof value === 'object') {
+    else if (typeof value === 'object' && value !== null) {
       result[key] = sanitizeBody(value)
     }
-    else {
+    // 基础类型
+    else if (typeof value === 'number' || typeof value === 'boolean') {
       result[key] = value
+    }
+    else if (value === null) {
+      result[key] = null
+    }
+    else if (value === undefined) {
+      // 跳过 undefined
+    }
+    else {
+      result[key] = String(value)
     }
   }
 
@@ -163,7 +201,7 @@ function ensureLogDir(type: 'conversation' | 'task', id: number): string {
 }
 
 // 写入日志行
-function appendLog(filePath: string, logData: any): void {
+function appendLog(filePath: string, logData: LogData): void {
   safeLog(() => {
     appendFileSync(filePath, JSON.stringify(logData) + '\n')
   })
@@ -174,17 +212,17 @@ function appendLog(filePath: string, logData: any): void {
 export function logConversationRequest(
   conversationId: number,
   messageId: number,
-  data: { url: string; method: string; headers: Record<string, string>; body?: any }
+  data: { url: string; method: string; headers: Record<string, string>; body?: LogRequestBody }
 ): void {
   const filePath = ensureLogDir('conversation', conversationId)
-  const logData = {
+  const logData: LogData = {
     timestamp: new Date().toISOString(),
     event: 'request',
     messageId,
     url: data.url,
     method: data.method,
-    headers: sanitizeHeaders(data.headers),
-    body: data.body ? sanitizeBody(data.body) : undefined,
+    headers: sanitizeHeaders(data.headers) as unknown as JsonValue,
+    body: data.body ? sanitizeBody(data.body) : null,
   }
   appendLog(filePath, logData)
 }
@@ -196,14 +234,14 @@ export function logConversationResponse(
     status: number | null
     statusText?: string
     content?: string
-    body?: any
+    body?: LogRequestBody
     error?: string
     errorType?: string
     durationMs: number
   }
 ): void {
   const filePath = ensureLogDir('conversation', conversationId)
-  const logData: any = {
+  const logData: LogData = {
     timestamp: new Date().toISOString(),
     event: 'response',
     messageId,
@@ -220,13 +258,13 @@ export function logConversationResponse(
   }
   // HTTP 错误（status 4xx/5xx）
   else if (data.status && data.status >= 400) {
-    logData.statusText = data.statusText
-    logData.body = data.body
+    logData.statusText = data.statusText ?? null
+    logData.body = data.body !== undefined ? sanitizeBody(data.body) : null
   }
   // 网络错误（status null）
   else {
-    logData.error = data.error
-    logData.errorType = data.errorType
+    logData.error = data.error ?? null
+    logData.errorType = data.errorType ?? null
   }
 
   appendLog(filePath, logData)
@@ -236,16 +274,16 @@ export function logConversationResponse(
 
 export function logTaskRequest(
   taskId: number,
-  data: { url: string; method: string; headers: Record<string, string>; body?: any }
+  data: { url: string; method: string; headers: Record<string, string>; body?: LogRequestBody }
 ): void {
   const filePath = ensureLogDir('task', taskId)
-  const logData = {
+  const logData: LogData = {
     timestamp: new Date().toISOString(),
     event: 'request',
     url: data.url,
     method: data.method,
-    headers: sanitizeHeaders(data.headers),
-    body: data.body ? sanitizeBody(data.body) : undefined,
+    headers: sanitizeHeaders(data.headers) as unknown as JsonValue,
+    body: data.body ? sanitizeBody(data.body) : null,
   }
   appendLog(filePath, logData)
 }
@@ -255,14 +293,14 @@ export function logTaskResponse(
   data: {
     status: number | null
     statusText?: string
-    body?: any
+    body?: LogRequestBody
     error?: string
     errorType?: string
     durationMs: number
   }
 ): void {
   const filePath = ensureLogDir('task', taskId)
-  const logData: any = {
+  const logData: LogData = {
     timestamp: new Date().toISOString(),
     event: 'response',
     status: data.status,
@@ -271,13 +309,13 @@ export function logTaskResponse(
 
   // 成功或 HTTP 错误
   if (data.status !== null) {
-    logData.statusText = data.statusText
-    logData.body = data.body
+    logData.statusText = data.statusText ?? null
+    logData.body = data.body !== undefined ? sanitizeBody(data.body) : null
   }
   // 网络错误
   else {
-    logData.error = data.error
-    logData.errorType = data.errorType
+    logData.error = data.error ?? null
+    logData.errorType = data.errorType ?? null
   }
 
   appendLog(filePath, logData)
