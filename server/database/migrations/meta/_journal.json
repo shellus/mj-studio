@@ -92,6 +92,13 @@
       "when": 1767863206038,
       "tag": "0012_drop-workflow-tables",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1767928927196,
+      "tag": "0013_add-mcp-api-key",
+      "breakpoints": true
     }
   ]
 }

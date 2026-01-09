@@ -16,7 +16,7 @@ import { classifyFetchError, classifyError, extractFetchErrorInfo, ERROR_MESSAGE
 import { logTaskResponse } from '../utils/httpLogger'
 import type { GenerateResult } from './types'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
-import { emitToUser, type TaskStatusUpdated } from './globalEvents'
+import { emitToUser, type TaskStatusUpdated, type TaskCreated } from './globalEvents'
 import { getErrorMessage } from '../../app/shared/types'
 
 // 存储每个任务的 AbortController，用于取消请求
@@ -95,6 +95,19 @@ export function useTaskService() {
     if (!task) {
       throw new Error('创建任务失败')
     }
+
+    // 广播任务创建事件
+    await emitToUser<TaskCreated>(task.userId, 'task.created', {
+      task: {
+        id: task.id,
+        userId: task.userId,
+        taskType: task.taskType,
+        modelType: task.modelType,
+        prompt: task.prompt ?? '',
+        status: task.status,
+        createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : task.createdAt,
+      },
+    })
 
     return task
   }

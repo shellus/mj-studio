@@ -92,3 +92,49 @@ export async function requireAuth(event: H3Event): Promise<{ user: AuthUser }> {
     },
   }
 }
+
+// MCP API Key 认证
+// 通过 Bearer Token 验证 MCP API Key，返回用户信息
+export async function requireMcpAuth(event: H3Event): Promise<{ user: AuthUser }> {
+  const token = getTokenFromHeader(event)
+  if (!token) {
+    throw createError({
+      statusCode: 401,
+      message: '缺少认证信息',
+    })
+  }
+
+  // 检查是否为 MCP API Key 格式
+  if (!token.startsWith('mjs_')) {
+    throw createError({
+      statusCode: 401,
+      message: '无效的 API Key 格式',
+    })
+  }
+
+  // 查询数据库验证 Key
+  const { eq } = await import('drizzle-orm')
+  const { db } = await import('../database')
+  const { users } = await import('../database/schema')
+
+  const [user] = await db.select({
+    id: users.id,
+    email: users.email,
+    name: users.name,
+  }).from(users).where(eq(users.mcpApiKey, token)).limit(1)
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      message: '无效的 API Key',
+    })
+  }
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    },
+  }
+}

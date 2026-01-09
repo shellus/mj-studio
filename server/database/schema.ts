@@ -29,6 +29,7 @@ export const users = sqliteTable('users', {
   password: text('password').notNull(), // hashed
   name: text('name'),
   avatar: text('avatar'), // 头像 base64 或 URL
+  mcpApiKey: text('mcp_api_key'), // MCP 接口 API Key，格式：mjs_xxx
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

@@ -25,6 +25,11 @@ const menuItems = [
     to: '/settings/prompts',
   },
   {
+    label: 'MCP 接口',
+    icon: 'i-heroicons-key',
+    to: '/settings/mcp',
+  },
+  {
     label: '通用设置',
     icon: 'i-heroicons-cog-6-tooth',
     to: '/settings/general',

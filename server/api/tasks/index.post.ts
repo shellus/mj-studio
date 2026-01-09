@@ -3,7 +3,6 @@ import { useTaskService } from '../../services/task'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
-import { emitToUser, type TaskCreated } from '../../services/globalEvents'
 import type { ModelType, ApiFormat, TaskType } from '../../database/schema'
 import { IMAGE_MODEL_TYPES, VIDEO_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
 
@@ -125,7 +124,7 @@ export default defineEventHandler(async (event) => {
     ? await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
     : false
 
-  // 1. 先保存到数据库
+  // 1. 先保存到数据库（service 层会自动广播 task.created 事件）
   const task = await taskService.createTask({
     userId: user.id,
     upstreamId: aimodel.upstreamId,
@@ -141,25 +140,12 @@ export default defineEventHandler(async (event) => {
     isBlurred: blurByDefault ?? true,
   })
 
-  // 2. 广播任务创建事件
-  await emitToUser<TaskCreated>(user.id, 'task.created', {
-    task: {
-      id: task.id,
-      userId: task.userId,
-      taskType: task.taskType,
-      modelType: task.modelType,
-      prompt: task.prompt ?? '',
-      status: task.status,
-      createdAt: task.createdAt instanceof Date ? task.createdAt.toISOString() : task.createdAt,
-    },
-  })
-
-  // 3. 异步提交到对应的生成服务（不阻塞响应）
+  // 2. 异步提交到对应的生成服务（不阻塞响应）
   taskService.submitTask(task.id).catch((err) => {
     console.error('异步提交任务失败:', err)
   })
 
-  // 4. 立即返回任务ID
+  // 3. 立即返回任务ID
   return {
     success: true,
     taskId: task.id,
