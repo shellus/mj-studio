@@ -11,5 +11,7 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     environment:
+      - NUXT_PUBLIC_SITE_NAME=${NUXT_PUBLIC_SITE_NAME:-MJ-Studio}
+      - NUXT_PUBLIC_SITE_SLOGAN=${NUXT_PUBLIC_SITE_SLOGAN:-多模型AI工作台}
       - NUXT_SESSION_PASSWORD=${NUXT_SESSION_PASSWORD}
       - NUXT_PUBLIC_URL=${NUXT_PUBLIC_URL:-}

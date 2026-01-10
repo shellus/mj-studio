@@ -1,5 +1,4 @@
 // 助手状态管理
-import { useGlobalEvents, type ChatAssistantUpdated } from './useGlobalEvents'
 
 export interface Assistant {
   id: number
@@ -16,48 +15,11 @@ export interface Assistant {
   enableThinking: boolean
 }
 
-// 单例模式：防止事件处理器重复注册
-let isAssistantEventRegistered = false
-
 export function useAssistants() {
   const assistants = useState<Assistant[]>('assistants', () => [])
   const isLoading = useState('assistants-loading', () => false)
   // 使用 ref 而非 useState，避免跨页面状态残留，由 URL 驱动
   const currentAssistantId = ref<number | null>(null)
-
-  // 注册全局事件处理器（单例模式）
-  if (import.meta.client && !isAssistantEventRegistered) {
-    isAssistantEventRegistered = true
-    const { on } = useGlobalEvents()
-    on<ChatAssistantUpdated>('chat.assistant.updated', (data) => {
-      const { assistant } = data
-      const index = assistants.value.findIndex(a => a.id === assistant.id)
-      const existing = assistants.value[index]
-      if (index >= 0 && existing) {
-        // 更新助手信息（只更新事件中包含的字段，保留本地的 userId 和 createdAt）
-        assistants.value[index] = {
-          ...existing,
-          id: assistant.id,
-          name: assistant.name,
-          description: assistant.description,
-          avatar: assistant.avatar,
-          systemPrompt: assistant.systemPrompt,
-          aimodelId: assistant.aimodelId,
-          isDefault: assistant.isDefault,
-          suggestions: assistant.suggestions,
-          conversationCount: assistant.conversationCount,
-          enableThinking: assistant.enableThinking,
-        }
-
-        // 如果设为默认，更新其他助手的默认状态
-        if (assistant.isDefault) {
-          assistants.value.forEach((a, i) => {
-            if (i !== index) a.isDefault = false
-          })
-        }
-      }
-    })
-  }
 
   // 当前选中的助手
   const currentAssistant = computed(() => {

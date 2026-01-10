@@ -2,21 +2,6 @@
 // 适配独立流式订阅系统：消息 CRUD 通过全局 SSE，流式内容通过独立端点订阅
 import type { MessageMark, MessageStatus, MessageFile } from '~/shared/types'
 import { useAuth } from './useAuth'
-import { useUpstreams } from './useUpstreams'
-import {
-  useGlobalEvents,
-  type ChatMessageCreated,
-  type ChatMessageDone,
-  type ChatConversationCreated,
-  type ChatConversationDeleted,
-  type ChatConversationUpdated,
-  type ChatMessageDeleted,
-  type ChatMessageUpdated,
-  type ChatMessagesDeleted,
-} from './useGlobalEvents'
-
-// 单例模式：防止事件处理器重复注册
-let isConversationEventRegistered = false
 
 export interface Message {
   id: number
@@ -60,8 +45,6 @@ export interface ConversationInputState {
 }
 
 export function useConversations() {
-  const { upstreams } = useUpstreams()
-  const { on } = useGlobalEvents()
   const conversations = useState<Conversation[]>('conversations', () => [])
   const messages = useState<Message[]>('messages', () => [])
   const isLoading = useState('conversations-loading', () => false)
@@ -293,214 +276,6 @@ export function useConversations() {
     }
     streamingMessageId = -1
     streamingConversationId = null
-  }
-
-  // ==================== 全局事件处理器 ====================
-
-  // 处理消息创建事件
-  function handleMessageCreated(data: ChatMessageCreated) {
-    const { conversationId, message } = data
-
-
-    // 只处理当前已加载对话的消息
-    if (currentConversationId.value !== conversationId) {
-      return
-    }
-
-    // 按 message.id 做 upsert
-    const existingIndex = messages.value.findIndex(m => m.id === message.id)
-    const existing = messages.value[existingIndex]
-
-    if (existingIndex >= 0 && existing) {
-      // 更新现有消息（直接修改属性，保持对象引用不变）
-      existing.conversationId = message.conversationId
-      existing.role = message.role
-      // 只在消息不是 streaming 状态时更新 content（避免覆盖流式内容）
-      if (existing.status !== 'streaming') {
-        existing.content = message.content
-      }
-      existing.files = message.files
-      existing.modelDisplayName = message.modelDisplayName ?? null
-      existing.createdAt = message.createdAt || existing.createdAt
-      existing.mark = message.mark as MessageMark | null
-      existing.status = message.status as MessageStatus | null
-    } else {
-      // 插入新消息
-      const newMessage: Message = {
-        id: message.id,
-        conversationId: message.conversationId,
-        role: message.role,
-        content: message.content,
-        files: message.files,
-        modelDisplayName: message.modelDisplayName ?? null,
-        createdAt: message.createdAt || new Date().toISOString(),
-        mark: message.mark as MessageMark | null,
-        status: message.status as MessageStatus | null,
-      }
-      messages.value.push(newMessage)
-    }
-
-    // 如果是 AI 消息且状态为 created/pending/streaming，且仍是当前对话，订阅流式输出
-    if (message.role === 'assistant' &&
-        (message.status === 'created' || message.status === 'pending' || message.status === 'streaming') &&
-        currentConversationId.value === conversationId) {
-      subscribeToMessageStream(message.id, conversationId, message.content || '')
-    }
-  }
-
-  // 处理流式结束事件
-  function handleMessageDone(data: ChatMessageDone) {
-    const { conversationId, messageId, status, error, estimatedTime, upstreamId, aimodelId } = data
-
-    // 只处理当前对话的消息
-    if (currentConversationId.value !== conversationId) {
-      return
-    }
-
-    // 找到目标消息
-    const targetMessage = messages.value.find(m => m.id === messageId)
-    if (targetMessage) {
-      targetMessage.status = status
-      if (error) {
-        targetMessage.content = error
-        targetMessage.mark = 'error'
-      }
-    }
-
-    // 取消流式订阅
-    unsubscribeFromMessageStream(messageId)
-
-    // 如果后端返回了更新后的预计时间，更新本地 upstreams 状态
-    if (estimatedTime !== undefined && upstreamId && aimodelId) {
-      const upstream = upstreams.value.find(u => u.id === upstreamId)
-      if (upstream) {
-        const aimodel = upstream.aimodels.find(m => m.id === aimodelId)
-        if (aimodel) {
-          aimodel.estimatedTime = estimatedTime
-        }
-      }
-    }
-
-    // 结束流式状态
-    endStreamingState(conversationId)
-  }
-
-  // ==================== 对话和消息操作事件处理器 ====================
-
-  // 处理对话创建事件
-  function handleConversationCreated(data: ChatConversationCreated) {
-    const { conversation } = data
-
-    // 只处理当前助手的对话
-    if (currentAssistantId.value !== null && conversation.assistantId !== currentAssistantId.value) {
-      return
-    }
-
-    // 检查是否已存在（避免重复添加）
-    const exists = conversations.value.some(c => c.id === conversation.id)
-    if (exists) return
-
-    // 添加到对话列表顶部
-    conversations.value.unshift({
-      id: conversation.id,
-      userId: conversation.userId,
-      assistantId: conversation.assistantId,
-      title: conversation.title,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-    })
-  }
-
-  // 处理对话删除事件
-  function handleConversationDeleted(data: ChatConversationDeleted) {
-    const { conversationId } = data
-
-    // 从列表中移除
-    conversations.value = conversations.value.filter(c => c.id !== conversationId)
-
-    // 如果删除的是当前对话，清空选择
-    if (currentConversationId.value === conversationId) {
-      currentConversationId.value = null
-      messages.value = []
-    }
-
-    // 清理相关状态
-    clearInputState(conversationId)
-    if (streamingStates.value[conversationId]) {
-      delete streamingStates.value[conversationId]
-    }
-  }
-
-  // 处理对话更新事件
-  function handleConversationUpdated(data: ChatConversationUpdated) {
-    const { conversation } = data
-
-    // 更新对话列表中的对话
-    const index = conversations.value.findIndex(c => c.id === conversation.id)
-    if (index >= 0) {
-      const existing = conversations.value[index]!
-      conversations.value[index] = {
-        id: existing.id,
-        userId: existing.userId,
-        assistantId: existing.assistantId,
-        title: conversation.title,
-        createdAt: existing.createdAt,
-        updatedAt: conversation.updatedAt,
-      }
-    }
-  }
-
-  // 处理消息删除事件
-  function handleMessageDeleted(data: ChatMessageDeleted) {
-    const { conversationId, messageId } = data
-
-    // 只处理当前对话
-    if (currentConversationId.value !== conversationId) return
-
-    // 从消息列表中移除
-    messages.value = messages.value.filter(m => m.id !== messageId)
-  }
-
-  // 处理消息更新事件
-  function handleMessageUpdated(data: ChatMessageUpdated) {
-    const { conversationId, message } = data
-
-    // 只处理当前对话
-    if (currentConversationId.value !== conversationId) return
-
-    // 更新消息内容（直接修改属性以保持响应式）
-    const targetMessage = messages.value.find(m => m.id === message.id)
-    if (targetMessage) {
-      targetMessage.content = message.content
-    }
-  }
-
-  // 处理批量删除消息事件
-  function handleMessagesDeleted(data: ChatMessagesDeleted) {
-    const { conversationId, messageIds } = data
-
-    // 只处理当前对话
-    if (currentConversationId.value !== conversationId) return
-
-    // 从消息列表中批量移除
-    messages.value = messages.value.filter(m => !messageIds.includes(m.id))
-  }
-
-  // 注册全局事件处理器（单例模式，防止重复注册）
-  if (import.meta.client && !isConversationEventRegistered) {
-    isConversationEventRegistered = true
-
-    // 消息流式输出事件
-    on<ChatMessageCreated>('chat.message.created', handleMessageCreated)
-    on<ChatMessageDone>('chat.message.done', handleMessageDone)
-
-    // 对话和消息操作事件
-    on<ChatConversationCreated>('chat.conversation.created', handleConversationCreated)
-    on<ChatConversationDeleted>('chat.conversation.deleted', handleConversationDeleted)
-    on<ChatConversationUpdated>('chat.conversation.updated', handleConversationUpdated)
-    on<ChatMessageDeleted>('chat.message.deleted', handleMessageDeleted)
-    on<ChatMessageUpdated>('chat.message.updated', handleMessageUpdated)
-    on<ChatMessagesDeleted>('chat.messages.deleted', handleMessagesDeleted)
   }
 
   // ==================== 原有功能 ====================
@@ -821,5 +596,12 @@ export function useConversations() {
     updateUploadingFiles,
     updateCompressHint,
     clearInputState,
+    // 事件处理器需要的内部状态和方法（供插件使用）
+    currentAssistantId,
+    streamingStates,
+    inputStates,
+    subscribeToMessageStream,
+    unsubscribeFromMessageStream,
+    endStreamingState,
   }
 }

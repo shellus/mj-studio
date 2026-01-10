@@ -1,20 +1,8 @@
 // 任务状态管理
 import type { ModelType, ApiFormat, TaskType, ModelParams, TaskUpstreamSummary, PaginatedResponse } from '../shared/types'
 import type { MJButton } from '../shared/events'
-import {
-  useGlobalEvents,
-  type TaskCreated,
-  type TaskStatusUpdated,
-  type TaskDeleted,
-  type TaskRestored,
-  type TaskBlurUpdated,
-  type TasksBlurUpdated,
-} from './useGlobalEvents'
 
 export type { TaskUpstreamSummary }
-
-// 单例模式：防止事件处理器重复注册
-let isTaskEventRegistered = false
 
 // 前端 Task 类型（API 响应格式，与数据库 Task 不同）
 export interface Task {
@@ -57,9 +45,6 @@ export function useTasks() {
   const sourceType = useState<'workbench' | 'chat' | 'all'>('tasks-sourceType', () => 'workbench')
   const taskType = useState<TaskType | 'all'>('tasks-taskType', () => 'all')
   const keyword = useState('tasks-keyword', () => '')
-
-  // 全局事件
-  const { on } = useGlobalEvents()
 
   // 加载任务列表（支持分页和筛选）
   async function loadTasks(page?: number) {
@@ -142,112 +127,6 @@ export function useTasks() {
       console.error('取消任务失败:', error)
       throw error
     }
-  }
-
-  // ==================== 事件处理器 ====================
-
-  // 处理任务创建事件（从其他标签页/设备创建的任务）
-  function handleTaskCreated(data: TaskCreated) {
-    const { task } = data
-
-    // 检查是否已存在
-    const exists = tasks.value.some(t => t.id === task.id)
-    if (exists) return
-
-    // 如果当前在第一页且来源类型匹配，添加到列表
-    if (currentPage.value === 1) {
-      // 需要获取完整的任务信息（事件中只有基础信息）
-      $fetch<Task>(`/api/tasks/${task.id}`).then(fullTask => {
-        // 再次检查是否已存在（防止并发）
-        const existsNow = tasks.value.some(t => t.id === task.id)
-        if (!existsNow) {
-          tasks.value.unshift(fullTask)
-          total.value += 1
-          // 任务状态更新完全通过 SSE 事件处理
-        }
-      }).catch(err => {
-        console.error('[useTasks] 获取新任务详情失败:', err)
-      })
-    }
-  }
-
-  // 处理任务状态更新事件
-  function handleTaskStatusUpdated(data: TaskStatusUpdated) {
-    const { taskId, status, progress, resourceUrl, error, buttons, duration } = data
-
-    const index = tasks.value.findIndex(t => t.id === taskId)
-    if (index < 0) return
-
-    const existing = tasks.value[index]!
-
-    // 更新任务状态
-    tasks.value[index] = {
-      ...existing,
-      status: status as Task['status'],
-      progress: progress !== undefined ? `${progress}%` : existing.progress,
-      resourceUrl: resourceUrl !== undefined ? resourceUrl : existing.resourceUrl,
-      error: error !== undefined ? error : existing.error,
-      buttons: buttons !== undefined ? buttons : existing.buttons,
-      duration: duration !== undefined ? duration : existing.duration,
-    }
-  }
-
-  // 处理任务删除事件
-  function handleTaskDeleted(data: TaskDeleted) {
-    const { taskId } = data
-
-    const index = tasks.value.findIndex(t => t.id === taskId)
-    if (index >= 0) {
-      tasks.value.splice(index, 1)
-      total.value = Math.max(0, total.value - 1)
-    }
-  }
-
-  // 处理任务恢复事件
-  function handleTaskRestored(data: TaskRestored) {
-    const { taskId } = data
-
-    // 从回收站恢复，需要重新加载列表
-    // 简单处理：如果在第一页，重新加载
-    if (currentPage.value === 1) {
-      loadTasks(1)
-    }
-  }
-
-  // 处理模糊状态更新事件
-  function handleTaskBlurUpdated(data: TaskBlurUpdated) {
-    const { taskId, isBlurred } = data
-
-    const index = tasks.value.findIndex(t => t.id === taskId)
-    if (index >= 0) {
-      const existing = tasks.value[index]!
-      tasks.value[index] = { ...existing, isBlurred }
-    }
-  }
-
-  // 处理批量模糊状态更新事件
-  function handleTasksBlurUpdated(data: TasksBlurUpdated) {
-    const { taskIds, isBlurred } = data
-
-    if (taskIds.length === 0) {
-      // 空数组表示所有任务
-      tasks.value = tasks.value.map(t => ({ ...t, isBlurred }))
-    } else {
-      tasks.value = tasks.value.map(t =>
-        taskIds.includes(t.id) ? { ...t, isBlurred } : t
-      )
-    }
-  }
-
-  // 注册事件处理器（单例模式，防止重复注册）
-  if (import.meta.client && !isTaskEventRegistered) {
-    isTaskEventRegistered = true
-    on<TaskCreated>('task.created', handleTaskCreated)
-    on<TaskStatusUpdated>('task.status.updated', handleTaskStatusUpdated)
-    on<TaskDeleted>('task.deleted', handleTaskDeleted)
-    on<TaskRestored>('task.restored', handleTaskRestored)
-    on<TaskBlurUpdated>('task.blur.updated', handleTaskBlurUpdated)
-    on<TasksBlurUpdated>('tasks.blur.updated', handleTasksBlurUpdated)
   }
 
   return {

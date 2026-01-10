@@ -31,9 +31,10 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: `${process.env.SITE_NAME} - ${process.env.SITE_SLOGAN}`,
+      // 默认标题，运行时通过 useHead 动态更新
+      title: '网站标题 - 系统介绍副标题',
       meta: [
-        { name: 'description', content: process.env.SITE_SLOGAN },
+        { name: 'description', content: '系统介绍副标题' },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -63,8 +64,9 @@ export default defineNuxtConfig({
     // 运行时通过 NUXT_PUBLIC_URL 环境变量覆盖
     publicUrl: '',
     public: {
-      siteName: process.env.SITE_NAME,
-      siteSlogan: process.env.SITE_SLOGAN,
+      // 运行时通过 NUXT_PUBLIC_SITE_NAME / NUXT_PUBLIC_SITE_SLOGAN 环境变量覆盖
+      siteName: '网站标题',
+      siteSlogan: '系统介绍副标题',
     },
   },
 
