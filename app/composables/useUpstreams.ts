@@ -23,8 +23,7 @@ export interface Upstream {
   userId: number
   name: string
   baseUrl: string
-  apiKey: string
-  apiKeys?: ApiKeyConfig[]
+  apiKeys: ApiKeyConfig[]
   remark: string | null
   sortOrder: number
   upstreamPlatform?: UpstreamPlatform | null
@@ -55,8 +54,7 @@ export function useUpstreams() {
   async function createUpstream(data: {
     name: string
     baseUrl: string
-    apiKey: string
-    apiKeys?: ApiKeyConfig[]
+    apiKeys: ApiKeyConfig[]
     aimodels: AimodelInput[]
     remark?: string
     sortOrder?: number
@@ -77,7 +75,6 @@ export function useUpstreams() {
   async function updateUpstream(id: number, data: Partial<{
     name: string
     baseUrl: string
-    apiKey: string
     apiKeys: ApiKeyConfig[]
     aimodels: AimodelInput[]
     remark: string | null

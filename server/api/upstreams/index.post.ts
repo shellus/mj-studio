@@ -8,11 +8,21 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
   const body = await readBody(event)
 
-  const { name, baseUrl, apiKey, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
+  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
 
   // 验证必填字段
   if (!name?.trim()) {
     throw createError({ statusCode: 400, message: '请输入配置名称' })
+  }
+
+  // 验证 apiKeys
+  if (!Array.isArray(apiKeys) || apiKeys.length === 0) {
+    throw createError({ statusCode: 400, message: '请至少添加一个 API Key' })
+  }
+
+  // 验证单 Key 时必须为 default
+  if (apiKeys.length === 1 && apiKeys[0].name !== 'default') {
+    throw createError({ statusCode: 400, message: '只有一个 Key 时，名称必须为 default' })
   }
 
   // 验证模型配置数组
@@ -35,10 +45,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: '请输入API地址' })
   }
 
-  if (!apiKey?.trim()) {
-    throw createError({ statusCode: 400, message: '请输入API密钥' })
-  }
-
   const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
 
@@ -47,7 +53,6 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     name: name.trim(),
     baseUrl: baseUrl.trim(),
-    apiKey: apiKey.trim(),
     apiKeys,
     remark: remark?.trim() || undefined,
     sortOrder,

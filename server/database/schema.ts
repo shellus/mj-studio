@@ -42,8 +42,7 @@ export const upstreams = sqliteTable('upstreams', {
   userId: integer('user_id').notNull(),
   name: text('name').notNull(), // 上游名称，用户自定义，如 "我的MJ", "公司API"
   baseUrl: text('base_url').notNull(), // API请求前缀
-  apiKey: text('api_key').notNull(), // API密钥（主Key）
-  apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>(), // 多Key配置
+  apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>().notNull(), // 多Key配置
   remark: text('remark'), // 备注说明
   sortOrder: integer('sort_order').notNull().default(999), // 排序顺序，0 表示置顶
   upstreamPlatform: text('upstream_platform').$type<UpstreamPlatform>(), // 上游平台类型（用于余额查询）

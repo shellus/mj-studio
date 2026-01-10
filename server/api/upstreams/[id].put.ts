@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, baseUrl, apiKey, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
+  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
 
   // 构建更新数据
   const updateData: Record<string, any> = {}
@@ -37,14 +37,14 @@ export default defineEventHandler(async (event) => {
     updateData.baseUrl = baseUrl.trim()
   }
 
-  if (apiKey !== undefined) {
-    if (!apiKey.trim()) {
-      throw createError({ statusCode: 400, message: 'API密钥不能为空' })
-    }
-    updateData.apiKey = apiKey.trim()
-  }
-
   if (apiKeys !== undefined) {
+    if (!Array.isArray(apiKeys) || apiKeys.length === 0) {
+      throw createError({ statusCode: 400, message: '请至少添加一个 API Key' })
+    }
+    // 验证单 Key 时必须为 default
+    if (apiKeys.length === 1 && apiKeys[0].name !== 'default') {
+      throw createError({ statusCode: 400, message: '只有一个 Key 时，名称必须为 default' })
+    }
     updateData.apiKeys = apiKeys
   }
 

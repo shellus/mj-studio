@@ -34,7 +34,6 @@ const pageTitle = computed(() => isNew.value ? '添加上游配置' : '编辑上
 const form = reactive({
   name: '',
   baseUrl: '',
-  apiKey: '', // 保留用于兼容，实际使用 apiKeys
   remark: '',
   upstreamPlatform: undefined as UpstreamPlatform | undefined,
   userApiKey: '',
@@ -107,19 +106,13 @@ async function loadUpstreamData() {
       Object.assign(form, {
         name: upstream.name,
         baseUrl: upstream.baseUrl,
-        apiKey: upstream.apiKey,
         remark: upstream.remark || '',
         upstreamPlatform: upstream.upstreamPlatform || undefined,
         userApiKey: upstream.userApiKey || '',
       })
 
       // 加载 apiKeys
-      if (upstream.apiKeys && upstream.apiKeys.length > 0) {
-        apiKeys.value = upstream.apiKeys
-      } else {
-        // 兼容旧数据
-        apiKeys.value = [{ name: 'default', key: upstream.apiKey }]
-      }
+      apiKeys.value = upstream.apiKeys
 
       // 分离绘图模型、视频模型和对话模型
       if (upstream.aimodels) {
@@ -349,15 +342,11 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
     return
   }
 
-  // 使用第一个 Key 作为主 apiKey（兼容旧逻辑）
-  const primaryApiKey = validApiKeys[0].key
-
   try {
     if (isNew.value) {
       await createUpstream({
         name: form.name,
         baseUrl: form.baseUrl,
-        apiKey: primaryApiKey,
         apiKeys: validApiKeys,
         aimodels: allAimodels,
         remark: form.remark,
@@ -369,7 +358,6 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       await updateUpstream(upstreamId.value!, {
         name: form.name,
         baseUrl: form.baseUrl,
-        apiKey: primaryApiKey,
         apiKeys: validApiKeys,
         aimodels: allAimodels,
         remark: form.remark || null,
@@ -566,11 +554,11 @@ async function confirmDelete() {
                     <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
-                          v-model="aimodel.modelType"
+                          :model-value="aimodel.modelType"
                           :items="IMAGE_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
                           class="w-40"
-                          @update:model-value="onImageModelTypeChange(index)"
+                          @update:model-value="(v: any) => { aimodel.modelType = v; onImageModelTypeChange(index) }"
                         />
                       </UFormField>
 
@@ -673,11 +661,11 @@ async function confirmDelete() {
                     <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
-                          v-model="aimodel.modelType"
+                          :model-value="aimodel.modelType"
                           :items="VIDEO_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
                           class="w-40"
-                          @update:model-value="onVideoModelTypeChange(index)"
+                          @update:model-value="(v: any) => { aimodel.modelType = v; onVideoModelTypeChange(index) }"
                         />
                       </UFormField>
 

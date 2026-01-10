@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { Assistant } from '~/composables/useAssistants'
-import type { Upstream, AimodelInput } from '~/composables/useUpstreams'
-
 const { assistants, isLoading: isLoadingAssistants, createAssistant } = useAssistants()
 const { upstreams, createUpstream } = useUpstreams()
 const toast = useToast()
@@ -115,10 +112,8 @@ function handleExport() {
     upstreams: selectedUpstreamsData.map(u => ({
       name: u.name,
       baseUrl: u.baseUrl,
-      apiKey: u.apiKey,
       apiKeys: u.apiKeys,
       remark: u.remark,
-      isDefault: u.isDefault,
       upstreamPlatform: u.upstreamPlatform,
       userApiKey: u.userApiKey,
       aimodels: u.aimodels?.map(m => ({
@@ -201,58 +196,25 @@ async function handleImport(event: Event) {
       }
     }
 
-    // 导入上游配置（新格式 v2）
+    // 导入上游配置
     if (Array.isArray(data.upstreams)) {
       for (const item of data.upstreams) {
-        if (!item.name || !item.baseUrl || !item.apiKey) continue
+        if (!item.name || !item.baseUrl || !item.apiKeys?.length) continue
         const exists = upstreams.value.some(u => u.name === item.name)
         if (exists) continue
         try {
           await createUpstream({
             name: item.name,
             baseUrl: item.baseUrl,
-            apiKey: item.apiKey,
             apiKeys: item.apiKeys,
             aimodels: item.aimodels || [],
             remark: item.remark,
-            isDefault: false,
             upstreamPlatform: item.upstreamPlatform,
             userApiKey: item.userApiKey,
           })
           upstreamCount++
         } catch (e) {
           console.error('导入上游配置失败:', item.name, e)
-        }
-      }
-    }
-
-    // 兼容旧格式（v1 modelConfigs）
-    if (Array.isArray(data.modelConfigs)) {
-      for (const item of data.modelConfigs) {
-        if (!item.name || !item.baseUrl || !item.apiKey) continue
-        const exists = upstreams.value.some(u => u.name === item.name)
-        if (exists) continue
-        try {
-          // 转换旧格式的 modelTypeConfigs 为新格式的 aimodels
-          const aimodels: AimodelInput[] = (item.modelTypeConfigs || []).map((mtc: any) => ({
-            category: mtc.category || 'image',
-            modelType: mtc.modelType,
-            apiFormat: mtc.apiFormat,
-            modelName: mtc.modelName,
-            estimatedTime: mtc.estimatedTime,
-            keyName: mtc.keyName,
-          }))
-          await createUpstream({
-            name: item.name,
-            baseUrl: item.baseUrl,
-            apiKey: item.apiKey,
-            aimodels,
-            remark: item.remark,
-            isDefault: false,
-          })
-          upstreamCount++
-        } catch (e) {
-          console.error('导入模型配置失败:', item.name, e)
         }
       }
     }
@@ -378,7 +340,6 @@ async function handleImport(event: Event) {
               <div class="text-sm font-medium truncate">{{ upstream.name }}</div>
               <div class="text-xs text-(--ui-text-dimmed) truncate">{{ upstream.baseUrl }}</div>
             </div>
-            <UBadge v-if="upstream.isDefault" size="xs" color="primary" variant="soft">默认</UBadge>
           </div>
         </div>
       </div>
@@ -392,7 +353,6 @@ async function handleImport(event: Event) {
         <li>• 助手导出包含名称、描述、头像（Base64）和系统提示词</li>
         <li>• 上游配置导出包含名称、API 地址、密钥和模型列表</li>
         <li>• 导入时会创建新项目，同名上游配置会跳过</li>
-        <li>• 支持导入旧版本（v1）的配置文件</li>
       </ul>
     </div>
   </SettingsLayout>

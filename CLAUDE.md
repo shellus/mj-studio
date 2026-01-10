@@ -60,6 +60,8 @@ ALTER TABLE `assistants` ADD `conversation_count` integer NOT NULL DEFAULT 0;-->
 UPDATE `assistants` SET `conversation_count` = (SELECT COUNT(*) FROM `conversations` WHERE ...);
 ```
 
+我们使用的 SQLite 版本支持`DROP COLUMN`
+
 ## 详细文档
 
 `docs/` 目录包含 API 格式、模型参数、架构设计等详细文档，修改相关功能前应先查阅。

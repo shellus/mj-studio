@@ -61,22 +61,17 @@ export function useUpstreamService() {
     userId: number
     name: string
     baseUrl: string
-    apiKey: string
-    apiKeys?: ApiKeyConfig[]
+    apiKeys: ApiKeyConfig[]
     remark?: string
     sortOrder?: number
     upstreamPlatform?: string
     userApiKey?: string
   }): Promise<Upstream> {
-    // 如果没有提供 apiKeys，从 apiKey 创建默认的
-    const apiKeys = data.apiKeys || [{ name: 'default', key: data.apiKey }]
-
     const [upstream] = await db.insert(upstreams).values({
       userId: data.userId,
       name: data.name,
       baseUrl: data.baseUrl,
-      apiKey: data.apiKey,
-      apiKeys,
+      apiKeys: data.apiKeys,
       remark: data.remark ?? null,
       sortOrder: data.sortOrder ?? 999,
       upstreamPlatform: data.upstreamPlatform as any,
@@ -93,7 +88,6 @@ export function useUpstreamService() {
   async function update(id: number, userId: number, data: Partial<{
     name: string
     baseUrl: string
-    apiKey: string
     apiKeys: ApiKeyConfig[]
     remark: string | null
     sortOrder: number
@@ -155,17 +149,14 @@ export function useUpstreamService() {
   function getApiKey(upstream: Upstream, keyName?: string): string {
     const targetName = keyName || 'default'
 
-    // 优先从 apiKeys 数组获取
-    if (upstream.apiKeys && upstream.apiKeys.length > 0) {
-      const found = upstream.apiKeys.find(k => k.name === targetName)
-      if (found) return found.key
-      // 如果找不到指定的 key，返回第一个
-      const firstKey = upstream.apiKeys[0]
-      if (firstKey) return firstKey.key
-    }
+    const found = upstream.apiKeys.find(k => k.name === targetName)
+    if (found) return found.key
 
-    // 兼容旧数据：使用 apiKey 字段
-    return upstream.apiKey
+    // 如果找不到指定的 key，返回第一个
+    const firstKey = upstream.apiKeys[0]
+    if (firstKey) return firstKey.key
+
+    throw new Error(`上游配置 ${upstream.name} 没有可用的 API Key`)
   }
 
   /**
