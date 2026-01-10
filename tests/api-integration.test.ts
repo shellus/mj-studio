@@ -263,10 +263,9 @@ describe('上游配置管理', () => {
       body: JSON.stringify({
         name: 'ephone',
         baseUrl: TEST_CONFIG.baseUrl,
-        apiKey: TEST_CONFIG.apiKey,
-        apiKeys: {
-          default: TEST_CONFIG.apiKey,
-        },
+        apiKeys: [
+          { name: 'default', key: TEST_CONFIG.apiKey },
+        ],
         aimodels: [
           // 对话模型：Claude
           {

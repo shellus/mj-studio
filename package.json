@@ -28,6 +28,7 @@
     "@vue-flow/core": "^1.48.1",
     "@vue-flow/minimap": "^1.5.4",
     "@vue-flow/node-resizer": "^1.5.0",
+    "@vueuse/core": "^14.1.0",
     "better-sqlite3": "^12.5.0",
     "drizzle-orm": "^0.45.1",
     "jose": "^6.1.3",

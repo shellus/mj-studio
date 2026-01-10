@@ -64,7 +64,7 @@ export function useAssistants() {
     if (currentAssistantId.value) {
       return assistants.value.find(a => a.id === currentAssistantId.value)
     }
-    return null
+    return undefined
   })
 
   // 获取默认助手
@@ -124,6 +124,7 @@ export function useAssistants() {
     systemPrompt: string | null
     aimodelId: number | null
     isDefault: boolean
+    enableThinking: boolean
   }>) {
     const updated = await $fetch<Assistant>(`/api/assistants/${id}`, {
       method: 'PUT',

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
-import type { ModelType } from '../../shared/types'
+import type { ImageModelType, VideoModelType } from '../../shared/types'
 import { TASK_CARD_MODEL_DISPLAY, API_FORMAT_LABELS } from '../../shared/constants'
 
 const props = defineProps<{
@@ -11,7 +11,7 @@ const open = defineModel<boolean>('open', { default: false })
 
 // 获取模型显示信息
 const modelInfo = computed(() => {
-  const modelType = props.task.modelType as ModelType
+  const modelType = props.task.modelType as ImageModelType | VideoModelType
   const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
   return {
     label: display.label,

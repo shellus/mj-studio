@@ -425,7 +425,8 @@ function isCompressResponseExpanded(message: Message) {
   // 流式输出中的压缩响应始终展开
   if (props.isStreaming && message.mark === 'compress-response') {
     const compressResponseIndex = props.messages.findIndex(m => m.mark === 'compress-response')
-    if (compressResponseIndex >= 0 && props.messages[compressResponseIndex].id === message.id) {
+    const compressResponse = props.messages[compressResponseIndex]
+    if (compressResponseIndex >= 0 && compressResponse?.id === message.id) {
       return true
     }
   }

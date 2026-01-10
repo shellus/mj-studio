@@ -13,6 +13,7 @@ pnpm dev                    # 启动开发服务器
 pnpm build                  # 构建生产版本
 pnpm db:migrate             # 执行数据库迁移
 pnpm test                   # 运行所有测试
+npx vue-tsc --noEmit        # 检查 TypeScript 类型错误
 ```
 
 ## 目录结构
@@ -106,9 +107,14 @@ export function useXxx() {
 - 使用 CSS 变量（`text-(--ui-text-muted)`）确保深色模式兼容
 - 表单必须使用 `UForm` + `UFormField` 组合
 
-## 参考链接
 
-- [Nuxt 4 文档](https://nuxt.com/docs)
-- [Nuxt UI 3 文档](https://ui.nuxt.com/)
-- [Drizzle ORM 文档](https://orm.drizzle.team/)
-- [midjourney-proxy API](https://github.com/novicezk/midjourney-proxy)
+## TypeScript 类型规范
+
+- **数组元素访问**：`array[index]` 返回 `T | undefined`，使用前必须检查（包括正则 match 结果、数据库插入返回值）
+- **catch 中的 unknown**：不能直接访问属性，需先断言类型再访问
+- **联合类型索引**：用联合类型索引对象时，确保对象键覆盖所有联合成员，或收窄类型
+- **接口同步**：修改接口字段时，同步更新所有引用该接口的函数参数类型
+- **null vs undefined**：Vue 组件 props 优先使用 `undefined`，保持一致性
+- **事件绑定**：模板中绑定的事件处理函数必须在 script 中定义
+- **Date 序列化**：通过 SSE/JSON 传输时，`Date` 对象需转为 ISO 字符串（`date.toISOString()`）
+- **Nuxt UI 组件**：查阅文档确认 props 结构，如 UModal overlay 需放在 `:ui="{ overlay: ... }"` 内

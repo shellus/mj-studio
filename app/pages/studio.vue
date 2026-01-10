@@ -110,10 +110,6 @@ function handleCopyToPanel(prompt: string | null, modelParams: ImageModelParams 
     color: 'success',
   })
 }
-
-onUnmounted(() => {
-  cleanup()
-})
 </script>
 
 <template>

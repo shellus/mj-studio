@@ -152,6 +152,7 @@ async function handleFileChange(event: Event) {
   if (!input.files?.length) return
 
   const file = input.files[0]
+  if (!file) return
 
   if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
     toast.add({ title: '图片大小不能超过10MB', color: 'error' })
@@ -163,7 +164,7 @@ async function handleFileChange(event: Event) {
   isUploading.value = true
   try {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', file!)
 
     const result = await $fetch<{ success: boolean; url: string }>('/api/images/upload', {
       method: 'POST',

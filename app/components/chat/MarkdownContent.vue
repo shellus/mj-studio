@@ -35,7 +35,7 @@ const parts = computed<ContentPart[]>(() => {
     }
 
     // 添加绘图块
-    result.push({ type: 'drawing', content: match[1] })
+    result.push({ type: 'drawing', content: match[1] || '' })
 
     lastIndex = match.index + match[0].length
   }

@@ -104,26 +104,32 @@ async function uploadFile(file: File) {
 
     // 响应式更新
     const updatedFiles = [...props.uploadingFiles]
-    updatedFiles[index] = {
-      ...updatedFiles[index],
-      status: 'done',
-      progress: 100,
-      result: {
-        name: file.name,
-        fileName: response.fileName,
-        mimeType: response.mimeType,
-        size: response.size,
-      },
+    const existingFile = updatedFiles[index]
+    if (existingFile) {
+      updatedFiles[index] = {
+        ...existingFile,
+        status: 'done',
+        progress: 100,
+        result: {
+          name: file.name,
+          fileName: response.fileName,
+          mimeType: response.mimeType,
+          size: response.size,
+        },
+      }
+      emit('update:uploadingFiles', updatedFiles)
     }
-    emit('update:uploadingFiles', updatedFiles)
   } catch (error: any) {
     const updatedFiles = [...props.uploadingFiles]
-    updatedFiles[index] = {
-      ...updatedFiles[index],
-      status: 'error',
-      error: error.message || '上传失败',
+    const existingFile = updatedFiles[index]
+    if (existingFile) {
+      updatedFiles[index] = {
+        ...existingFile,
+        status: 'error',
+        error: error.message || '上传失败',
+      }
+      emit('update:uploadingFiles', updatedFiles)
     }
-    emit('update:uploadingFiles', updatedFiles)
   }
 }
 
@@ -167,8 +173,8 @@ async function handleDrop(event: DragEvent) {
 // 移除文件
 function removeFile(id: string) {
   const index = props.uploadingFiles.findIndex(f => f.id === id)
-  if (index >= 0) {
-    const file = props.uploadingFiles[index]
+  const file = props.uploadingFiles[index]
+  if (index >= 0 && file) {
     // 释放预览 URL
     if (file.previewUrl) {
       URL.revokeObjectURL(file.previewUrl)
@@ -218,7 +224,8 @@ const conversationStats = computed(() => {
   // 找到最后一个 compress-response 消息的位置
   let startIndex = 0
   for (let i = props.messages.length - 1; i >= 0; i--) {
-    if (props.messages[i].mark === 'compress-response') {
+    const msg = props.messages[i]
+    if (msg?.mark === 'compress-response') {
       startIndex = i
       break
     }

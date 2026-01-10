@@ -577,7 +577,7 @@ defineExpose({
 
     <!-- 高级选项折叠区域 -->
     <UCollapsible v-if="selectedAimodel">
-      <UButton variant="ghost" block class="justify-between" :ui="{ trailingIconLeadingClass: 'ms-auto' }">
+      <UButton variant="ghost" block class="justify-between">
         <span class="text-sm text-(--ui-text-muted)">
           高级选项
           <span v-if="advancedOptionsCount > 0" class="ml-1 text-(--ui-primary)">+{{ advancedOptionsCount }}</span>

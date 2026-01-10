@@ -269,7 +269,8 @@ export function createChatService(upstream: Upstream, keyName?: string) {
         let errorBody: unknown
         try {
           errorBody = JSON.parse(errorText)
-          errorMessage = errorBody.error?.message || errorMessage
+          const parsed = errorBody as { error?: { message?: string } }
+          errorMessage = parsed.error?.message || errorMessage
         } catch {
           errorBody = errorText
         }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Assistant } from '~/composables/useAssistants'
+
 definePageMeta({
   middleware: 'auth',
 })
@@ -78,7 +80,7 @@ const currentEstimatedTime = computed(() => {
 
 // 助手编辑弹窗
 const showAssistantEditor = ref(false)
-const editingAssistant = ref<typeof currentAssistant.value>(null)
+const editingAssistant = ref<Assistant | null>(null)
 
 // 消息列表 ref
 const messageListRef = ref<{ scrollToCompressRequest: () => void } | null>(null)
@@ -573,7 +575,6 @@ onUnmounted(() => {
             @rename="handleRenameConversation"
             @generate-title="handleGenerateTitle"
             @share="handleShare"
-            @export-pdf="handleExportPdf"
           />
         </div>
       </template>

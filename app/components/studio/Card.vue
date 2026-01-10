@@ -237,7 +237,7 @@ function downloadImage() {
 
   // 从 URL 中提取原文件名
   const urlPath = props.task.resourceUrl.split('?')[0] // 移除查询参数
-  const originalFileName = urlPath.split('/').pop() || `mj-${props.task.id}.png`
+  const originalFileName = urlPath?.split('/').pop() || `mj-${props.task.id}.png`
 
   const a = document.createElement('a')
   a.href = props.task.resourceUrl

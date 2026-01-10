@@ -96,7 +96,14 @@ async function fetchOrCreateTask(startTask = false) {
   createdAt.value = new Date()
 
   try {
-    const res = await $fetch('/api/illustrations', {
+    const res = await $fetch<{
+      taskId: number | null
+      status: string
+      progress: string | null
+      resourceUrl: string | null
+      error: string | null
+      isBlurred?: boolean
+    }>('/api/illustrations', {
       method: 'POST',
       body: {
         uniqueId: props.params.uniqueId,

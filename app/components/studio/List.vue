@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { TaskType } from '../../shared/types'
+import type { TaskType, ImageModelParams } from '../../shared/types'
 
 const emit = defineEmits<{
-  copyToPanel: [prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]]
+  copyToPanel: [prompt: string | null, modelParams: ImageModelParams | null, images: string[]]
 }>()
 
 const toast = useToast()
@@ -91,8 +91,9 @@ async function handleDelete(taskId: number) {
 // 处理单个任务模糊状态变化（同步到本地状态）
 function handleBlur(taskId: number, isBlurred: boolean) {
   const index = tasks.value.findIndex((t) => t.id === taskId)
-  if (index >= 0) {
-    tasks.value[index] = { ...tasks.value[index], isBlurred }
+  const task = tasks.value[index]
+  if (index >= 0 && task) {
+    tasks.value[index] = { ...task, isBlurred }
   }
 }
 

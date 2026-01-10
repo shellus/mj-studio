@@ -554,7 +554,7 @@ async function confirmDelete() {
                     <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
-                          :model-value="aimodel.modelType"
+                          :model-value="aimodel.modelType as ImageModelType"
                           :items="IMAGE_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
                           class="w-40"
@@ -661,7 +661,7 @@ async function confirmDelete() {
                     <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
-                          :model-value="aimodel.modelType"
+                          :model-value="aimodel.modelType as VideoModelType"
                           :items="VIDEO_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
                           class="w-40"

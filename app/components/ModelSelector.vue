@@ -189,8 +189,9 @@ watch(() => props.upstreams, (upstreams) => {
     const firstUpstream = upstreams[0]
     if (firstUpstream) {
       const filteredModels = filterModelsByCategory(firstUpstream.aimodels || [])
-      if (filteredModels.length > 0) {
-        handleSelectModel(firstUpstream.id, filteredModels[0].id)
+      const firstModel = filteredModels[0]
+      if (firstModel) {
+        handleSelectModel(firstUpstream.id, firstModel.id)
       }
     }
   }
@@ -206,8 +207,9 @@ watch(selectedUpstreamId, (newId) => {
   const validIds = filteredModels.map(m => m.id)
 
   if (!selectedAimodelId.value || !validIds.includes(selectedAimodelId.value)) {
-    if (filteredModels.length > 0) {
-      selectedAimodelId.value = filteredModels[0].id
+    const firstModel = filteredModels[0]
+    if (firstModel) {
+      selectedAimodelId.value = firstModel.id
       emit('update:aimodelId', selectedAimodelId.value)
     }
   }
