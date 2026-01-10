@@ -1,4 +1,4 @@
-// GET /api/tasks/[id] - 查询任务状态
+// GET /api/tasks/[id] - 获取任务详情
 import { useTaskService } from '../../services/task'
 
 export default defineEventHandler(async (event) => {
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const taskService = useTaskService()
 
   // 获取任务（包含精简的上游配置）
-  let result = await taskService.getTaskWithSummary(taskId)
+  const result = await taskService.getTaskWithSummary(taskId)
 
   if (!result) {
     throw createError({
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  let { task, upstream } = result
+  const { task, upstream } = result
 
   // 验证任务属于当前用户
   if (task.userId !== user.id) {
@@ -44,13 +44,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 如果任务正在处理中，同步状态
-  if (task.status === 'processing') {
-    task = await taskService.syncTaskStatus(taskId) ?? task
-  }
+  // 任务状态由后台轮询器（taskPoller）主动同步，此接口仅返回当前状态
 
   return {
     ...task,
     upstream,
   }
 })
+

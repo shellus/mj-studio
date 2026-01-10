@@ -33,6 +33,7 @@ let testUpstreamId = 0
 let testChatAimodelId = 0  // claude 对话模型
 let testGeminiAimodelId = 0  // gemini 绘图模型
 let testDalleAimodelId = 0  // dalle 绘图模型
+let testMjAimodelId = 0  // midjourney 绘图模型（异步）
 let testAssistantId = 0
 let testConversationId = 0
 let testTaskId = 0
@@ -297,6 +298,16 @@ describe('上游配置管理', () => {
             estimatedTime: 20,
             keyName: 'default',
           },
+          // 绘图模型：Midjourney（异步，用于测试后台轮询器）
+          {
+            category: 'image',
+            modelType: 'midjourney',
+            apiFormat: 'mj-proxy',
+            modelName: 'midjourney',
+            name: 'Midjourney',
+            estimatedTime: 60,
+            keyName: 'default',
+          },
         ],
       }),
     })
@@ -308,7 +319,7 @@ describe('上游配置管理', () => {
     expect(data.id).toBeDefined()
     expect(data.name).toBe('ephone')
     expect(data.aimodels).toBeDefined()
-    expect(data.aimodels.length).toBe(3)
+    expect(data.aimodels.length).toBe(4)
 
     testUpstreamId = data.id
 
@@ -320,10 +331,12 @@ describe('上游配置管理', () => {
         testGeminiAimodelId = model.id
       } else if (model.modelType === 'dalle') {
         testDalleAimodelId = model.id
+      } else if (model.modelType === 'midjourney') {
+        testMjAimodelId = model.id
       }
     }
 
-    console.log('创建的模型 ID:', { testChatAimodelId, testGeminiAimodelId, testDalleAimodelId })
+    console.log('创建的模型 ID:', { testChatAimodelId, testGeminiAimodelId, testDalleAimodelId, testMjAimodelId })
   })
 
   it('应能获取上游列表', async () => {
@@ -814,4 +827,95 @@ describe('权限验证', () => {
     // 恢复 token（用于 afterAll 清理）
     authToken = savedToken
   })
+})
+
+// ==================== 后台轮询器测试（异步任务） ====================
+
+describe('后台轮询器测试（Midjourney 异步任务）', () => {
+  it('应能通过 SSE 事件接收异步任务状态更新（不依赖前端轮询）', async () => {
+    if (!testMjAimodelId) {
+      console.log('跳过：未创建 Midjourney 模型')
+      return
+    }
+
+    // 启动 SSE 监听
+    await startSSEListener()
+
+    // 创建 MJ 任务
+    const response = await fetchWithAuth('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        taskType: 'image',
+        prompt: 'a simple red apple on white background --v 6',
+        images: [],
+        type: 'imagine',
+        aimodelId: testMjAimodelId,
+        modelType: 'midjourney',
+        apiFormat: 'mj-proxy',
+        modelName: 'midjourney',
+      }),
+    })
+
+    const data = await response.json()
+    console.log('创建 MJ 任务响应:', data)
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.taskId).toBeDefined()
+
+    const mjTaskId = data.taskId
+    createdTaskIds.push(mjTaskId)
+
+    // 等待 SSE 事件推送任务状态更新（不主动查询接口）
+    // 后台轮询器每 10 秒检查一次（预计时间 60 秒的任务）
+    console.log('等待后台轮询器通过 SSE 推送任务状态更新...')
+    console.log('（不主动查询 /api/tasks/:id 接口，完全依赖后台轮询器）')
+
+    const maxWaitMs = 180000  // 3 分钟
+    const startTime = Date.now()
+    let finalStatus = ''
+
+    while (Date.now() - startTime < maxWaitMs) {
+      // 检查 SSE 事件中是否有该任务的状态更新
+      const statusEvents = sseEvents.filter(
+        e => e.type === 'task.status.updated' && e.data?.data?.taskId === mjTaskId
+      )
+
+      if (statusEvents.length > 0) {
+        const latestEvent = statusEvents[statusEvents.length - 1]
+        const status = latestEvent.data?.data?.status
+        const progress = latestEvent.data?.data?.progress
+
+        console.log(`[SSE 事件] 任务 #${mjTaskId} 状态: ${status}, 进度: ${progress || 'N/A'}`)
+
+        if (status === 'success' || status === 'failed') {
+          finalStatus = status
+          break
+        }
+      }
+
+      // 每 5 秒检查一次 SSE 事件
+      await new Promise(resolve => setTimeout(resolve, 5000))
+    }
+
+    stopSSEListener()
+
+    // 验证最终状态
+    expect(finalStatus).toBe('success')
+    console.log('✓ 后台轮询器测试通过：任务状态通过 SSE 事件成功推送')
+
+    // 验证收到了 task.status.updated 事件
+    const allStatusEvents = sseEvents.filter(
+      e => e.type === 'task.status.updated' && e.data?.data?.taskId === mjTaskId
+    )
+    console.log(`收到 ${allStatusEvents.length} 个状态更新事件`)
+    expect(allStatusEvents.length).toBeGreaterThan(0)
+
+    // 最后验证任务详情
+    const taskResponse = await fetchWithAuth(`/api/tasks/${mjTaskId}`)
+    const task = await taskResponse.json()
+    expect(task.status).toBe('success')
+    expect(task.resourceUrl).toBeTruthy()
+    console.log('图片 URL:', task.resourceUrl)
+  }, 240000)  // 4 分钟超时
 })
