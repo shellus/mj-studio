@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 首页无需登录
 const { loggedIn } = useAuth()
+const config = useRuntimeConfig()
 </script>
 
 <template>
@@ -13,10 +14,10 @@ const { loggedIn } = useAuth()
           <UIcon name="i-heroicons-sparkles" class="w-16 h-16 text-(--ui-primary) mx-auto mb-4" />
           <h1 class="text-5xl font-bold mb-4">
             <span class="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              MJ Studio
+              {{ config.public.siteName }}
             </span>
           </h1>
-          <p class="text-xl text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
+          <p class="text-xl text-(--ui-text-muted)">{{ config.public.siteSlogan }}</p>
         </div>
 
         <!-- 特性介绍 -->
@@ -77,7 +78,7 @@ const { loggedIn } = useAuth()
     <!-- Footer -->
     <footer class="py-6 border-t border-(--ui-border)">
       <div class="max-w-7xl mx-auto px-6 text-center text-sm text-(--ui-text-dimmed)">
-        MJ Studio - 多模型 AI 创作平台
+        Mj-Studio - {{ config.public.siteSlogan }}
       </div>
     </footer>
   </div>

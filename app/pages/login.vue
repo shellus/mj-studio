@@ -5,6 +5,7 @@ definePageMeta({
 
 const { login } = useAuth()
 const toast = useToast()
+const config = useRuntimeConfig()
 
 const isLogin = ref(true) // true=登录, false=注册
 const isLoading = ref(false)
@@ -66,10 +67,10 @@ function toggleMode() {
         <div class="text-center mb-8">
           <h1 class="text-4xl font-bold text-(--ui-text) mb-2">
             <span class="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              MJ Studio
+              {{ config.public.siteName }}
             </span>
           </h1>
-          <p class="text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
+          <p class="text-(--ui-text-muted)">{{ config.public.siteSlogan }}</p>
         </div>
 
         <!-- 表单卡片 -->

@@ -31,9 +31,9 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'MJ Studio - 多模型 AI 工作台',
+      title: `${process.env.SITE_NAME} - ${process.env.SITE_SLOGAN}`,
       meta: [
-        { name: 'description', content: '轻量级多模型 AI 工作台，绘图与对话一站式体验' },
+        { name: 'description', content: process.env.SITE_SLOGAN },
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
@@ -62,6 +62,10 @@ export default defineNuxtConfig({
     // 公开 URL（用于返回完整的资源链接）
     // 运行时通过 NUXT_PUBLIC_URL 环境变量覆盖
     publicUrl: '',
+    public: {
+      siteName: process.env.SITE_NAME,
+      siteSlogan: process.env.SITE_SLOGAN,
+    },
   },
 
   // Vite 配置：HMR 端口和远程访问

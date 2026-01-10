@@ -8,6 +8,7 @@ withDefaults(defineProps<{
 const { user, loggedIn, logout } = useAuth()
 const router = useRouter()
 const route = useRoute()
+const config = useRuntimeConfig()
 
 // 用户详细信息（包含头像）
 const userProfile = ref<{ avatar?: string | null; name?: string | null } | null>(null)
@@ -67,8 +68,8 @@ function handleLogout() {
     <div class="px-4 h-14 flex items-center justify-between">
       <!-- Logo -->
       <NuxtLink to="/" class="flex items-center gap-2">
-        <img src="/logo.png" alt="MJ Studio" class="w-7 h-7" />
-        <span class="font-bold text-lg">MJ Studio</span>
+        <img src="/logo.png" :alt="config.public.siteName" class="w-7 h-7" />
+        <span class="font-bold text-lg">{{ config.public.siteName }}</span>
       </NuxtLink>
 
       <!-- 导航 + 右侧操作 -->

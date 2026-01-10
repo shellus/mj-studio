@@ -7,13 +7,14 @@ definePageMeta({
 
 const route = useRoute()
 const token = route.params.token as string
+const config = useRuntimeConfig()
 
 // 获取分享数据
 const { data, error, status } = await useFetch(`/api/share/${token}`)
 
 // 页面标题
 const pageTitle = computed(() => {
-  if (!data.value) return 'MJ-Studio'
+  if (!data.value) return config.public.siteName
   const title = data.value.conversation.title
   const assistant = data.value.assistant?.name
   return assistant ? `${title} - ${assistant}` : title
@@ -21,7 +22,7 @@ const pageTitle = computed(() => {
 
 // 页面描述
 const pageDescription = computed(() => {
-  if (!data.value) return 'MJ-Studio 对话分享'
+  if (!data.value) return `${config.public.siteName} 对话分享`
   const msgCount = data.value.messages.length
   const assistant = data.value.assistant?.name || 'AI'
   return `与 ${assistant} 的对话，共 ${msgCount} 条消息`
@@ -33,7 +34,7 @@ useSeoMeta({
   ogTitle: pageTitle,
   ogDescription: pageDescription,
   ogType: 'article',
-  ogSiteName: 'MJ-Studio',
+  ogSiteName: config.public.siteName,
   twitterCard: 'summary',
   twitterTitle: pageTitle,
   twitterDescription: pageDescription,
@@ -128,7 +129,7 @@ watch(data, () => {
     <template v-else-if="data">
       <!-- 工具栏（打印时隐藏） -->
       <div class="toolbar no-print">
-        <div class="site-name">MJ-Studio</div>
+        <div class="site-name">{{ config.public.siteName }}</div>
         <a href="#" class="export-link" @click.prevent="handlePrint">导出 PDF</a>
       </div>
 
@@ -136,7 +137,7 @@ watch(data, () => {
       <div class="content">
         <!-- 头部 -->
         <header class="header">
-          <div class="site-title">MJ-Studio 对话分享</div>
+          <div class="site-title">{{ config.public.siteName }} 对话分享</div>
           <h1 class="title">{{ data.conversation.title }}</h1>
           <div class="meta">
             <span v-if="data.assistant" class="assistant-tag">{{ data.assistant.name }}</span>
@@ -166,7 +167,7 @@ watch(data, () => {
 
         <!-- 页脚 -->
         <footer class="footer">
-          导出自 MJ-Studio · {{ formatDateTime(new Date().toISOString()) }}
+          导出自 Mj-Studio · {{ formatDateTime(new Date().toISOString()) }}
         </footer>
       </div>
     </template>
