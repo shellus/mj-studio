@@ -572,6 +572,7 @@ onUnmounted(() => {
             @delete="handleDeleteConversation"
             @rename="handleRenameConversation"
             @generate-title="handleGenerateTitle"
+            @share="handleShare"
             @export-pdf="handleExportPdf"
           />
         </div>
