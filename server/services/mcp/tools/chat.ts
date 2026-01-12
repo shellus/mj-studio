@@ -8,7 +8,8 @@ import { useConversationService } from '../../conversation'
 import { useAssistantService } from '../../assistant'
 import { useAimodelService } from '../../aimodel'
 import { useUpstreamService } from '../../upstream'
-import { createChatService } from '../../chat'
+import { getChatProvider } from '../../chatProviders'
+import type { ChatApiFormat } from '../../chatProviders'
 import { startStreamingTask } from '../../streamingTask'
 import { eq, and } from 'drizzle-orm'
 
@@ -141,7 +142,15 @@ export async function chat(
   }
 
   // 非流式模式：等待完整响应
-  const chatService = createChatService(upstream, aimodel.keyName)
+  const apiFormat = aimodel.apiFormat as ChatApiFormat
+  const chatProvider = getChatProvider(apiFormat)
+  if (!chatProvider) {
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({ error: `不支持的聊天 API 格式: ${apiFormat}` }) }],
+      isError: true,
+    }
+  }
+  const chatService = chatProvider.createService(upstream, aimodel.keyName)
 
   try {
     const response = await chatService.chat(

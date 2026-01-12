@@ -3,12 +3,13 @@
 
 import { db } from '../database'
 import { tasks, aimodels } from '../database/schema'
-import type { Task, ApiFormat } from '../database/schema'
+import type { Task } from '../database/schema'
 import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { useTaskService } from './task'
+import { getAsyncApiFormats } from './providers'
 
-// 异步 API 格式列表（需要轮询的）
-const ASYNC_API_FORMATS: ApiFormat[] = ['mj-proxy', 'video-unified', 'koukoutu', 'sora-ephone']
+// 获取异步 API 格式列表（需要轮询的）
+const ASYNC_API_FORMATS = getAsyncApiFormats()
 
 // 主定时器间隔（取最小轮询间隔）
 const POLL_INTERVAL_MS = 3 * 1000 // 3秒

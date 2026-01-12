@@ -1,6 +1,5 @@
 // 对话模型配置管理
 import type { Upstream, Aimodel } from './useUpstreams'
-import { IMAGE_MODEL_TYPES } from '../shared/constants'
 
 export function useChatModels() {
   const { upstreams, loadUpstreams } = useUpstreams()

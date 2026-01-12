@@ -2,7 +2,7 @@
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import type { AimodelInput } from '../../../app/shared/types'
-import { IMAGE_MODEL_TYPES, API_FORMATS } from '~/shared/constants'
+import { getAllApiFormats, IMAGE_MODEL_REGISTRY } from '../../services/providers'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -31,12 +31,16 @@ export default defineEventHandler(async (event) => {
   }
 
   // 验证 API 格式（必须是已知格式）
+  const validApiFormats = getAllApiFormats()
+  const chatApiFormats = ['openai-chat', 'claude'] // 对话模型专用格式
+  const validImageModelTypes = IMAGE_MODEL_REGISTRY.map(m => m.type)
   for (const model of aimodels as AimodelInput[]) {
-    if (!API_FORMATS.includes(model.apiFormat)) {
+    const isValidFormat = validApiFormats.includes(model.apiFormat) || chatApiFormats.includes(model.apiFormat)
+    if (!isValidFormat) {
       throw createError({ statusCode: 400, message: `不支持的API格式: ${model.apiFormat}` })
     }
     // 绘图模型必须是已知类型，对话模型允许自定义类型
-    if (model.category === 'image' && !IMAGE_MODEL_TYPES.includes(model.modelType as any)) {
+    if (model.category === 'image' && !validImageModelTypes.includes(model.modelType as any)) {
       throw createError({ statusCode: 400, message: `不支持的绘图模型类型: ${model.modelType}` })
     }
   }

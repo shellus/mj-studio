@@ -3,16 +3,14 @@ import type { ModelCategory, ImageModelType, VideoModelType, ModelType, ApiForma
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import type { AimodelInput } from '../../../composables/useUpstreams'
 import {
-  IMAGE_MODEL_TYPES,
-  VIDEO_MODEL_TYPES,
-  MODEL_API_FORMAT_OPTIONS,
-  DEFAULT_MODEL_NAMES,
-  DEFAULT_ESTIMATED_TIMES,
-  DEFAULT_VIDEO_ESTIMATED_TIMES,
-  MODEL_TYPE_LABELS,
-  API_FORMAT_LABELS,
-  inferChatModelType,
-} from '../../../shared/constants'
+  IMAGE_MODEL_REGISTRY,
+  VIDEO_MODEL_REGISTRY,
+  getApiFormatsForModelType,
+  getModelTypeLabel,
+  getApiFormatLabel,
+  getModelTypeDefaults,
+} from '../../../shared/registry'
+import { inferChatModelType } from '../../../shared/constants'
 
 definePageMeta({
   middleware: 'auth',
@@ -169,7 +167,7 @@ onMounted(() => {
 
 // 获取可用的请求格式
 function getAvailableFormats(modelType: ModelType): ApiFormat[] {
-  return MODEL_API_FORMAT_OPTIONS[modelType] || []
+  return getApiFormatsForModelType(modelType as ImageModelType | VideoModelType) as ApiFormat[]
 }
 
 // 添加绘图模型
@@ -232,9 +230,10 @@ function onImageModelTypeChange(index: number) {
     aimodel.apiFormat = availableFormats[0] || 'mj-proxy'
   }
 
-  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
-  aimodel.name = MODEL_TYPE_LABELS[aimodel.modelType as ModelType] || ''  // 自动填充显示名称
-  aimodel.estimatedTime = DEFAULT_ESTIMATED_TIMES[aimodel.modelType as ImageModelType] || 60
+  const defaults = getModelTypeDefaults(aimodel.modelType as ImageModelType)
+  aimodel.modelName = defaults?.modelName || ''
+  aimodel.name = getModelTypeLabel(aimodel.modelType as ImageModelType)
+  aimodel.estimatedTime = defaults?.estimatedTime || 60
 }
 
 function onChatModelTypeChange(index: number) {
@@ -247,7 +246,8 @@ function onChatModelTypeChange(index: number) {
     aimodel.apiFormat = availableFormats[0] || 'openai-chat'
   }
 
-  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+  const defaults = getModelTypeDefaults(aimodel.modelType as ChatModelType)
+  aimodel.modelName = defaults?.modelName || ''
 }
 
 function onVideoModelTypeChange(index: number) {
@@ -260,16 +260,17 @@ function onVideoModelTypeChange(index: number) {
     aimodel.apiFormat = availableFormats[0] || 'video-unified'
   }
 
-  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
-  aimodel.name = MODEL_TYPE_LABELS[aimodel.modelType as ModelType] || ''  // 自动填充显示名称
-  aimodel.estimatedTime = DEFAULT_VIDEO_ESTIMATED_TIMES[aimodel.modelType as VideoModelType] || 120
+  const defaults = getModelTypeDefaults(aimodel.modelType as VideoModelType)
+  aimodel.modelName = defaults?.modelName || ''
+  aimodel.name = getModelTypeLabel(aimodel.modelType as VideoModelType)
+  aimodel.estimatedTime = defaults?.estimatedTime || 120
 }
 
 // 获取推断的模型类型显示
 function getInferredModelType(modelName: string): { type: ChatModelType | null; label: string } {
   const inferred = inferChatModelType(modelName)
   if (inferred) {
-    return { type: inferred, label: MODEL_TYPE_LABELS[inferred] }
+    return { type: inferred, label: getModelTypeLabel(inferred) }
   }
   return { type: null, label: '自定义' }
 }
@@ -534,7 +535,7 @@ async function confirmDelete() {
                     <div class="flex items-center justify-between mb-2">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-medium text-(--ui-text) truncate">
-                          🎨 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
+                          🎨 {{ getModelTypeLabel(aimodel.modelType as ImageModelType) || '未选择' }}
                         </span>
                         <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
                           ID:{{ aimodel.id }}
@@ -555,7 +556,7 @@ async function confirmDelete() {
                       <UFormField label="模型类型">
                         <USelectMenu
                           :model-value="aimodel.modelType as ImageModelType"
-                          :items="IMAGE_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
+                          :items="IMAGE_MODEL_REGISTRY.map(m => ({ label: m.label, value: m.type }))"
                           value-key="value"
                           class="w-40"
                           @update:model-value="(v: any) => { aimodel.modelType = v; onImageModelTypeChange(index) }"
@@ -573,7 +574,7 @@ async function confirmDelete() {
                             type="button"
                             @click="aimodel.apiFormat = f"
                           >
-                            {{ API_FORMAT_LABELS[f] }}
+                            {{ getApiFormatLabel(f) }}
                           </UButton>
                         </div>
                       </UFormField>
@@ -581,7 +582,7 @@ async function confirmDelete() {
                       <UFormField label="模型名称">
                         <UInput
                           v-model="aimodel.modelName"
-                          :placeholder="DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || '可选'"
+                          :placeholder="getModelTypeDefaults(aimodel.modelType as ImageModelType | VideoModelType)?.modelName || '可选'"
                           class="w-60"
                         />
                       </UFormField>
@@ -641,7 +642,7 @@ async function confirmDelete() {
                     <div class="flex items-center justify-between mb-2">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-medium text-(--ui-text) truncate">
-                          🎬 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
+                          🎬 {{ getModelTypeLabel(aimodel.modelType as VideoModelType) || '未选择' }}
                         </span>
                         <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
                           ID:{{ aimodel.id }}
@@ -662,7 +663,7 @@ async function confirmDelete() {
                       <UFormField label="模型类型">
                         <USelectMenu
                           :model-value="aimodel.modelType as VideoModelType"
-                          :items="VIDEO_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
+                          :items="VIDEO_MODEL_REGISTRY.map(m => ({ label: m.label, value: m.type }))"
                           value-key="value"
                           class="w-40"
                           @update:model-value="(v: any) => { aimodel.modelType = v; onVideoModelTypeChange(index) }"
@@ -680,7 +681,7 @@ async function confirmDelete() {
                             type="button"
                             @click="aimodel.apiFormat = f"
                           >
-                            {{ API_FORMAT_LABELS[f] }}
+                            {{ getApiFormatLabel(f) }}
                           </UButton>
                         </div>
                       </UFormField>
@@ -688,7 +689,7 @@ async function confirmDelete() {
                       <UFormField label="模型名称">
                         <UInput
                           v-model="aimodel.modelName"
-                          :placeholder="DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || '可选'"
+                          :placeholder="getModelTypeDefaults(aimodel.modelType as ImageModelType | VideoModelType)?.modelName || '可选'"
                           class="w-60"
                         />
                       </UFormField>
@@ -784,7 +785,7 @@ async function confirmDelete() {
                             type="button"
                             @click="aimodel.apiFormat = f"
                           >
-                            {{ API_FORMAT_LABELS[f] }}
+                            {{ getApiFormatLabel(f) }}
                           </UButton>
                         </div>
                       </UFormField>

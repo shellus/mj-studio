@@ -1,5 +1,6 @@
 // POST /api/prompts/optimize - AI 优化绘图提示词
-import { createChatService } from '../../services/chat'
+import { getChatProvider } from '../../services/chatProviders'
+import type { ChatApiFormat } from '../../services/chatProviders'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { getErrorMessage } from '../../../app/shared/types'
@@ -83,8 +84,18 @@ export default defineEventHandler(async (event) => {
     // 使用 aimodel 中的 keyName 和 modelName
     const keyName = aimodel.keyName
     const modelName = aimodel.modelName
+    const apiFormat = aimodel.apiFormat as ChatApiFormat
 
-    const chatService = createChatService(upstream, keyName)
+    // 获取 ChatProvider
+    const chatProvider = getChatProvider(apiFormat)
+    if (!chatProvider) {
+      throw createError({
+        statusCode: 500,
+        message: `不支持的聊天 API 格式: ${apiFormat}`,
+      })
+    }
+
+    const chatService = chatProvider.createService(upstream, keyName)
     const systemPrompt = buildSystemPrompt(targetModelType, targetModelName)
     const result = await chatService.chat(
       modelName,

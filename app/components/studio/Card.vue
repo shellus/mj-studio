@@ -2,8 +2,8 @@
 import type { Task } from '~/composables/useTasks'
 import type { ImageModelType, ImageModelParams } from '../../shared/types'
 import { formatDuration } from '~/composables/useTimeFormat'
+import { getCardDisplay } from '../../shared/registry'
 import {
-  TASK_CARD_MODEL_DISPLAY,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
@@ -91,7 +91,7 @@ const statusInfo = computed(() => {
 // 获取模型显示信息
 const modelInfo = computed(() => {
   const modelType = props.task.modelType as ImageModelType
-  const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
+  const display = getCardDisplay(modelType) || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
   return {
     label: props.task.upstream?.aimodelName || display.label,  // 优先使用 aimodelName

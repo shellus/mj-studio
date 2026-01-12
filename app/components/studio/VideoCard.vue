@@ -2,9 +2,8 @@
 import type { Task } from '~/composables/useTasks'
 import type { VideoModelType } from '../../shared/types'
 import { formatDuration } from '~/composables/useTimeFormat'
+import { getCardDisplay, getModelTypeDefaults } from '../../shared/registry'
 import {
-  TASK_CARD_MODEL_DISPLAY,
-  DEFAULT_VIDEO_ESTIMATED_TIMES,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
@@ -88,7 +87,7 @@ const statusInfo = computed(() => {
 // 获取模型显示信息
 const modelInfo = computed(() => {
   const modelType = props.task.modelType as VideoModelType
-  const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
+  const display = getCardDisplay(modelType) || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
   return {
     label: props.task.upstream?.aimodelName || display.label,  // 优先使用 aimodelName
@@ -104,7 +103,7 @@ const isLoading = computed(() => ['pending', 'submitting', 'processing'].include
 const estimatedTime = computed(() => {
   const modelType = props.task.modelType as VideoModelType
   return props.task.upstream?.estimatedTime
-    ?? DEFAULT_VIDEO_ESTIMATED_TIMES[modelType]
+    ?? getModelTypeDefaults(modelType)?.estimatedTime
     ?? DEFAULT_FALLBACK_ESTIMATED_TIME
 })
 

@@ -3,8 +3,9 @@ import { useTaskService } from '../../services/task'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
-import type { ModelType, ApiFormat, TaskType } from '../../database/schema'
-import { IMAGE_MODEL_TYPES, VIDEO_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
+import { USER_SETTING_KEYS } from '../../../app/shared/constants'
+import { getProvider, getValidationRules, getAllApiFormats } from '../../services/providers'
+import { IMAGE_MODEL_REGISTRY, VIDEO_MODEL_REGISTRY } from '../../services/providers/modelTypes'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -32,27 +33,45 @@ export default defineEventHandler(async (event) => {
   }
 
   // 验证模型类型
-  const validModelTypes = taskType === 'video' ? VIDEO_MODEL_TYPES : IMAGE_MODEL_TYPES
-  if (!modelType || !(validModelTypes as readonly string[]).includes(modelType)) {
+  const validModelTypes = taskType === 'video'
+    ? VIDEO_MODEL_REGISTRY.map(m => m.type)
+    : IMAGE_MODEL_REGISTRY.map(m => m.type)
+  if (!modelType || !validModelTypes.includes(modelType)) {
     throw createError({
       statusCode: 400,
       message: '请选择有效的模型类型',
     })
   }
 
-  // 验证API格式（使用共享常量 API_FORMATS）
-  if (!apiFormat || !API_FORMATS.includes(apiFormat)) {
+  // 验证 API 格式
+  const allApiFormats = getAllApiFormats()
+  if (!apiFormat || !allApiFormats.includes(apiFormat)) {
     throw createError({
       statusCode: 400,
       message: '请选择API格式',
     })
   }
 
-  // 验证 taskType 与 apiFormat 的兼容性
-  if (taskType === 'video' && apiFormat !== 'video-unified') {
+  // 验证 Provider 存在
+  const provider = getProvider(apiFormat)
+  if (!provider) {
     throw createError({
       statusCode: 400,
-      message: '视频任务仅支持 video-unified 格式',
+      message: `不支持的API格式: ${apiFormat}`,
+    })
+  }
+
+  // 验证 taskType 与 Provider 分类的兼容性
+  if (taskType === 'video' && provider.meta.category !== 'video') {
+    throw createError({
+      statusCode: 400,
+      message: '视频任务需要使用视频类型的API格式',
+    })
+  }
+  if (taskType === 'image' && provider.meta.category !== 'image') {
+    throw createError({
+      statusCode: 400,
+      message: '图片任务需要使用图片类型的API格式',
     })
   }
 
@@ -78,30 +97,27 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 抠抠图必须有图片，不需要提示词
-  if (apiFormat === 'koukoutu') {
-    if (images.length === 0) {
-      throw createError({
-        statusCode: 400,
-        message: '抠抠图需要上传图片',
-      })
-    }
-  } else if (!prompt && type === 'imagine' && taskType === 'image') {
+  // 根据 Provider 验证规则检查
+  const validation = getValidationRules(apiFormat)
+
+  // 检查是否需要图片
+  if (validation.requiresImage && images.length === 0) {
+    throw createError({
+      statusCode: 400,
+      message: '此模式需要上传图片',
+    })
+  }
+
+  // 检查是否需要提示词（默认需要，除非明确设为 false）
+  const needsPrompt = validation.requiresPrompt !== false
+  if (needsPrompt && !prompt && type === 'imagine') {
     throw createError({
       statusCode: 400,
       message: '请输入提示词',
     })
   }
 
-  // 视频任务必须有提示词
-  if (taskType === 'video' && !prompt) {
-    throw createError({
-      statusCode: 400,
-      message: '视频任务需要输入提示词',
-    })
-  }
-
-  // blend模式仅支持mj-proxy格式（图片任务专用）
+  // blend 模式仅支持 mj-proxy 格式
   if (type === 'blend' && apiFormat !== 'mj-proxy') {
     throw createError({
       statusCode: 400,

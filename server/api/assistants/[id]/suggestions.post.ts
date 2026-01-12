@@ -3,8 +3,8 @@ import { useAssistantService } from '../../../services/assistant'
 import { useUpstreamService } from '../../../services/upstream'
 import { useAimodelService } from '../../../services/aimodel'
 import { useUserSettingsService } from '../../../services/userSettings'
-import { createChatService } from '../../../services/chat'
-import { createClaudeChatService } from '../../../services/claude'
+import { getChatProvider } from '../../../services/chatProviders'
+import type { ChatApiFormat } from '../../../services/chatProviders'
 import type { LogContext } from '../../../utils/logger'
 import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
 
@@ -83,13 +83,16 @@ export default defineEventHandler(async (event) => {
   const prompt = suggestionsPrompt.replace('{time}', timeStr)
 
   // 使用 aimodel 中的 apiFormat 和 keyName
-  const apiFormat = aimodel.apiFormat
+  const apiFormat = aimodel.apiFormat as ChatApiFormat
   const keyName = aimodel.keyName
 
-  // 根据 apiFormat 创建对应的聊天服务
-  const chatService = apiFormat === 'claude'
-    ? createClaudeChatService(upstream, keyName)
-    : createChatService(upstream, keyName)
+  // 获取 ChatProvider
+  const chatProvider = getChatProvider(apiFormat)
+  if (!chatProvider) {
+    // 不支持的格式，返回空
+    return { suggestions: [] }
+  }
+  const chatService = chatProvider.createService(upstream, keyName)
 
   const logContext: LogContext = {
     type: '开场白',

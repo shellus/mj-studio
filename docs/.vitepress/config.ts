@@ -68,6 +68,7 @@ export default withMermaid(
         text: '开发规范',
         items: [
           { text: '设计系统', link: '/dev-spec/设计系统' },
+          { text: '上游服务接口', link: '/dev-spec/上游服务接口设计' },
           { text: '任务卡片组件', link: '/dev-spec/任务卡片组件设计文档' },
           { text: '模型选择器', link: '/dev-spec/模型选择器组件设计文档' },
           { text: '日志系统说明', link: '/dev-spec/日志系统说明' },

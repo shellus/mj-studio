@@ -1,22 +1,14 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
 import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
-import type { ModelParams, ImageModelParams, JimengVideoParams, VeoVideoParams, SoraVideoParams, GrokVideoParams, TaskUpstreamSummary } from '../../app/shared/types'
+import type { ModelParams, ImageModelParams, TaskUpstreamSummary } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
-import { createMJService } from './mj'
-import { createGeminiService } from './gemini'
-import { createDalleService } from './dalle'
-import { createOpenAIChatService } from './openaiChat'
-import { createKoukoutuService } from './koukoutu'
-import { createVideoUnifiedService, type VideoCreateParams } from './videoUnified'
-import { createSoraEphoneService, type SoraEphoneCreateParams } from './soraEphone'
+import { getProvider, getModelTypeDefaults, type GenerateParams, type AsyncService, type SyncService, type MJService } from './providers'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
-import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
-import { classifyFetchError, classifyError, extractFetchErrorInfo, ERROR_MESSAGES } from './errorClassifier'
+import { downloadFile, getFileUrl, readFileAsBase64, saveBase64File } from './file'
+import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logTaskResponse } from '../utils/httpLogger'
-import type { GenerateResult } from './types'
-import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
 import { emitToUser, type TaskStatusUpdated, type TaskCreated, type TaskDeleted, type TaskRestored, type TaskBlurUpdated, type TasksBlurUpdated } from './globalEvents'
 import { getErrorMessage } from '../../app/shared/types'
 
@@ -452,35 +444,55 @@ export function useTaskService() {
     taskAbortControllers.set(taskId, controller)
 
     try {
-      // 根据apiFormat选择不同的处理方式
-      switch (task.apiFormat) {
-        case 'mj-proxy':
-          await submitToMJ(task, upstream, aimodel)
-          break
-        case 'gemini':
-          await submitToGemini(task, upstream, aimodel, controller.signal)
-          break
-        case 'dalle':
-          await submitToDalle(task, upstream, aimodel, controller.signal)
-          break
-        case 'openai-chat':
-          await submitToOpenAIChat(task, upstream, aimodel, controller.signal)
-          break
-        case 'koukoutu':
-          await submitToKoukoutu(task, upstream, aimodel)
-          break
-        case 'video-unified':
-          await submitToVideoUnified(task, upstream, aimodel)
-          break
-        case 'sora-ephone':
-          await submitToSoraEphone(task, upstream, aimodel)
-          break
-        default:
-          await updateTask(taskId, {
-            status: 'failed',
-            error: `不支持的API格式: ${task.apiFormat}`,
-          })
+      // 获取 Provider
+      const provider = getProvider(task.apiFormat)
+      if (!provider) {
+        await updateTask(taskId, {
+          status: 'failed',
+          error: `不支持的API格式: ${task.apiFormat}`,
+        })
+        return
       }
+
+      const apiKey = getApiKey(upstream, aimodel)
+      const service = provider.createService(upstream.baseUrl, apiKey)
+
+      // 构建通用参数
+      const params: GenerateParams = {
+        taskId,
+        prompt: task.prompt ?? '',
+        images: task.images ? convertImagesToBase64(task.images) : undefined,
+        modelName: task.modelName || getModelTypeDefaults(task.modelType as any)?.modelName || task.modelName,
+        modelParams: task.modelParams as ImageModelParams | undefined,
+        type: task.type as 'imagine' | 'blend' | undefined,
+        signal: controller.signal,
+      }
+
+      if (provider.meta.isAsync) {
+        // 异步 Provider：提交后等待轮询
+        const asyncService = service as AsyncService
+        const result = await asyncService.submit(params)
+
+        await updateTask(taskId, {
+          status: 'processing',
+          upstreamTaskId: result.upstreamTaskId,
+        })
+      } else {
+        // 同步 Provider：直接获取结果
+        const syncService = service as SyncService
+        const result = await syncService.generate(params)
+
+        await handleSyncResult(task, upstream, aimodel, result)
+      }
+    } catch (error: unknown) {
+      if (isAbortError(error)) {
+        console.log(`[Task ${taskId}] 请求已被取消`)
+        return
+      }
+      await updateTask(taskId, {
+        status: 'failed',
+        error: classifyFetchError(error),
+      })
     } finally {
       // 请求完成后清理 AbortController
       taskAbortControllers.delete(taskId)
@@ -488,7 +500,7 @@ export function useTaskService() {
   }
 
   // 处理同步API的结果
-  async function handleSyncResult(task: Task, upstream: Upstream, aimodel: Aimodel, result: GenerateResult): Promise<void> {
+  async function handleSyncResult(task: Task, upstream: Upstream, aimodel: Aimodel, result: { success: boolean; resourceUrl?: string; imageBase64?: string; mimeType?: string; error?: string }): Promise<void> {
     if (!result.success) {
       await updateTask(task.id, {
         status: 'failed',
@@ -497,21 +509,30 @@ export function useTaskService() {
       return
     }
 
-    // 保存图片到本地
-    let fileName: string | null = null
+    // 保存资源到本地
+    let resourceUrl: string | null = null
     const logPrefix = `[Task] #${task.id}`
 
-    if (result.imageBase64) {
-      const dataUrl = `data:${result.mimeType || 'image/png'};base64,${result.imageBase64}`
-      fileName = saveBase64Image(dataUrl)
-    } else if (result.resourceUrl) {
-      fileName = await downloadFile(result.resourceUrl, logPrefix)
+    if (result.resourceUrl) {
+      // 从远程 URL 下载
+      const fileName = await downloadFile(result.resourceUrl, logPrefix)
+      if (fileName) {
+        resourceUrl = getFileUrl(fileName)
+      }
+    } else if (result.imageBase64) {
+      // 从 Base64 保存（如 Gemini、DALL-E b64_json）
+      const mimeType = result.mimeType || 'image/png'
+      const dataUrl = `data:${mimeType};base64,${result.imageBase64}`
+      const saveResult = saveBase64File(dataUrl)
+      if (saveResult) {
+        resourceUrl = getFileUrl(saveResult.fileName)
+      }
     }
 
-    if (!fileName) {
+    if (!resourceUrl) {
       await updateTask(task.id, {
         status: 'failed',
-        error: '保存图片到本地失败',
+        error: '保存资源到本地失败',
       })
       return
     }
@@ -522,7 +543,7 @@ export function useTaskService() {
     await updateTask(task.id, {
       status: 'success',
       progress: '100%',
-      resourceUrl: getFileUrl(fileName),
+      resourceUrl,
       duration,
     })
 
@@ -530,395 +551,80 @@ export function useTaskService() {
     await updateEstimatedTime(aimodel, task.id, duration)
   }
 
-  // 提交到Gemini（同步API）
-  async function submitToGemini(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
-    const gemini = createGeminiService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const modelName = task.modelName || DEFAULT_MODEL_NAMES.gemini
-
-    try {
-      let result: GenerateResult
-      if (task.images && task.images.length > 0) {
-        const base64Images = convertImagesToBase64(task.images)
-        result = await gemini.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal)
-      } else {
-        result = await gemini.generateImage(task.prompt ?? '', modelName, task.id, signal)
-      }
-      await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: unknown) {
-      if (isAbortError(error)) {
-        console.log(`[Task ${task.id}] 请求已被取消`)
-        return
-      }
-      await updateTask(task.id, {
-        status: 'failed',
-        error: getErrorMessage(error),
-      })
-    }
-  }
-
-  // 提交到DALL-E（同步API）
-  async function submitToDalle(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
-    const dalle = createDalleService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
-
-    const modelParams = (task.modelParams ?? {}) as ImageModelParams
-
-    try {
-      let result: GenerateResult
-      if (task.images && task.images.length > 0) {
-        const base64Images = convertImagesToBase64(task.images)
-        result = await dalle.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal, modelParams)
-      } else {
-        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, modelParams)
-      }
-      await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: unknown) {
-      if (isAbortError(error)) {
-        console.log(`[Task ${task.id}] 请求已被取消`)
-        return
-      }
-      await updateTask(task.id, {
-        status: 'failed',
-        error: getErrorMessage(error),
-      })
-    }
-  }
-
-  // 提交到OpenAI Chat（同步API）
-  async function submitToOpenAIChat(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
-    const openai = createOpenAIChatService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const modelName = task.modelName || DEFAULT_MODEL_NAMES['gpt4o-image']
-
-    try {
-      let result: GenerateResult
-      if (task.images && task.images.length > 0) {
-        const base64Images = convertImagesToBase64(task.images)
-        result = await openai.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal)
-      } else {
-        result = await openai.generateImage(task.prompt ?? '', modelName, task.id, signal)
-      }
-      await handleSyncResult(task, upstream, aimodel, result)
-    } catch (error: unknown) {
-      if (isAbortError(error)) {
-        console.log(`[Task ${task.id}] 请求已被取消`)
-        return
-      }
-      await updateTask(task.id, {
-        status: 'failed',
-        error: getErrorMessage(error),
-      })
-    }
-  }
-
-  // 提交到抠抠图 API（异步轮询）
-  async function submitToKoukoutu(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
-    // 抠抠图必须有参考图
-    if (!task.images || task.images.length === 0) {
-      await updateTask(task.id, {
-        status: 'failed',
-        error: '抠抠图需要上传图片',
-      })
-      return
-    }
-
-    const koukoutu = createKoukoutuService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const modelKey = task.modelName ?? 'background-removal'
-
-    try {
-      const base64Images = convertImagesToBase64(task.images)
-      if (base64Images.length === 0) {
-        await updateTask(task.id, {
-          status: 'failed',
-          error: '抠抠图服务必须提供参考图片',
-        })
-        return
-      }
-      const firstImage = base64Images[0]!  // 已经检查过数组长度,断言非空
-      const result = await koukoutu.create(firstImage, modelKey, task.id)
-
-      if (result.code !== 200) {
-        await updateTask(task.id, {
-          status: 'failed',
-          error: result.message || ERROR_MESSAGES.UNKNOWN,
-        })
-        return
-      }
-
-      // 更新上游任务ID和状态
-      await updateTask(task.id, {
-        status: 'processing',
-        upstreamTaskId: String(result.data.task_id),
-      })
-    } catch (error: unknown) {
-      await updateTask(task.id, {
-        status: 'failed',
-        error: classifyFetchError(error),
-      })
-    }
-  }
-
-  // 提交到MJ API（异步执行）
-  async function submitToMJ(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
-    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
-
-    try {
-      let result
-      const base64Images = task.images ? convertImagesToBase64(task.images) : []
-      if (task.type === 'blend') {
-        result = await mj.blend(base64Images, 'SQUARE', task.id)
-      } else {
-        result = await mj.imagine(task.prompt ?? '', base64Images, task.id)
-      }
-
-      if (result.code !== 1) {
-        await updateTask(task.id, {
-          status: 'failed',
-          error: result.description || ERROR_MESSAGES.UNKNOWN,
-        })
-        return
-      }
-
-      // 更新上游任务ID和状态
-      await updateTask(task.id, {
-        status: 'processing',
-        upstreamTaskId: result.result,
-      })
-    } catch (error: unknown) {
-      await updateTask(task.id, {
-        status: 'failed',
-        error: classifyFetchError(error),
-      })
-    }
-  }
-
-  // 提交到视频统一格式 API（异步轮询）
-  async function submitToVideoUnified(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
-    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
-
-    try {
-      const modelParams = task.modelParams ?? {}
-
-      // 构建请求参数
-      const params: VideoCreateParams = {
-        model: task.modelName,
-        prompt: task.prompt ?? '',
-      }
-
-      // 根据模型类型添加参数（使用类型断言）
-      const modelType = aimodel.modelType
-
-      if (modelType === 'jimeng-video') {
-        const p = modelParams as JimengVideoParams
-        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
-        if (p.size) params.size = p.size
-      } else if (modelType === 'veo') {
-        const p = modelParams as VeoVideoParams
-        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
-        if (p.enhancePrompt !== undefined) params.enhance_prompt = p.enhancePrompt
-        if (p.enableUpsample !== undefined) params.enable_upsample = p.enableUpsample
-      } else if (modelType === 'sora') {
-        const p = modelParams as SoraVideoParams
-        if (p.orientation) params.orientation = p.orientation
-        if (p.size) params.size = p.size
-        if (p.duration) params.duration = p.duration
-        if (p.watermark !== undefined) params.watermark = p.watermark
-        if (p.private !== undefined) params.private = p.private
-      } else if (modelType === 'grok-video') {
-        const p = modelParams as GrokVideoParams
-        if (p.aspectRatio) params.aspect_ratio = p.aspectRatio
-        if (p.size) params.size = p.size
-      }
-
-      // 参考图（转换为 Base64）
-      if (task.images && task.images.length > 0) {
-        params.images = convertImagesToBase64(task.images)
-      }
-
-      const result = await videoService.create(params, task.id)
-
-      // 更新上游任务ID和状态
-      await updateTask(task.id, {
-        status: 'processing',
-        upstreamTaskId: result.id,
-      })
-    } catch (error: unknown) {
-      await updateTask(task.id, {
-        status: 'failed',
-        error: classifyFetchError(error),
-      })
-    }
-  }
-
-  // 提交到 ephone Sora API（异步轮询）
-  async function submitToSoraEphone(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
-    const soraService = createSoraEphoneService(upstream.baseUrl, getApiKey(upstream, aimodel))
-
-    try {
-      const modelParams = (task.modelParams ?? {}) as SoraVideoParams
-
-      // 构建请求参数
-      const params: SoraEphoneCreateParams = {
-        model: task.modelName,
-        prompt: task.prompt ?? '',
-      }
-
-      // 映射参数：duration -> seconds
-      if (modelParams.duration) {
-        params.seconds = modelParams.duration
-      }
-
-      // 映射参数：size
-      if (modelParams.size) {
-        // SoraVideoParams.size 是 'small' | 'large'，需要映射到 ephone 的格式
-        // ephone 使用 '1080p', '720p', '480p'
-        if (modelParams.size === 'large') {
-          params.size = '1080p'
-        } else if (modelParams.size === 'small') {
-          params.size = '720p'
-        } else {
-          params.size = modelParams.size
-        }
-      }
-
-      // 参考图（使用第一张图片的 URL 或 Base64）
-      if (task.images && task.images.length > 0) {
-        const base64Images = convertImagesToBase64(task.images)
-        if (base64Images.length > 0) {
-          params.inputReference = base64Images[0]
-        }
-      }
-
-      const result = await soraService.create(params, task.id)
-
-      // 更新上游任务ID和状态
-      await updateTask(task.id, {
-        status: 'processing',
-        upstreamTaskId: result.id,
-      })
-    } catch (error: unknown) {
-      await updateTask(task.id, {
-        status: 'failed',
-        error: classifyFetchError(error),
-      })
-    }
-  }
-
-  // 同步任务状态（MJ、抠抠图、视频需要轮询）
+  // 同步任务状态（异步 Provider 需要轮询）
   async function syncTaskStatus(taskId: number): Promise<Task | undefined> {
     const data = await getTaskWithConfig(taskId)
     if (!data) return undefined
 
     const { task, upstream, aimodel } = data
 
-    // 根据 apiFormat 选择轮询方式
-    if (task.apiFormat === 'koukoutu') {
-      return await syncKoukoutuStatus(task, upstream, aimodel)
-    } else if (task.apiFormat === 'mj-proxy') {
-      return await syncMJStatus(task, upstream, aimodel)
-    } else if (task.apiFormat === 'video-unified') {
-      return await syncVideoUnifiedStatus(task, upstream, aimodel)
-    } else if (task.apiFormat === 'sora-ephone') {
-      return await syncSoraEphoneStatus(task, upstream, aimodel)
+    // 获取 Provider
+    const provider = getProvider(task.apiFormat)
+    if (!provider || !provider.meta.isAsync) {
+      return task
     }
 
-    return task
-  }
-
-  // 同步抠抠图任务状态
-  async function syncKoukoutuStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
     if (!task.upstreamTaskId) {
       return task
     }
 
-    const koukoutu = createKoukoutuService(upstream.baseUrl, getApiKey(upstream, aimodel))
+    const apiKey = getApiKey(upstream, aimodel)
+    const service = provider.createService(upstream.baseUrl, apiKey) as AsyncService
     const logPrefix = `[Task] #${task.id}`
 
     try {
-      const result = await koukoutu.query(task.upstreamTaskId)
+      const result = await service.query(task.upstreamTaskId, task.id)
 
       let status: TaskStatus = task.status
-      let resourceUrl: string | null = null
-      let duration: number | undefined
-
-      if (result.data.state === 1) {
-        // 成功
+      if (result.status === 'success') {
         status = 'success'
-        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
-        if (result.data.result_file) {
-          const fileName = await downloadFile(result.data.result_file, logPrefix)
-          if (fileName) {
-            resourceUrl = getFileUrl(fileName)
-          }
-          await updateEstimatedTime(aimodel, task.id, duration!)
-        }
-      } else if (result.data.state === -1) {
-        // 失败
+      } else if (result.status === 'failed') {
         status = 'failed'
-      }
-      // state === 0 表示处理中，保持 processing 状态
-
-      return await updateTask(task.id, {
-        status,
-        progress: status === 'success' ? '100%' : null,
-        resourceUrl,
-        error: status === 'failed' ? '抠图处理失败' : null,
-        duration,
-      })
-    } catch (error: unknown) {
-      console.error('同步抠抠图任务状态失败:', getErrorMessage(error))
-      return task
-    }
-  }
-
-  // 同步 MJ 任务状态
-  async function syncMJStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
-    if (!task.upstreamTaskId) {
-      return task
-    }
-
-    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const logPrefix = `[Task] #${task.id}`
-
-    try {
-      const mjTask = await mj.fetchTask(task.upstreamTaskId)
-
-      // 映射MJ状态到本地状态
-      let status: TaskStatus = task.status
-      if (mjTask.status === 'SUCCESS') {
-        status = 'success'
-      } else if (mjTask.status === 'FAILURE') {
-        status = 'failed'
-      } else if (['IN_PROGRESS', 'SUBMITTED', 'MODAL'].includes(mjTask.status)) {
+      } else {
         status = 'processing'
       }
 
-      // 处理图片URL：成功时下载到本地
-      let resourceUrl = mjTask.imageUrl || null
+      // 处理资源 URL：成功时下载到本地
+      let resourceUrl = result.resourceUrl || null
       let duration: number | undefined
-      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/images/')) {
+      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/') && !resourceUrl.startsWith('/api/images/')) {
         duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
         const fileName = await downloadFile(resourceUrl, logPrefix)
         if (fileName) {
           resourceUrl = getFileUrl(fileName)
         }
-        // 下载失败时保留原始URL
+        // 下载失败时保留原始 URL
 
         // 更新预计时间
-        await updateEstimatedTime(aimodel, task.id, duration!)
+        await updateEstimatedTime(aimodel, task.id, duration)
       }
 
-      // 对 MJ 的 failReason 进行分类
-      let error: string | null = null
-      if (mjTask.failReason) {
-        error = classifyError({ message: mjTask.failReason })
-        // 任务失败时，记录轮询响应到日志（覆盖提交成功的日志）
+      // 计算进度显示
+      let progress: string | null = null
+      if (status === 'success') {
+        progress = '100%'
+      } else if (result.progress !== undefined && result.progress > 0) {
+        progress = `${Math.round(result.progress)}%`
+      }
+
+      // 处理 MJ 的特殊字段（buttons）
+      let buttons: Task['buttons'] = null
+      if (task.apiFormat === 'mj-proxy' && 'buttons' in result) {
+        buttons = (result as { buttons?: Task['buttons'] }).buttons || null
+      }
+
+      // 处理错误信息分类
+      let error: string | null = result.error || null
+      if (error && task.apiFormat === 'mj-proxy') {
+        error = classifyError({ message: error })
+        // 任务失败时，记录轮询响应到日志
         logTaskResponse(task.id, {
           status: 200,
           statusText: 'OK (Poll)',
           body: {
-            status: mjTask.status,
-            failReason: mjTask.failReason,
-            progress: mjTask.progress,
+            status: result.status,
+            error: result.error,
+            progress: result.progress,
           },
           durationMs: 0,
         })
@@ -926,117 +632,14 @@ export function useTaskService() {
 
       return await updateTask(task.id, {
         status,
-        progress: mjTask.progress || null,
+        progress,
         resourceUrl,
-        error,
-        buttons: mjTask.buttons || null,
+        error: error || (status === 'failed' ? '任务处理失败' : null),
+        buttons,
         duration,
       })
     } catch (error: unknown) {
-      // 查询失败不更新状态，仅记录错误
       console.error('同步任务状态失败:', getErrorMessage(error))
-      return task
-    }
-  }
-
-  // 同步视频统一格式任务状态
-  async function syncVideoUnifiedStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
-    if (!task.upstreamTaskId) {
-      return task
-    }
-
-    const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const logPrefix = `[Task] #${task.id}`
-
-    try {
-      const result = await videoService.query(task.upstreamTaskId, task.id)
-
-      // 状态已在 videoUnified 服务中归一化
-      const status: TaskStatus = result.status
-
-      // 处理视频 URL：成功时下载到本地
-      let resourceUrl = result.video_url || null
-      let duration: number | undefined
-      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/')) {
-        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
-        const fileName = await downloadFile(resourceUrl, logPrefix)
-        if (fileName) {
-          resourceUrl = getFileUrl(fileName)
-        }
-        // 下载失败时保留原始 URL
-
-        // 更新预计时间
-        await updateEstimatedTime(aimodel, task.id, duration!)
-      }
-
-      // 计算进度显示
-      let progress: string | null = null
-      if (status === 'success') {
-        progress = '100%'
-      } else if (result.progress !== undefined && result.progress > 0) {
-        progress = `${Math.round(result.progress)}%`
-      }
-
-      return await updateTask(task.id, {
-        status,
-        progress,
-        resourceUrl,
-        error: result.error || (status === 'failed' ? '视频生成失败' : null),
-        duration,
-      })
-    } catch (error: unknown) {
-      console.error('同步视频任务状态失败:', getErrorMessage(error))
-      return task
-    }
-  }
-
-  // 同步 ephone Sora 任务状态
-  async function syncSoraEphoneStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
-    if (!task.upstreamTaskId) {
-      return task
-    }
-
-    const soraService = createSoraEphoneService(upstream.baseUrl, getApiKey(upstream, aimodel))
-    const logPrefix = `[Task] #${task.id}`
-
-    try {
-      const result = await soraService.query(task.upstreamTaskId, task.id)
-
-      // 状态已在 soraEphone 服务中归一化
-      const status: TaskStatus = result.status
-
-      // 处理视频 URL：成功时下载到本地
-      let resourceUrl = result.video_url || null
-      let duration: number | undefined
-      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/')) {
-        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
-        const fileName = await downloadFile(resourceUrl, logPrefix)
-        if (fileName) {
-          resourceUrl = getFileUrl(fileName)
-        }
-        // 下载失败时保留原始 URL
-
-        // 更新预计时间
-        await updateEstimatedTime(aimodel, task.id, duration!)
-      }
-
-      // 计算进度显示
-      let progress: string | null = null
-      if (status === 'success') {
-        progress = '100%'
-      } else if (result.progress !== undefined && result.progress > 0) {
-        progress = `${Math.round(result.progress)}%`
-      }
-
-      return await updateTask(task.id, {
-        status,
-        progress,
-        resourceUrl,
-        error: result.error || (status === 'failed' ? '视频生成失败' : null),
-        duration,
-      })
-    } catch (error: unknown) {
-      console.error('同步 Sora ephone 任务状态失败:', getErrorMessage(error))
       return task
     }
   }
@@ -1101,22 +704,26 @@ export function useTaskService() {
       },
     })
 
-    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
+    // 获取 MJ Provider
+    const provider = getProvider('mj-proxy')
+    if (!provider) {
+      await updateTask(newTask.id, {
+        status: 'failed',
+        error: 'MJ Provider 不可用',
+      })
+      return (await getTask(newTask.id))!
+    }
+
+    const apiKey = getApiKey(upstream, aimodel)
+    const service = provider.createService(upstream.baseUrl, apiKey) as MJService
 
     try {
-      const result = await mj.action(parentTask.upstreamTaskId, customId, newTask.id)
+      const result = await service.action(parentTask.upstreamTaskId, customId, newTask.id)
 
-      if (result.code !== 1) {
-        await updateTask(newTask.id, {
-          status: 'failed',
-          error: result.description || ERROR_MESSAGES.UNKNOWN,
-        })
-        return (await getTask(newTask.id))!
-      }
-
+      // action 成功时返回 upstreamTaskId，失败时会抛出错误
       await updateTask(newTask.id, {
         status: 'processing',
-        upstreamTaskId: result.result,
+        upstreamTaskId: result.upstreamTaskId,
       })
 
       return (await getTask(newTask.id))!

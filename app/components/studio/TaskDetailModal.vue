@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
 import type { ImageModelType, VideoModelType } from '../../shared/types'
-import { TASK_CARD_MODEL_DISPLAY, API_FORMAT_LABELS } from '../../shared/constants'
+import { getCardDisplay, getApiFormatLabel } from '../../shared/registry'
 
 const props = defineProps<{
   task: Task
@@ -12,7 +12,7 @@ const open = defineModel<boolean>('open', { default: false })
 // 获取模型显示信息
 const modelInfo = computed(() => {
   const modelType = props.task.modelType as ImageModelType | VideoModelType
-  const display = TASK_CARD_MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
+  const display = getCardDisplay(modelType) || { label: modelType || '未知', color: 'bg-gray-500/80' }
   return {
     label: display.label,
     type: modelType,
@@ -85,7 +85,7 @@ const taskTypeLabel = computed(() => {
         </div>
         <div class="flex justify-between">
           <span class="text-(--ui-text-muted)">请求格式</span>
-          <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[task.apiFormat] || task.apiFormat }}</span>
+          <span class="text-(--ui-text)">{{ getApiFormatLabel(task.apiFormat) }}</span>
         </div>
         <div v-if="task.modelName" class="flex justify-between">
           <span class="text-(--ui-text-muted)">模型名称</span>

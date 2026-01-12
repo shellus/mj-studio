@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { VideoModelType, ApiFormat, ModelParams } from '../../shared/types'
+import { getApiFormatLabel } from '../../shared/registry'
 import {
-  API_FORMAT_LABELS,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   USER_SETTING_KEYS,
 } from '../../shared/constants'
@@ -289,7 +289,7 @@ defineExpose({
         <div v-if="selectedAimodel" class="space-y-3">
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">请求格式：</span>
-            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[selectedAimodel.apiFormat] || selectedAimodel.apiFormat }}</span>
+            <span class="text-(--ui-text)">{{ getApiFormatLabel(selectedAimodel.apiFormat) }}</span>
           </div>
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">模型名称：</span>

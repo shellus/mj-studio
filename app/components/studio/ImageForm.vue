@@ -1,18 +1,8 @@
 <script setup lang="ts">
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
+import { getModelCapabilities, getApiFormatLabel } from '../../shared/registry'
 import {
-  API_FORMAT_LABELS,
-  MODELS_WITHOUT_REFERENCE_IMAGE,
-  MODELS_WITH_NEGATIVE_PROMPT,
-  MODELS_WITH_SIZE,
-  MODELS_WITH_QUALITY,
-  MODELS_WITH_STYLE,
-  MODELS_WITH_ASPECT_RATIO,
-  MODELS_WITH_SEED,
-  MODELS_WITH_GUIDANCE,
-  MODELS_WITH_WATERMARK,
-  MODELS_WITH_BACKGROUND,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   MAX_REFERENCE_IMAGE_COUNT,
   USER_SETTING_KEYS,
@@ -217,16 +207,20 @@ const selectedAimodel = computed((): Aimodel | undefined => {
 })
 
 // 是否支持垫图（部分模型不支持）
+// 获取当前模型的能力
+const capabilities = computed(() => {
+  if (!selectedAimodel.value) return {}
+  return getModelCapabilities(selectedAimodel.value.modelType as ImageModelType)
+})
+
 const supportsReferenceImages = computed(() => {
   if (!selectedAimodel.value?.apiFormat) return false
-  if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedAimodel.value.modelType as ImageModelType)) return false
-  return true
+  return capabilities.value.referenceImage === true
 })
 
 // 是否支持负面提示词
 const supportsNegativePrompt = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_NEGATIVE_PROMPT.includes(selectedAimodel.value.modelType as ImageModelType)
+  return capabilities.value.negativePrompt === true
 })
 
 // 模型类型判断
@@ -236,45 +230,21 @@ const isFluxModel = computed(() => selectedAimodel.value?.modelType === 'flux')
 const isGpt4oImageModel = computed(() => selectedAimodel.value?.modelType === 'gpt4o-image')
 
 // 是否支持各参数
-const supportsSize = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_SIZE.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsSize = computed(() => capabilities.value.size === true)
 
-const supportsQuality = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_QUALITY.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsQuality = computed(() => capabilities.value.quality === true)
 
-const supportsStyle = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_STYLE.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsStyle = computed(() => capabilities.value.style === true)
 
-const supportsAspectRatio = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_ASPECT_RATIO.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsAspectRatio = computed(() => capabilities.value.aspectRatio === true)
 
-const supportsSeed = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_SEED.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsSeed = computed(() => capabilities.value.seed === true)
 
-const supportsGuidance = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_GUIDANCE.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsGuidance = computed(() => capabilities.value.guidance === true)
 
-const supportsWatermark = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_WATERMARK.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsWatermark = computed(() => capabilities.value.watermark === true)
 
-const supportsBackground = computed(() => {
-  if (!selectedAimodel.value) return false
-  return MODELS_WITH_BACKGROUND.includes(selectedAimodel.value.modelType as ImageModelType)
-})
+const supportsBackground = computed(() => capabilities.value.background === true)
 
 // 获取当前模型的尺寸选项
 const currentSizeOptions = computed(() => {
@@ -492,7 +462,7 @@ defineExpose({
         <div v-if="selectedAimodel" class="space-y-3">
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">请求格式：</span>
-            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[selectedAimodel.apiFormat] || selectedAimodel.apiFormat }}</span>
+            <span class="text-(--ui-text)">{{ getApiFormatLabel(selectedAimodel.apiFormat) }}</span>
           </div>
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">模型名称：</span>

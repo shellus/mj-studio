@@ -6,8 +6,8 @@ import { useConversationService } from './conversation'
 import { useAssistantService } from './assistant'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
-import { createChatService } from './chat'
-import { createClaudeChatService } from './claude'
+import { getChatProvider } from './chatProviders'
+import type { ChatApiFormat } from './chatProviders'
 import {
   startStreamingSession,
   updateSessionStatus,
@@ -131,13 +131,15 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     updateSessionStatus(messageId, 'pending')
 
     // 使用 aimodel 中的 apiFormat 和 keyName
-    const apiFormat = aimodel.apiFormat
+    const apiFormat = aimodel.apiFormat as ChatApiFormat
     const keyName = aimodel.keyName
 
-    // 根据 apiFormat 创建对应的聊天服务
-    const chatService = apiFormat === 'claude'
-      ? createClaudeChatService(upstream, keyName)
-      : createChatService(upstream, keyName)
+    // 根据 apiFormat 获取对应的 ChatProvider
+    const chatProvider = getChatProvider(apiFormat)
+    if (!chatProvider) {
+      throw new Error(`不支持的聊天 API 格式: ${apiFormat}`)
+    }
+    const chatService = chatProvider.createService(upstream, keyName)
 
     // 构建日志上下文
     const logContext: LogContext = {
