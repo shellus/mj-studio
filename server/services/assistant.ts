@@ -1,16 +1,29 @@
 // 助手服务层
 import { db } from '../database'
 import { assistants, conversations, type Assistant, type NewAssistant } from '../database/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, isNull, isNotNull, sql } from 'drizzle-orm'
 import { emitToUser, type ChatAssistantUpdated } from './globalEvents'
 
 export function useAssistantService() {
-  // 获取用户的所有助手
+  // 获取用户的所有助手（按收藏和活跃时间排序）
   async function listByUser(userId: number): Promise<Assistant[]> {
-    return db.query.assistants.findMany({
-      where: eq(assistants.userId, userId),
-      orderBy: desc(assistants.createdAt),
-    })
+    // 收藏的助手按 pinnedAt 降序，未收藏的按 lastActiveAt 降序（null 排最后）
+    const result = await db
+      .select()
+      .from(assistants)
+      .where(eq(assistants.userId, userId))
+      .orderBy(
+        // 收藏的排在前面（pinnedAt 非空的在前）
+        sql`CASE WHEN ${assistants.pinnedAt} IS NOT NULL THEN 0 ELSE 1 END`,
+        // 收藏的按 pinnedAt 降序
+        desc(assistants.pinnedAt),
+        // 未收藏的按 lastActiveAt 降序（null 排最后）
+        sql`CASE WHEN ${assistants.lastActiveAt} IS NULL THEN 1 ELSE 0 END`,
+        desc(assistants.lastActiveAt),
+        // 最后按创建时间降序
+        desc(assistants.createdAt)
+      )
+    return result
   }
 
   // 获取单个助手
@@ -70,6 +83,8 @@ export function useAssistantService() {
     isDefault: boolean
     suggestions: string[] | null
     enableThinking: boolean
+    pinnedAt: Date | null
+    lastActiveAt: Date | null
   }>): Promise<Assistant | undefined> {
     // 如果设为默认，先取消其他默认
     if (data.isDefault) {
@@ -97,11 +112,29 @@ export function useAssistantService() {
           suggestions: updated.suggestions,
           conversationCount: updated.conversationCount,
           enableThinking: updated.enableThinking,
+          pinnedAt: updated.pinnedAt,
+          lastActiveAt: updated.lastActiveAt,
         },
       })
     }
 
     return updated
+  }
+
+  // 收藏/取消收藏助手
+  async function togglePin(id: number, userId: number): Promise<Assistant | undefined> {
+    const assistant = await getById(id)
+    if (!assistant || assistant.userId !== userId) return undefined
+
+    const newPinnedAt = assistant.pinnedAt ? null : new Date()
+    return update(id, userId, { pinnedAt: newPinnedAt })
+  }
+
+  // 更新助手的最后活跃时间
+  async function touchLastActive(assistantId: number): Promise<void> {
+    await db.update(assistants)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(assistants.id, assistantId))
   }
 
   // 删除助手
@@ -171,6 +204,8 @@ export function useAssistantService() {
           suggestions: updated.suggestions,
           conversationCount: updated.conversationCount,
           enableThinking: updated.enableThinking,
+          pinnedAt: updated.pinnedAt,
+          lastActiveAt: updated.lastActiveAt,
         },
       })
     }
@@ -187,5 +222,7 @@ export function useAssistantService() {
     remove,
     ensureDefault,
     refreshConversationCount,
+    togglePin,
+    touchLastActive,
   }
 }

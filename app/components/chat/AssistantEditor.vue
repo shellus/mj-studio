@@ -61,6 +61,8 @@ watch(() => props.assistant, (assistant) => {
 }, { immediate: true })
 
 // 处理头像上传
+const isUploading = ref(false)
+
 async function handleAvatarUpload(e: Event) {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0]
@@ -72,12 +74,21 @@ async function handleAvatarUpload(e: Event) {
     return
   }
 
-  // 转换为 base64
-  const reader = new FileReader()
-  reader.onload = () => {
-    formData.avatar = reader.result as string
+  // 上传到服务器
+  isUploading.value = true
+  try {
+    const uploadData = new FormData()
+    uploadData.append('file', file)
+    const result = await $fetch<{ url: string }>('/api/images/upload', {
+      method: 'POST',
+      body: uploadData,
+    })
+    formData.avatar = result.url
+  } catch (error) {
+    useToast().add({ title: '上传失败', color: 'error' })
+  } finally {
+    isUploading.value = false
   }
-  reader.readAsDataURL(file)
 }
 
 // 提交表单

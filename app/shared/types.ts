@@ -294,6 +294,19 @@ export interface GrokVideoParams {
 }
 
 /**
+ * 视频模型参数（统一接口，用于 videoUnified provider）
+ */
+export interface VideoModelParams {
+  aspectRatio?: string
+  size?: string
+  enhancePrompt?: boolean
+  upsample?: boolean
+  orientation?: 'portrait' | 'landscape'
+  duration?: number
+  watermark?: boolean
+}
+
+/**
  * 模型参数联合类型
  * - 使用场景：任务创建、表单提交
  */

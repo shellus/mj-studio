@@ -13,6 +13,8 @@ export interface Assistant {
   conversationCount: number
   suggestions?: string[] | null
   enableThinking: boolean
+  pinnedAt: string | null
+  lastActiveAt: string | null
 }
 
 export function useAssistants() {
@@ -122,6 +124,20 @@ export function useAssistants() {
     }
   }
 
+  // 收藏/取消收藏助手
+  async function togglePinAssistant(id: number) {
+    const updated = await $fetch<Assistant>(`/api/assistants/${id}/pin`, {
+      method: 'POST',
+    })
+
+    const index = assistants.value.findIndex(a => a.id === id)
+    if (index >= 0) {
+      assistants.value[index] = updated
+    }
+
+    return updated
+  }
+
   return {
     assistants,
     isLoading,
@@ -133,5 +149,6 @@ export function useAssistants() {
     createAssistant,
     updateAssistant,
     deleteAssistant,
+    togglePinAssistant,
   }
 }

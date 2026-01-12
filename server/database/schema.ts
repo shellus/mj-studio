@@ -127,6 +127,8 @@ export const assistants = sqliteTable('assistants', {
   suggestions: text('suggestions', { mode: 'json' }).$type<string[]>(), // 开场白建议缓存
   conversationCount: integer('conversation_count').notNull().default(0), // 对话数量（冗余字段，由后端维护）
   enableThinking: integer('enable_thinking', { mode: 'boolean' }).notNull().default(false), // 是否启用思考功能
+  pinnedAt: integer('pinned_at', { mode: 'timestamp' }), // 收藏时间（null=未收藏，有值=已收藏，按此字段降序排列收藏助手）
+  lastActiveAt: integer('last_active_at', { mode: 'timestamp' }), // 最后活跃时间（对话/消息变动时更新）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

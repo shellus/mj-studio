@@ -43,6 +43,8 @@ export default defineNuxtPlugin(() => {
         suggestions: assistant.suggestions,
         conversationCount: assistant.conversationCount,
         enableThinking: assistant.enableThinking,
+        pinnedAt: assistant.pinnedAt ? String(assistant.pinnedAt) : null,
+        lastActiveAt: assistant.lastActiveAt ? String(assistant.lastActiveAt) : null,
       }
       if (assistant.isDefault) {
         assistants.value.forEach((a, i) => {
@@ -67,7 +69,16 @@ export default defineNuxtPlugin(() => {
   const { upstreams } = useUpstreams()
 
   on<ChatMessageCreated>('chat.message.created', (data) => {
-    const { conversationId, message } = data
+    const { conversationId, assistantId, lastActiveAt, message } = data
+
+    // 更新助手的 lastActiveAt（用于排序）
+    if (assistantId && lastActiveAt) {
+      const assistant = assistants.value.find(a => a.id === assistantId)
+      if (assistant) {
+        assistant.lastActiveAt = lastActiveAt
+      }
+    }
+
     if (currentConversationId.value !== conversationId) return
 
     const existingIndex = messages.value.findIndex(m => m.id === message.id)

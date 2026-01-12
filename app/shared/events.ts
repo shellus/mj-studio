@@ -27,6 +27,8 @@ export interface GlobalEventEnvelope<T = unknown> {
  */
 export interface ChatMessageCreated {
   conversationId: number
+  assistantId: number
+  lastActiveAt: string
   message: {
     id: number
     conversationId: number
@@ -134,6 +136,8 @@ export interface ChatAssistantUpdated {
     suggestions: string[] | null
     conversationCount: number
     enableThinking: boolean
+    pinnedAt: Date | null
+    lastActiveAt: Date | null
   }
 }
 

@@ -24,6 +24,7 @@ const {
   createAssistant,
   updateAssistant,
   deleteAssistant,
+  togglePinAssistant,
 } = useAssistants()
 
 // 对话状态
@@ -154,6 +155,15 @@ async function handleSelectAssistant(id: number) {
 function handleCreateAssistant() {
   editingAssistant.value = null
   showAssistantEditor.value = true
+}
+
+// 收藏/取消收藏助手
+async function handlePinAssistant(id: number) {
+  try {
+    await togglePinAssistant(id)
+  } catch (error) {
+    toast.add({ title: '操作失败', color: 'error' })
+  }
 }
 
 // 打开编辑助手弹窗
@@ -467,6 +477,7 @@ onUnmounted(() => {
           :current-assistant-id="currentAssistantId"
           @select="handleSelectAssistant"
           @create="handleCreateAssistant"
+          @pin="handlePinAssistant"
         />
       </div>
 

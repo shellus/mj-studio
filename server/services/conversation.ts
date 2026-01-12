@@ -3,6 +3,7 @@ import { db } from '../database'
 import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile } from '../database/schema'
 import { eq, and, desc, inArray } from 'drizzle-orm'
 import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated, type ChatConversationDeleted, type ChatMessageCreated, type ChatMessageUpdated, type ChatMessageDeleted, type ChatMessagesDeleted } from './globalEvents'
+import { useAssistantService } from './assistant'
 
 export function useConversationService() {
   // 获取用户在某个助手下的所有对话
@@ -52,6 +53,10 @@ export function useConversationService() {
       throw new Error('创建对话失败')
     }
 
+    // 更新助手的最后活跃时间
+    const assistantService = useAssistantService()
+    await assistantService.touchLastActive(data.assistantId)
+
     // 广播对话创建事件
     await emitToUser<ChatConversationCreated>(data.userId, 'chat.conversation.created', {
       conversation: {
@@ -88,11 +93,22 @@ export function useConversationService() {
     return updated
   }
 
-  // 更新对话的更新时间
-  async function touch(id: number): Promise<void> {
+  // 更新对话的更新时间（同时更新助手的最后活跃时间）
+  // 返回 assistantId 和 lastActiveAt 供事件广播使用
+  async function touch(id: number): Promise<{ assistantId: number; lastActiveAt: Date } | null> {
+    const conversation = await getById(id)
+    if (!conversation) return null
+
+    const now = new Date()
     await db.update(conversations)
-      .set({ updatedAt: new Date() })
+      .set({ updatedAt: now })
       .where(eq(conversations.id, id))
+
+    // 更新助手的最后活跃时间
+    const assistantService = useAssistantService()
+    await assistantService.touchLastActive(conversation.assistantId)
+
+    return { assistantId: conversation.assistantId, lastActiveAt: now }
   }
 
   // 删除对话（级联删除消息）
@@ -160,12 +176,14 @@ export function useConversationService() {
       message.sortId = message.id
     }
 
-    // 更新对话时间
-    await touch(data.conversationId)
+    // 更新对话时间（返回 assistantId 和 lastActiveAt）
+    const touchResult = await touch(data.conversationId)
 
     // 广播消息创建事件
     await emitToUser<ChatMessageCreated>(userId, 'chat.message.created', {
       conversationId: data.conversationId,
+      assistantId: touchResult?.assistantId ?? 0,
+      lastActiveAt: touchResult?.lastActiveAt.toISOString() ?? new Date().toISOString(),
       message: {
         id: message.id,
         conversationId: message.conversationId,
