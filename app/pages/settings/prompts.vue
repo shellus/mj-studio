@@ -4,6 +4,7 @@ import {
   DEFAULT_COMPRESS_PROMPT,
   DEFAULT_GENERATE_TITLE_PROMPT,
   DEFAULT_SUGGESTIONS_PROMPT,
+  DEFAULT_OPTIMIZE_PROMPT,
 } from '../../shared/constants'
 
 const { settings, isLoading, isLoaded, loadSettings, updateSettings } = useUserSettings()
@@ -14,6 +15,7 @@ const form = reactive({
   compressPrompt: '',
   generateTitlePrompt: '',
   suggestionsPrompt: '',
+  optimizePrompt: '',
 })
 
 // 保存状态
@@ -32,6 +34,7 @@ function syncFormFromSettings() {
   form.compressPrompt = settings.value[USER_SETTING_KEYS.PROMPT_COMPRESS] as string || ''
   form.generateTitlePrompt = settings.value[USER_SETTING_KEYS.PROMPT_GENERATE_TITLE] as string || ''
   form.suggestionsPrompt = settings.value[USER_SETTING_KEYS.PROMPT_SUGGESTIONS] as string || ''
+  form.optimizePrompt = settings.value[USER_SETTING_KEYS.PROMPT_OPTIMIZE] as string || ''
 }
 
 // 保存设置
@@ -42,6 +45,7 @@ async function saveSettings() {
       [USER_SETTING_KEYS.PROMPT_COMPRESS]: form.compressPrompt,
       [USER_SETTING_KEYS.PROMPT_GENERATE_TITLE]: form.generateTitlePrompt,
       [USER_SETTING_KEYS.PROMPT_SUGGESTIONS]: form.suggestionsPrompt,
+      [USER_SETTING_KEYS.PROMPT_OPTIMIZE]: form.optimizePrompt,
     })
     toast.add({ title: '设置已保存', color: 'success' })
   } catch (error: unknown) {
@@ -53,7 +57,7 @@ async function saveSettings() {
 }
 
 // 恢复默认
-function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
+function resetToDefault(field: 'compress' | 'title' | 'suggestions' | 'optimize') {
   switch (field) {
     case 'compress':
       form.compressPrompt = DEFAULT_COMPRESS_PROMPT
@@ -63,6 +67,9 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
       break
     case 'suggestions':
       form.suggestionsPrompt = DEFAULT_SUGGESTIONS_PROMPT
+      break
+    case 'optimize':
+      form.optimizePrompt = DEFAULT_OPTIMIZE_PROMPT
       break
   }
 }
@@ -131,6 +138,24 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
         <div class="mt-2 p-2 rounded bg-(--ui-bg-muted) text-xs text-(--ui-text-muted)">
           <p class="font-medium mb-1">可用占位符：</p>
           <p><code class="px-1 py-0.5 rounded bg-(--ui-bg-accented)">{time}</code> - 当前时间（格式：2025年12月26日星期四 15:30）</p>
+        </div>
+      </div>
+
+      <!-- 提示词优化 Prompt -->
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-4 border border-(--ui-border)">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h3 class="font-medium text-(--ui-text)">提示词优化</h3>
+            <p class="text-xs text-(--ui-text-muted) mt-1">绘图工作台中 AI 优化提示词的系统提示</p>
+          </div>
+          <UButton size="xs" variant="ghost" color="neutral" @click="resetToDefault('optimize')">
+            恢复默认
+          </UButton>
+        </div>
+        <UTextarea v-model="form.optimizePrompt" :rows="12" class="w-full" />
+        <div class="mt-2 p-2 rounded bg-(--ui-bg-muted) text-xs text-(--ui-text-muted)">
+          <p class="font-medium mb-1">可用占位符：</p>
+          <p><code class="px-1 py-0.5 rounded bg-(--ui-bg-accented)">{modelInfo}</code> - 目标绘图模型信息（当选择了目标模型时自动填充）</p>
         </div>
       </div>
     </div>

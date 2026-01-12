@@ -3,11 +3,16 @@ import { getChatProvider } from '../../services/chatProviders'
 import type { ChatApiFormat } from '../../services/chatProviders'
 import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
+import { useUserSettingsService } from '../../services/userSettings'
 import { getErrorMessage } from '../../../app/shared/types'
+import { USER_SETTING_KEYS } from '../../../app/shared/constants'
 
-function buildSystemPrompt(targetModelType?: string, targetModelName?: string): string {
-  const modelInfo = targetModelType || targetModelName
-    ? `\n\n目标绘图模型信息：
+function buildModelInfo(targetModelType?: string, targetModelName?: string): string {
+  if (!targetModelType && !targetModelName) {
+    return ''
+  }
+  return `
+目标绘图模型信息：
 - 模型类型: ${targetModelType || '未指定'}
 - 模型名称: ${targetModelName || '未指定'}
 
@@ -16,31 +21,11 @@ function buildSystemPrompt(targetModelType?: string, targetModelName?: string): 
 - DALL-E: 偏好详细的场景描述
 - Flux: 擅长真实感图片
 - Stable Diffusion: 支持负面提示词`
-    : ''
-
-  return `你是一个专业的 AI 绘图提示词优化专家。你的任务是将用户提供的简单描述优化为更详细、更专业的绘图提示词。
-${modelInfo}
-优化规则：
-1. 保持原始描述的核心意图
-2. 添加适当的艺术风格描述（如：油画、水彩、数字艺术等）
-3. 添加光影、构图、色彩等专业描述
-4. 添加质量相关的关键词（如：高清、细节丰富、8K等）
-5. 使用英文输出，因为大多数 AI 绘图模型对英文提示词效果更好
-6. 保持提示词简洁，避免过于冗长（建议 50-150 词）
-7. 如果目标模型支持负面提示词（如 Flux、Stable Diffusion），可以提供负面提示词
-
-输出格式（JSON）：
-{
-  "prompt": "优化后的正向提示词",
-  "negativePrompt": "负面提示词（可选，仅当模型支持时提供）"
-}
-
-只输出 JSON，不要加任何解释或 markdown 代码块标记。`
 }
 
 export default defineEventHandler(async (event) => {
   // 需要登录
-  await requireAuth(event)
+  const { user } = await requireAuth(event)
 
   const body = await readBody(event)
   const { prompt, aimodelId, targetModelType, targetModelName } = body
@@ -61,6 +46,7 @@ export default defineEventHandler(async (event) => {
 
   const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
+  const settingsService = useUserSettingsService()
 
   // 获取 AI 模型配置
   const aimodel = await aimodelService.getById(aimodelId)
@@ -96,7 +82,11 @@ export default defineEventHandler(async (event) => {
     }
 
     const chatService = chatProvider.createService(upstream, keyName)
-    const systemPrompt = buildSystemPrompt(targetModelType, targetModelName)
+    // 获取用户配置的提示词模板
+    const optimizePromptTemplate = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_OPTIMIZE)
+    // 替换占位符
+    const modelInfo = buildModelInfo(targetModelType, targetModelName)
+    const systemPrompt = optimizePromptTemplate.replace('{modelInfo}', modelInfo)
     const result = await chatService.chat(
       modelName,
       systemPrompt,

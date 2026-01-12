@@ -696,6 +696,7 @@ export const USER_SETTING_KEYS = {
   PROMPT_COMPRESS: 'prompt.compress',
   PROMPT_GENERATE_TITLE: 'prompt.generateTitle',
   PROMPT_SUGGESTIONS: 'prompt.suggestions',
+  PROMPT_OPTIMIZE: 'prompt.optimize',
   // 通用设置
   GENERAL_BLUR_BY_DEFAULT: 'general.blurByDefault',
   GENERAL_COMPRESS_KEEP_COUNT: 'general.compressKeepCount',
@@ -745,6 +746,29 @@ export const DEFAULT_SUGGESTIONS_PROMPT = `现在用户开始了一次新对话�
 4. 直接输出 JSON，不要加其他说明`
 
 /**
+ * 默认提示词优化 Prompt
+ * 占位符：{modelInfo} - 目标模型信息（可选）
+ */
+export const DEFAULT_OPTIMIZE_PROMPT = `你是一个专业的 AI 绘图提示词优化专家。你的任务是将用户提供的简单描述优化为更详细、更专业的绘图提示词。
+{modelInfo}
+优化规则：
+1. 保持原始描述的核心意图
+2. 添加适当的艺术风格描述（如：油画、水彩、数字艺术等）
+3. 添加光影、构图、色彩等专业描述
+4. 添加质量相关的关键词（如：高清、细节丰富、8K等）
+5. 使用英文输出，因为大多数 AI 绘图模型对英文提示词效果更好
+6. 保持提示词简洁，避免过于冗长（建议 50-150 词）
+7. 如果目标模型支持负面提示词（如 Flux、Stable Diffusion），可以提供负面提示词
+
+输出格式（JSON）：
+{
+  "prompt": "优化后的正向提示词",
+  "negativePrompt": "负面提示词（可选，仅当模型支持时提供）"
+}
+
+只输出 JSON，不要加任何解释或 markdown 代码块标记。`
+
+/**
  * 用户设置值类型
  */
 export type UserSettingValue = string | number | boolean
@@ -756,6 +780,7 @@ export const USER_SETTING_DEFAULTS: Record<UserSettingKey, UserSettingValue> = {
   [USER_SETTING_KEYS.PROMPT_COMPRESS]: DEFAULT_COMPRESS_PROMPT,
   [USER_SETTING_KEYS.PROMPT_GENERATE_TITLE]: DEFAULT_GENERATE_TITLE_PROMPT,
   [USER_SETTING_KEYS.PROMPT_SUGGESTIONS]: DEFAULT_SUGGESTIONS_PROMPT,
+  [USER_SETTING_KEYS.PROMPT_OPTIMIZE]: DEFAULT_OPTIMIZE_PROMPT,
   [USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT]: true,
   [USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT]: 4,
   [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: 30,
