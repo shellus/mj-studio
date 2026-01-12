@@ -492,4 +492,32 @@ watch(data, () => {
   color: #9ca3af;
   font-size: 13px;
 }
+
+/* 思考过程折叠块 */
+.share-page .think-block {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #f4f4f5;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.share-page .think-block summary {
+  cursor: pointer;
+  color: #71717a;
+  font-size: 12px;
+  user-select: none;
+}
+
+.share-page .think-block summary:hover {
+  color: #3f3f46;
+}
+
+.share-page .think-block[open] summary {
+  margin-bottom: 8px;
+}
+
+.share-page .think-block > *:not(summary) {
+  color: #52525b;
+}
 </style>
