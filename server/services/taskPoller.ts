@@ -8,7 +8,7 @@ import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { useTaskService } from './task'
 
 // 异步 API 格式列表（需要轮询的）
-const ASYNC_API_FORMATS: ApiFormat[] = ['mj-proxy', 'video-unified', 'koukoutu']
+const ASYNC_API_FORMATS: ApiFormat[] = ['mj-proxy', 'video-unified', 'koukoutu', 'sora-ephone']
 
 // 主定时器间隔（取最小轮询间隔）
 const POLL_INTERVAL_MS = 3 * 1000 // 3秒

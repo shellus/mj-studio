@@ -9,6 +9,7 @@ import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
 import { createKoukoutuService } from './koukoutu'
 import { createVideoUnifiedService, type VideoCreateParams } from './videoUnified'
+import { createSoraEphoneService, type SoraEphoneCreateParams } from './soraEphone'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
@@ -471,6 +472,9 @@ export function useTaskService() {
         case 'video-unified':
           await submitToVideoUnified(task, upstream, aimodel)
           break
+        case 'sora-ephone':
+          await submitToSoraEphone(task, upstream, aimodel)
+          break
         default:
           await updateTask(taskId, {
             status: 'failed',
@@ -745,6 +749,60 @@ export function useTaskService() {
     }
   }
 
+  // 提交到 ephone Sora API（异步轮询）
+  async function submitToSoraEphone(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
+    const soraService = createSoraEphoneService(upstream.baseUrl, getApiKey(upstream, aimodel))
+
+    try {
+      const modelParams = (task.modelParams ?? {}) as SoraVideoParams
+
+      // 构建请求参数
+      const params: SoraEphoneCreateParams = {
+        model: task.modelName,
+        prompt: task.prompt ?? '',
+      }
+
+      // 映射参数：duration -> seconds
+      if (modelParams.duration) {
+        params.seconds = modelParams.duration
+      }
+
+      // 映射参数：size
+      if (modelParams.size) {
+        // SoraVideoParams.size 是 'small' | 'large'，需要映射到 ephone 的格式
+        // ephone 使用 '1080p', '720p', '480p'
+        if (modelParams.size === 'large') {
+          params.size = '1080p'
+        } else if (modelParams.size === 'small') {
+          params.size = '720p'
+        } else {
+          params.size = modelParams.size
+        }
+      }
+
+      // 参考图（使用第一张图片的 URL 或 Base64）
+      if (task.images && task.images.length > 0) {
+        const base64Images = convertImagesToBase64(task.images)
+        if (base64Images.length > 0) {
+          params.inputReference = base64Images[0]
+        }
+      }
+
+      const result = await soraService.create(params, task.id)
+
+      // 更新上游任务ID和状态
+      await updateTask(task.id, {
+        status: 'processing',
+        upstreamTaskId: result.id,
+      })
+    } catch (error: unknown) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: classifyFetchError(error),
+      })
+    }
+  }
+
   // 同步任务状态（MJ、抠抠图、视频需要轮询）
   async function syncTaskStatus(taskId: number): Promise<Task | undefined> {
     const data = await getTaskWithConfig(taskId)
@@ -759,6 +817,8 @@ export function useTaskService() {
       return await syncMJStatus(task, upstream, aimodel)
     } else if (task.apiFormat === 'video-unified') {
       return await syncVideoUnifiedStatus(task, upstream, aimodel)
+    } else if (task.apiFormat === 'sora-ephone') {
+      return await syncSoraEphoneStatus(task, upstream, aimodel)
     }
 
     return task
@@ -926,6 +986,57 @@ export function useTaskService() {
       })
     } catch (error: unknown) {
       console.error('同步视频任务状态失败:', getErrorMessage(error))
+      return task
+    }
+  }
+
+  // 同步 ephone Sora 任务状态
+  async function syncSoraEphoneStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
+    if (!task.upstreamTaskId) {
+      return task
+    }
+
+    const soraService = createSoraEphoneService(upstream.baseUrl, getApiKey(upstream, aimodel))
+    const logPrefix = `[Task] #${task.id}`
+
+    try {
+      const result = await soraService.query(task.upstreamTaskId, task.id)
+
+      // 状态已在 soraEphone 服务中归一化
+      const status: TaskStatus = result.status
+
+      // 处理视频 URL：成功时下载到本地
+      let resourceUrl = result.video_url || null
+      let duration: number | undefined
+      if (status === 'success' && resourceUrl && !resourceUrl.startsWith('/api/files/')) {
+        duration = Math.round((Date.now() - task.startedAt!.getTime()) / 1000)
+        const fileName = await downloadFile(resourceUrl, logPrefix)
+        if (fileName) {
+          resourceUrl = getFileUrl(fileName)
+        }
+        // 下载失败时保留原始 URL
+
+        // 更新预计时间
+        await updateEstimatedTime(aimodel, task.id, duration!)
+      }
+
+      // 计算进度显示
+      let progress: string | null = null
+      if (status === 'success') {
+        progress = '100%'
+      } else if (result.progress !== undefined && result.progress > 0) {
+        progress = `${Math.round(result.progress)}%`
+      }
+
+      return await updateTask(task.id, {
+        status,
+        progress,
+        resourceUrl,
+        error: result.error || (status === 'failed' ? '视频生成失败' : null),
+        duration,
+      })
+    } catch (error: unknown) {
+      console.error('同步 Sora ephone 任务状态失败:', getErrorMessage(error))
       return task
     }
   }

@@ -92,6 +92,7 @@ export type ApiFormat =
   | 'claude'         // Anthropic Claude Messages API 格式
   | 'koukoutu'       // 抠抠图 API 格式（异步轮询）
   | 'video-unified'  // 视频统一格式（/v1/video/create），用于即梦、Veo
+  | 'sora-ephone'    // ephone Sora 视频格式（/v1/videos），异步轮询
 
 // ==================== 任务类型 ====================
 
