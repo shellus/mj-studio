@@ -370,7 +370,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
   'claude': 'Claude API',
   'koukoutu': '抠抠图 API',
   'video-unified': '视频统一格式',
-  'sora-ephone': 'Sora (ephone)',
+  'openai-video': 'OpenAI Video',
 }
 
 /**

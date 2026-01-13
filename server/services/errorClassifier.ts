@@ -72,6 +72,9 @@ function containsAny(str: string | undefined, keywords: string[]): boolean {
 export function classifyError(input: ErrorInput): string {
   const { status, message, code, type, data, errorName } = input
 
+  // 保存原始消息，用于无法分类时返回
+  const originalMessage = message?.trim()
+
   // 合并所有文本用于关键词匹配
   const allText = [
     message,
@@ -161,8 +164,8 @@ export function classifyError(input: ErrorInput): string {
     return ERROR_MESSAGES.UPSTREAM_TIMEOUT
   }
 
-  // 10. 未知错误
-  return ERROR_MESSAGES.UNKNOWN
+  // 10. 未知错误 - 如果有原始消息则返回，否则返回通用消息
+  return originalMessage || ERROR_MESSAGES.UNKNOWN
 }
 
 // 从 ofetch 错误中提取信息并分类

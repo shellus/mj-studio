@@ -1,5 +1,5 @@
 /**
- * ephone Sora 视频 API Provider
+ * OpenAI Video API Provider
  *
  * 异步模式：提交 + 轮询
  * 端点：
@@ -14,7 +14,7 @@ import type { SoraVideoParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
 
-interface SoraEphoneCreateResponse {
+interface OpenAIVideoCreateResponse {
   id: string
   status: string
   progress?: number
@@ -47,14 +47,14 @@ function normalizeStatus(upstreamStatus: string): AsyncQueryResult['status'] {
   const normalized = STATUS_NORMALIZATION[upstreamStatus.toLowerCase()]
   if (normalized) return normalized
 
-  console.warn(`[SoraEphone] 未知上游状态: "${upstreamStatus}"，映射为 processing`)
+  console.warn(`[OpenAIVideo] 未知上游状态: "${upstreamStatus}"，映射为 processing`)
   return 'processing'
 }
 
-export const soraEphoneProvider: AsyncProvider = {
+export const openaiVideoProvider: AsyncProvider = {
   meta: {
-    apiFormat: 'sora-ephone',
-    label: 'Sora (ephone)',
+    apiFormat: 'openai-video',
+    label: 'OpenAI Video',
     category: 'video',
     isAsync: true,
     supportedModelTypes: ['sora'],
@@ -73,11 +73,18 @@ export const soraEphoneProvider: AsyncProvider = {
 
         // 参数映射
         const p = modelParams as SoraVideoParams | undefined
+
+        // size 映射：根据 size + orientation 计算实际尺寸
+        // API 支持: 720x1280, 1280x720, 1024x1792, 1792x1024
         let sizeValue: string | undefined
         if (p?.size) {
-          if (p.size === 'large') sizeValue = '1080p'
-          else if (p.size === 'small') sizeValue = '720p'
-          else sizeValue = p.size
+          const isPortrait = p.orientation === 'portrait'
+          if (p.size === 'large') {
+            sizeValue = isPortrait ? '1024x1792' : '1792x1024'
+          } else {
+            // small 或默认
+            sizeValue = isPortrait ? '720x1280' : '1280x720'
+          }
         }
 
         // 手动构建 multipart/form-data（Node.js FormData 有兼容性问题）
@@ -150,7 +157,7 @@ export const soraEphoneProvider: AsyncProvider = {
             throw err
           }
 
-          const result = await response.json() as SoraEphoneCreateResponse
+          const result = await response.json() as OpenAIVideoCreateResponse
 
           logTaskResponse(taskId, {
             status: 200,

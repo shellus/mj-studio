@@ -97,8 +97,8 @@ export const PROVIDER_REGISTRY: ProviderMeta[] = [
     supportedModelTypes: ['jimeng-video', 'veo', 'sora', 'grok-video'],
   },
   {
-    apiFormat: 'sora-ephone',
-    label: 'Sora (ephone)',
+    apiFormat: 'openai-video',
+    label: 'OpenAI Video',
     category: 'video',
     isAsync: true,
     supportedModelTypes: ['sora'],

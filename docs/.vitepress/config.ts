@@ -40,7 +40,7 @@ export default withMermaid(
       {
         text: '概述',
         items: [
-          { text: '项目介绍', link: '/index' },
+          { text: 'MJ-Studio 文档中心', link: '/index' },
         ],
       },
       {
@@ -50,18 +50,11 @@ export default withMermaid(
           { text: '对话功能', link: '/features/对话功能介绍' },
           { text: '对话压缩', link: '/features/对话压缩功能介绍' },
           { text: '思考功能', link: '/features/思考功能介绍' },
-          { text: '流式输出', link: '/features/流式输出功能介绍' },
+          { text: '多端同步和流式输出', link: '/features/多端同步和流式输出' },
           { text: '生图功能', link: '/features/生图功能介绍' },
           { text: '视频生成', link: '/features/视频生成功能介绍' },
           { text: '嵌入式绘图组件', link: '/features/嵌入式绘图组件介绍' },
           { text: 'MCP介绍', link: '/features/MCP接口功能介绍.md' },
-        ],
-      },
-      {
-        text: '视频模块',
-        items: [
-          { text: '视频模型开发指南', link: '/video/视频模型开发指南' },
-          { text: '视频模型调研', link: '/video/视频模型集成需求调研' },
         ],
       },
       {
@@ -73,7 +66,6 @@ export default withMermaid(
           { text: '模型选择器', link: '/dev-spec/模型选择器组件设计文档' },
           { text: '日志系统说明', link: '/dev-spec/日志系统说明' },
           { text: '错误处理', link: '/dev-spec/错误处理' },
-          { text: '全局事件订阅', link: '/dev-spec/全局事件订阅系统设计' },
         ],
       },
       {

@@ -16,7 +16,7 @@ import { openaiChatImageProvider } from './openaiChatImage'
 import { mjProvider, type MJService, type MJButton } from './mj'
 import { koukoutuProvider } from './koukoutu'
 import { videoUnifiedProvider } from './videoUnified'
-import { soraEphoneProvider } from './soraEphone'
+import { openaiVideoProvider } from './openaiVideo'
 
 // 所有 Provider 列表
 const providers: Provider[] = [
@@ -26,7 +26,7 @@ const providers: Provider[] = [
   mjProvider,
   koukoutuProvider,
   videoUnifiedProvider,
-  soraEphoneProvider,
+  openaiVideoProvider,
 ]
 
 /**
