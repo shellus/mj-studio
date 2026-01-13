@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, VideoModelType, ModelType, ApiFormat, ChatModelType, ApiKeyConfig, UpstreamPlatform } from '../../../shared/types'
-import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
+import type { ModelCategory, ApiKeyConfig, UpstreamPlatform, ModelCapability } from '../../../shared/types'
+import type { FormSubmitEvent, FormError } from '@nuxt/ui'
 import type { AimodelInput } from '../../../composables/useUpstreams'
-import {
-  IMAGE_MODEL_REGISTRY,
-  VIDEO_MODEL_REGISTRY,
-  getApiFormatsForModelType,
-  getModelTypeLabel,
-  getApiFormatLabel,
-  getModelTypeDefaults,
-} from '../../../shared/registry'
-import { inferChatModelType } from '../../../shared/constants'
+import { CATEGORY_LABELS } from '../../../shared/constants'
+import { getModelLogo } from '../../../shared/model-logo'
+import { getModelGroup } from '../../../shared/model-inference'
 
 definePageMeta({
   middleware: 'auth',
@@ -40,39 +34,75 @@ const form = reactive({
 // 多 Key 配置
 const apiKeys = ref<ApiKeyConfig[]>([{ name: 'default', key: '' }])
 
-// 绘图模型配置（使用 AimodelInput 格式）
-const imageAimodels = ref<AimodelInput[]>([])
+// 统一模型列表
+const aimodels = ref<AimodelInput[]>([])
 
-// 对话模型配置
-const chatAimodels = ref<AimodelInput[]>([])
+// 分类筛选
+const categoryFilter = ref<ModelCategory | 'all'>('all')
+const groupFilter = ref<string>('all')
 
-// 视频模型配置
-const videoAimodels = ref<AimodelInput[]>([])
+// 模态框状态
+const showEditModal = ref(false)
+const showImportModal = ref(false)
+const editingModel = ref<AimodelInput | null>(null)
 
-// 当前 Tab
-const activeTab = ref('image')
+// 能力配置（图标 + 颜色）
+const capabilityConfig: Record<ModelCapability, { icon: string; color: string }> = {
+  vision: { icon: 'i-heroicons-eye', color: 'text-green-500' },
+  reasoning: { icon: 'i-heroicons-light-bulb', color: 'text-purple-500' },
+  function_calling: { icon: 'i-heroicons-wrench', color: 'text-amber-500' },
+  web_search: { icon: 'i-heroicons-globe-alt', color: 'text-blue-500' },
+}
 
-// Tab 配置
-const tabItems: TabsItem[] = [
-  {
-    label: '绘图模型',
-    value: 'image',
-    icon: 'i-heroicons-paint-brush',
-    slot: 'image',
-  },
-  {
-    label: '视频模型',
-    value: 'video',
-    icon: 'i-heroicons-video-camera',
-    slot: 'video',
-  },
-  {
-    label: '对话模型',
-    value: 'chat',
-    icon: 'i-heroicons-chat-bubble-left-right',
-    slot: 'chat',
-  },
+// 分类筛选选项
+const categoryFilterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '对话', value: 'chat' },
+  { label: '图片', value: 'image' },
+  { label: '视频', value: 'video' },
 ]
+
+// 分组筛选选项（动态生成）
+const groupFilterOptions = computed(() => {
+  const groups = new Set<string>()
+  for (const model of aimodels.value) {
+    groups.add(getModelGroup(model.modelName || model.name || ''))
+  }
+  return [
+    { label: '全部厂商', value: 'all' },
+    ...Array.from(groups).sort().map(g => ({ label: g, value: g })),
+  ]
+})
+
+// 过滤后的模型列表
+const filteredModels = computed(() => {
+  let models = aimodels.value
+
+  // 分类筛选
+  if (categoryFilter.value !== 'all') {
+    models = models.filter(m => m.category === categoryFilter.value)
+  }
+
+  // 分组筛选
+  if (groupFilter.value !== 'all') {
+    models = models.filter(m => getModelGroup(m.modelName || m.name || '') === groupFilter.value)
+  }
+
+  return models
+})
+
+// 按 group 分组的模型列表
+const groupedModels = computed(() => {
+  const groups: Record<string, AimodelInput[]> = {}
+  for (const model of filteredModels.value) {
+    const group = getModelGroup(model.modelName || model.name || '')
+    if (!groups[group]) {
+      groups[group] = []
+    }
+    groups[group]!.push(model)
+  }
+  return groups
+})
 
 // 表单验证
 function validate(state: typeof form): FormError[] {
@@ -83,12 +113,10 @@ function validate(state: typeof form): FormError[] {
   if (!state.baseUrl?.trim()) {
     errors.push({ name: 'baseUrl', message: '请输入API地址' })
   }
-  // 验证至少有一个有效的 Key
   const hasValidKey = apiKeys.value.some(k => k.key?.trim())
   if (!hasValidKey) {
     errors.push({ name: 'apiKey', message: '请至少添加一个API密钥' })
   }
-  // 选了余额查询类型后，userApiKey 必填
   if (state.upstreamPlatform && !state.userApiKey?.trim()) {
     errors.push({ name: 'upstreamPlatform', message: '请输入用于查询余额的 API Key' })
   }
@@ -97,7 +125,6 @@ function validate(state: typeof form): FormError[] {
 
 // 加载配置数据
 async function loadUpstreamData() {
-  // upstreams 已由插件加载，直接使用即可
   if (!isNew.value && upstreamId.value) {
     const upstream = upstreams.value.find(u => u.id === upstreamId.value)
     if (upstream) {
@@ -108,55 +135,26 @@ async function loadUpstreamData() {
         upstreamPlatform: upstream.upstreamPlatform || undefined,
         userApiKey: upstream.userApiKey || '',
       })
-
-      // 加载 apiKeys
       apiKeys.value = upstream.apiKeys
-
-      // 分离绘图模型、视频模型和对话模型
+      // 统一加载所有模型
       if (upstream.aimodels) {
-        imageAimodels.value = upstream.aimodels
-          .filter(m => !m.category || m.category === 'image')
-          .map(m => ({
-            id: m.id,  // 保留 ID
-            category: 'image' as ModelCategory,
-            modelType: m.modelType,
-            apiFormat: m.apiFormat,
-            modelName: m.modelName,
-            name: m.name,  // 显示名称
-            estimatedTime: m.estimatedTime,
-            keyName: m.keyName,
-          }))
-        videoAimodels.value = upstream.aimodels
-          .filter(m => m.category === 'video')
-          .map(m => ({
-            id: m.id,  // 保留 ID
-            category: 'video' as ModelCategory,
-            modelType: m.modelType,
-            apiFormat: m.apiFormat,
-            modelName: m.modelName,
-            name: m.name,  // 显示名称
-            estimatedTime: m.estimatedTime,
-            keyName: m.keyName,
-          }))
-        chatAimodels.value = upstream.aimodels
-          .filter(m => m.category === 'chat')
-          .map(m => ({
-            id: m.id,  // 保留 ID
-            category: 'chat' as ModelCategory,
-            modelType: m.modelType,
-            apiFormat: m.apiFormat,
-            modelName: m.modelName,
-            name: m.name,  // 显示名称
-            estimatedTime: m.estimatedTime,
-            keyName: m.keyName,
-          }))
+        aimodels.value = upstream.aimodels.map(m => ({
+          id: m.id,
+          category: m.category || 'image',
+          modelType: m.modelType,
+          apiFormat: m.apiFormat,
+          modelName: m.modelName,
+          name: m.name,
+          capabilities: m.capabilities || [],
+          estimatedTime: m.estimatedTime,
+          keyName: m.keyName,
+        }))
       }
     } else {
       toast.add({ title: '配置不存在', color: 'error' })
       router.push('/settings/upstreams')
     }
   } else {
-    // 新建时设置默认值
     apiKeys.value = [{ name: 'default', key: '' }]
   }
 }
@@ -165,133 +163,46 @@ onMounted(() => {
   loadUpstreamData()
 })
 
-// 获取可用的请求格式
-function getAvailableFormats(modelType: ModelType): ApiFormat[] {
-  return getApiFormatsForModelType(modelType as ImageModelType | VideoModelType) as ApiFormat[]
+// 打开编辑模态框（新增）
+function openAddModal() {
+  editingModel.value = null
+  showEditModal.value = true
 }
 
-// 添加绘图模型
-function addImageModel() {
-  imageAimodels.value.push({
-    category: 'image',
-    modelType: '' as any,
-    apiFormat: '' as any,
-    modelName: '',
-    name: '',  // 显示名称，modelType 变化时自动填充
-    estimatedTime: 60,
-  })
+// 打开编辑模态框（编辑）
+function openEditModal(model: AimodelInput) {
+  editingModel.value = { ...model }
+  showEditModal.value = true
 }
 
-// 添加对话模型
-function addChatModel() {
-  chatAimodels.value.push({
-    category: 'chat',
-    modelType: 'gpt' as any, // 保留字段但使用默认值
-    apiFormat: 'openai-chat' as any,
-    modelName: '',
-    name: '',  // 显示名称，modelName 变化时自动填充
-    estimatedTime: 5, // 默认5秒
-  })
-}
-
-// 添加视频模型
-function addVideoModel() {
-  videoAimodels.value.push({
-    category: 'video',
-    modelType: '' as any,
-    apiFormat: '' as any,
-    modelName: '',
-    name: '',  // 显示名称，modelType 变化时自动填充
-    estimatedTime: 120,
-  })
-}
-
-// 移除模型配置
-function removeImageModel(index: number) {
-  imageAimodels.value.splice(index, 1)
-}
-
-function removeChatModel(index: number) {
-  chatAimodels.value.splice(index, 1)
-}
-
-function removeVideoModel(index: number) {
-  videoAimodels.value.splice(index, 1)
-}
-
-// 当模型类型变化时，更新默认值
-function onImageModelTypeChange(index: number) {
-  const aimodel = imageAimodels.value[index]
-  if (!aimodel) return
-
-  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
-
-  if (!availableFormats.includes(aimodel.apiFormat)) {
-    aimodel.apiFormat = availableFormats[0] || 'mj-proxy'
-  }
-
-  const defaults = getModelTypeDefaults(aimodel.modelType as ImageModelType)
-  aimodel.modelName = defaults?.modelName || ''
-  aimodel.name = getModelTypeLabel(aimodel.modelType as ImageModelType)
-  aimodel.estimatedTime = defaults?.estimatedTime || 60
-}
-
-function onChatModelTypeChange(index: number) {
-  const aimodel = chatAimodels.value[index]
-  if (!aimodel) return
-
-  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
-
-  if (!availableFormats.includes(aimodel.apiFormat)) {
-    aimodel.apiFormat = availableFormats[0] || 'openai-chat'
-  }
-
-  const defaults = getModelTypeDefaults(aimodel.modelType as ChatModelType)
-  aimodel.modelName = defaults?.modelName || ''
-}
-
-function onVideoModelTypeChange(index: number) {
-  const aimodel = videoAimodels.value[index]
-  if (!aimodel) return
-
-  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
-
-  if (!availableFormats.includes(aimodel.apiFormat)) {
-    aimodel.apiFormat = availableFormats[0] || 'video-unified'
-  }
-
-  const defaults = getModelTypeDefaults(aimodel.modelType as VideoModelType)
-  aimodel.modelName = defaults?.modelName || ''
-  aimodel.name = getModelTypeLabel(aimodel.modelType as VideoModelType)
-  aimodel.estimatedTime = defaults?.estimatedTime || 120
-}
-
-// 获取推断的模型类型显示
-function getInferredModelType(modelName: string): { type: ChatModelType | null; label: string } {
-  const inferred = inferChatModelType(modelName)
-  if (inferred) {
-    return { type: inferred, label: getModelTypeLabel(inferred) }
-  }
-  return { type: null, label: '自定义' }
-}
-
-// 当对话模型名称变化时，自动推断类型
-function onChatModelNameChange(index: number) {
-  const aimodel = chatAimodels.value[index]
-  if (!aimodel) return
-
-  // 自动填充 name 为 modelName（对话模型规则）
-  aimodel.name = aimodel.modelName
-
-  const inferred = inferChatModelType(aimodel.modelName)
-  if (inferred) {
-    aimodel.modelType = inferred
-    // 确保 apiFormat 兼容
-    const availableFormats = getAvailableFormats(inferred)
-    if (!availableFormats.includes(aimodel.apiFormat)) {
-      aimodel.apiFormat = availableFormats[0] || 'openai-chat'
+// 保存模型（新增或更新）
+function onSaveModel(model: AimodelInput) {
+  if (model.id) {
+    // 更新现有模型
+    const index = aimodels.value.findIndex(m => m.id === model.id)
+    if (index !== -1) {
+      aimodels.value[index] = model
     }
+  } else {
+    // 新增模型
+    aimodels.value.push(model)
   }
+}
+
+// 删除模型（通过模型对象查找并删除）
+function removeModel(model: AimodelInput) {
+  const index = aimodels.value.findIndex(m =>
+    m.id === model.id && m.modelName === model.modelName && m.name === model.name
+  )
+  if (index !== -1) {
+    aimodels.value.splice(index, 1)
+  }
+}
+
+// 从上游导入模型
+function onImportModels(models: AimodelInput[]) {
+  aimodels.value.push(...models)
+  toast.add({ title: `已导入 ${models.length} 个模型`, color: 'success' })
 }
 
 // ==================== Key 管理 ====================
@@ -324,21 +235,13 @@ const availableKeyNames = computed(() => {
 
 // 提交表单
 async function onSubmit(event: FormSubmitEvent<typeof form>) {
-  // 过滤有效的 apiKeys
   const validApiKeys = apiKeys.value.filter(k => k.key?.trim())
   if (validApiKeys.length === 0) {
     toast.add({ title: '请至少添加一个有效的 API 密钥', color: 'error' })
     return
   }
 
-  // 合并模型配置
-  const allAimodels: AimodelInput[] = [
-    ...imageAimodels.value.map(m => ({ ...m, category: 'image' as ModelCategory })),
-    ...videoAimodels.value.map(m => ({ ...m, category: 'video' as ModelCategory })),
-    ...chatAimodels.value.map(m => ({ ...m, category: 'chat' as ModelCategory })),
-  ]
-
-  if (allAimodels.length === 0) {
+  if (aimodels.value.length === 0) {
     toast.add({ title: '请至少添加一种模型', color: 'error' })
     return
   }
@@ -349,7 +252,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         name: form.name,
         baseUrl: form.baseUrl,
         apiKeys: validApiKeys,
-        aimodels: allAimodels,
+        aimodels: aimodels.value,
         remark: form.remark,
         upstreamPlatform: form.upstreamPlatform,
         userApiKey: form.userApiKey || undefined,
@@ -360,7 +263,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         name: form.name,
         baseUrl: form.baseUrl,
         apiKeys: validApiKeys,
-        aimodels: allAimodels,
+        aimodels: aimodels.value,
         remark: form.remark || null,
         upstreamPlatform: form.upstreamPlatform || null,
         userApiKey: form.userApiKey || null,
@@ -368,10 +271,11 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       toast.add({ title: '配置已更新', color: 'success' })
     }
     router.back()
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { data?: { message?: string }; message?: string }
     toast.add({
       title: '操作失败',
-      description: error.data?.message || error.message,
+      description: err.data?.message || err.message,
       color: 'error',
     })
   }
@@ -513,336 +417,114 @@ async function confirmDelete() {
 
         <!-- 模型配置卡片 -->
         <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
-          <h2 class="text-lg font-medium text-(--ui-text) mb-4">模型配置</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-medium text-(--ui-text)">模型配置</h2>
+            <div class="flex items-center gap-2">
+              <USelectMenu
+                v-model="groupFilter"
+                :items="groupFilterOptions"
+                value-key="value"
+                class="w-32"
+              />
+              <USelectMenu
+                v-model="categoryFilter"
+                :items="categoryFilterOptions"
+                value-key="value"
+                class="w-24"
+              />
+              <UButton
+                variant="outline"
+                icon="i-heroicons-cloud-arrow-down"
+                :disabled="!form.baseUrl || !apiKeys.some(k => k.key)"
+                @click="showImportModal = true"
+              >
+                从上游导入
+              </UButton>
+              <UButton icon="i-heroicons-plus" @click="openAddModal">
+                添加模型
+              </UButton>
+            </div>
+          </div>
 
-          <UTabs
-            v-model="activeTab"
-            :items="tabItems"
-            variant="pill"
-            color="neutral"
-            :ui="{ root: 'items-start', list: 'w-auto' }"
-          >
-            <!-- 绘图模型 Tab -->
-            <template #image>
-              <div class="pt-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                  <!-- 模型卡片列表 -->
+          <!-- 模型列表 -->
+          <div v-if="filteredModels.length === 0" class="text-center py-12 text-(--ui-text-muted)">
+            <UIcon name="i-heroicons-cube" class="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>暂无模型配置</p>
+            <p class="text-sm mt-1">点击"添加模型"或"从上游导入"开始配置</p>
+          </div>
+
+          <div v-else class="max-h-96 overflow-y-auto space-y-4">
+            <div v-for="(models, group) in groupedModels" :key="group">
+              <div class="text-xs font-medium text-(--ui-text-muted) mb-2 sticky top-0 bg-(--ui-bg-elevated) py-1">
+                {{ group }}
+              </div>
+              <div class="space-y-1">
+                <div
+                  v-for="model in models"
+                  :key="model.id || model.modelName"
+                  class="flex items-center gap-3 p-2 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) hover:border-(--ui-primary)/50 cursor-pointer transition-colors"
+                  @click="openEditModal(model)"
+                >
+                  <!-- 模型图标 -->
+                  <img
+                    v-if="getModelLogo(model)"
+                    :src="getModelLogo(model)"
+                    class="w-5 h-5 rounded shrink-0 object-contain"
+                    :alt="model.name"
+                  />
                   <div
-                    v-for="(aimodel, index) in imageAimodels"
-                    :key="aimodel.id || index"
-                    class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
+                    v-else
+                    class="w-5 h-5 rounded shrink-0 bg-(--ui-bg-accented) flex items-center justify-center text-xs font-medium text-(--ui-text-muted)"
                   >
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-(--ui-text) truncate">
-                          🎨 {{ getModelTypeLabel(aimodel.modelType as ImageModelType) || '未选择' }}
-                        </span>
-                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
-                          ID:{{ aimodel.id }}
-                        </span>
-                      </div>
-                      <UButton
-                        size="xs"
-                        variant="ghost"
-                        color="error"
-                        type="button"
-                        @click="removeImageModel(index)"
-                      >
-                        <UIcon name="i-heroicons-trash" class="w-4 h-4" />
-                      </UButton>
-                    </div>
-
-                    <div class="space-y-2">
-                      <UFormField label="模型类型">
-                        <USelectMenu
-                          :model-value="aimodel.modelType as ImageModelType"
-                          :items="IMAGE_MODEL_REGISTRY.map(m => ({ label: m.label, value: m.type }))"
-                          value-key="value"
-                          class="w-40"
-                          @update:model-value="(v: any) => { aimodel.modelType = v; onImageModelTypeChange(index) }"
-                        />
-                      </UFormField>
-
-                      <UFormField label="请求格式">
-                        <div class="flex flex-wrap gap-1.5">
-                          <UButton
-                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
-                            :key="f"
-                            size="xs"
-                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
-                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
-                            type="button"
-                            @click="aimodel.apiFormat = f"
-                          >
-                            {{ getApiFormatLabel(f) }}
-                          </UButton>
-                        </div>
-                      </UFormField>
-
-                      <UFormField label="模型名称">
-                        <UInput
-                          v-model="aimodel.modelName"
-                          :placeholder="getModelTypeDefaults(aimodel.modelType as ImageModelType | VideoModelType)?.modelName || '可选'"
-                          class="w-60"
-                        />
-                      </UFormField>
-
-                      <UFormField label="显示名称">
-                        <UInput
-                          v-model="aimodel.name"
-                          placeholder="在模型选择器中显示的名称"
-                          class="w-60"
-                        />
-                      </UFormField>
-
-                      <UFormField label="预计时间(秒)">
-                        <UInput
-                          v-model.number="aimodel.estimatedTime"
-                          type="number"
-                          min="1"
-                          class="w-24"
-                        />
-                      </UFormField>
-
-                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
-                        <USelectMenu
-                          v-model="aimodel.keyName"
-                          :items="availableKeyNames"
-                          value-key="value"
-                          placeholder="default"
-                          class="w-32"
-                        />
-                      </UFormField>
-                    </div>
+                    {{ (model.name || model.modelName || '?')[0]?.toUpperCase() }}
                   </div>
 
-                  <!-- 添加按钮卡片 -->
-                  <button
-                    type="button"
-                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
-                    @click="addImageModel"
+                  <!-- 分类标签 -->
+                  <span
+                    class="text-xs px-1.5 py-0.5 rounded shrink-0"
+                    :class="{
+                      'bg-blue-500/10 text-blue-500': model.category === 'chat',
+                      'bg-purple-500/10 text-purple-500': model.category === 'image',
+                      'bg-orange-500/10 text-orange-500': model.category === 'video',
+                    }"
                   >
-                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
-                    <span class="text-sm text-(--ui-text-muted)">添加绘图模型</span>
-                  </button>
-                </div>
-              </div>
-            </template>
+                    {{ CATEGORY_LABELS[model.category] }}
+                  </span>
 
-            <!-- 视频模型 Tab -->
-            <template #video>
-              <div class="pt-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                  <!-- 模型卡片列表 -->
-                  <div
-                    v-for="(aimodel, index) in videoAimodels"
-                    :key="aimodel.id || index"
-                    class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
-                  >
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-(--ui-text) truncate">
-                          🎬 {{ getModelTypeLabel(aimodel.modelType as VideoModelType) || '未选择' }}
-                        </span>
-                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
-                          ID:{{ aimodel.id }}
-                        </span>
-                      </div>
-                      <UButton
-                        size="xs"
-                        variant="ghost"
-                        color="error"
-                        type="button"
-                        @click="removeVideoModel(index)"
-                      >
-                        <UIcon name="i-heroicons-trash" class="w-4 h-4" />
-                      </UButton>
-                    </div>
+                  <!-- 显示名称 -->
+                  <span class="text-sm text-(--ui-text) truncate flex-1">
+                    {{ model.name || model.modelName || '未命名' }}
+                  </span>
 
-                    <div class="space-y-2">
-                      <UFormField label="模型类型">
-                        <USelectMenu
-                          :model-value="aimodel.modelType as VideoModelType"
-                          :items="VIDEO_MODEL_REGISTRY.map(m => ({ label: m.label, value: m.type }))"
-                          value-key="value"
-                          class="w-40"
-                          @update:model-value="(v: any) => { aimodel.modelType = v; onVideoModelTypeChange(index) }"
-                        />
-                      </UFormField>
-
-                      <UFormField label="请求格式">
-                        <div class="flex flex-wrap gap-1.5">
-                          <UButton
-                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
-                            :key="f"
-                            size="xs"
-                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
-                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
-                            type="button"
-                            @click="aimodel.apiFormat = f"
-                          >
-                            {{ getApiFormatLabel(f) }}
-                          </UButton>
-                        </div>
-                      </UFormField>
-
-                      <UFormField label="模型名称">
-                        <UInput
-                          v-model="aimodel.modelName"
-                          :placeholder="getModelTypeDefaults(aimodel.modelType as ImageModelType | VideoModelType)?.modelName || '可选'"
-                          class="w-60"
-                        />
-                      </UFormField>
-
-                      <UFormField label="显示名称">
-                        <UInput
-                          v-model="aimodel.name"
-                          placeholder="在模型选择器中显示的名称"
-                          class="w-60"
-                        />
-                      </UFormField>
-
-                      <UFormField label="预计时间(秒)">
-                        <UInput
-                          v-model.number="aimodel.estimatedTime"
-                          type="number"
-                          min="1"
-                          class="w-24"
-                        />
-                      </UFormField>
-
-                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
-                        <USelectMenu
-                          v-model="aimodel.keyName"
-                          :items="availableKeyNames"
-                          value-key="value"
-                          placeholder="default"
-                          class="w-32"
-                        />
-                      </UFormField>
-                    </div>
+                  <!-- 能力图标 -->
+                  <div class="flex gap-1.5 shrink-0">
+                    <UIcon
+                      v-for="cap in (model.capabilities || [])"
+                      :key="cap"
+                      :name="capabilityConfig[cap].icon"
+                      class="w-4 h-4"
+                      :class="capabilityConfig[cap].color"
+                    />
                   </div>
 
-                  <!-- 添加按钮卡片 -->
-                  <button
+                  <!-- ID 标签 -->
+                  <span v-if="model.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded shrink-0">
+                    ID:{{ model.id }}
+                  </span>
+
+                  <!-- 删除按钮 -->
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="error"
+                    icon="i-heroicons-trash"
                     type="button"
-                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
-                    @click="addVideoModel"
-                  >
-                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
-                    <span class="text-sm text-(--ui-text-muted)">添加视频模型</span>
-                  </button>
+                    @click.stop="removeModel(model)"
+                  />
                 </div>
               </div>
-            </template>
-
-            <!-- 对话模型 Tab -->
-            <template #chat>
-              <div class="pt-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                  <!-- 模型卡片列表 -->
-                  <div
-                    v-for="(aimodel, index) in chatAimodels"
-                    :key="aimodel.id || index"
-                    class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
-                  >
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-(--ui-text)">💬</span>
-                        <span
-                          class="text-xs px-2 py-0.5 rounded-full"
-                          :class="getInferredModelType(aimodel.modelName).type
-                            ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
-                            : 'bg-(--ui-bg-accented) text-(--ui-text-muted)'"
-                        >
-                          {{ getInferredModelType(aimodel.modelName).label }}
-                        </span>
-                        <span v-if="aimodel.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded">
-                          ID:{{ aimodel.id }}
-                        </span>
-                      </div>
-                      <UButton
-                        size="xs"
-                        variant="ghost"
-                        color="error"
-                        type="button"
-                        @click="removeChatModel(index)"
-                      >
-                        <UIcon name="i-heroicons-trash" class="w-4 h-4" />
-                      </UButton>
-                    </div>
-
-                    <div class="space-y-2">
-                      <!-- 请求格式选择 -->
-                      <UFormField label="请求格式">
-                        <div class="flex flex-wrap gap-1.5">
-                          <UButton
-                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
-                            :key="f"
-                            size="xs"
-                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
-                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
-                            type="button"
-                            @click="aimodel.apiFormat = f"
-                          >
-                            {{ getApiFormatLabel(f) }}
-                          </UButton>
-                        </div>
-                      </UFormField>
-
-                      <!-- 模型名称输入 -->
-                      <UFormField label="模型名称">
-                        <UInput
-                          v-model="aimodel.modelName"
-                          placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
-                          class="w-60"
-                          @input="onChatModelNameChange(index)"
-                        />
-                      </UFormField>
-
-                      <UFormField label="显示名称">
-                        <UInput
-                          v-model="aimodel.name"
-                          placeholder="在模型选择器中显示的名称"
-                          class="w-60"
-                        />
-                      </UFormField>
-
-                      <UFormField label="预计时间(秒)">
-                        <UInput
-                          v-model.number="aimodel.estimatedTime"
-                          type="number"
-                          min="1"
-                          class="w-24"
-                        />
-                      </UFormField>
-
-                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
-                        <USelectMenu
-                          v-model="aimodel.keyName"
-                          :items="availableKeyNames"
-                          value-key="value"
-                          placeholder="default"
-                          class="w-32"
-                        />
-                      </UFormField>
-                    </div>
-
-                  </div>
-
-                  <!-- 添加按钮卡片 -->
-                  <button
-                    type="button"
-                    class="p-3 rounded-lg border-2 border-dashed border-(--ui-border) hover:border-(--ui-primary) hover:bg-(--ui-primary)/5 transition-colors flex flex-col items-center justify-center min-h-32 cursor-pointer"
-                    @click="addChatModel"
-                  >
-                    <UIcon name="i-heroicons-plus" class="w-8 h-8 text-(--ui-text-muted) mb-2" />
-                    <span class="text-sm text-(--ui-text-muted)">添加对话模型</span>
-                  </button>
-                </div>
-              </div>
-            </template>
-          </UTabs>
+            </div>
+          </div>
         </div>
 
         <!-- 删除按钮（仅编辑模式） -->
@@ -867,5 +549,21 @@ async function confirmDelete() {
         </div>
       </template>
     </UModal>
+
+    <!-- 模型编辑模态框 -->
+    <SettingsModelEditModal
+      v-model:open="showEditModal"
+      v-model:model="editingModel"
+      :api-keys="apiKeys"
+      @save="onSaveModel"
+    />
+
+    <!-- 从上游导入模态框 -->
+    <SettingsRemoteModelPicker
+      v-model:open="showImportModal"
+      :base-url="form.baseUrl"
+      :api-key="apiKeys[0]?.key || ''"
+      @import="onImportModels"
+    />
   </SettingsLayout>
 </template>

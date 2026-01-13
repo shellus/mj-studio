@@ -77,6 +77,17 @@ export type VideoModelType =
  */
 export type ModelType = ImageModelType | ChatModelType | VideoModelType
 
+// ==================== 模型能力类型 ====================
+
+/**
+ * 模型能力
+ * - vision: 视觉能力（支持图片输入）
+ * - reasoning: 推理能力（深度思考）
+ * - function_calling: 工具调用能力
+ * - web_search: 联网搜索能力
+ */
+export type ModelCapability = 'vision' | 'reasoning' | 'function_calling' | 'web_search'
+
 // ==================== API 格式类型 ====================
 
 /**
@@ -368,6 +379,8 @@ export interface AimodelInput {
   modelName: string
   /** 显示名称（用户可自定义） */
   name: string
+  /** 模型能力列表 */
+  capabilities?: ModelCapability[]
   estimatedTime?: number
   keyName?: string
 }

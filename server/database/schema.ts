@@ -20,7 +20,7 @@ export type {
   UpstreamInfo,
 } from '../../app/shared/types'
 
-import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams } from '../../app/shared/types'
+import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams, ModelCapability } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -59,11 +59,12 @@ export type NewUpstream = typeof upstreams.$inferInsert
 export const aimodels = sqliteTable('aimodels', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   upstreamId: integer('upstream_id').notNull(), // 关联上游配置
-  category: text('category').$type<ModelCategory>().notNull(), // 模型分类：image | chat
+  category: text('category').$type<ModelCategory>().notNull(), // 模型分类：image | chat | video
   modelType: text('model_type').$type<ModelType>().notNull(), // 界面显示的模型类型
   apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 实际请求时使用的 API 格式
   modelName: text('model_name').notNull(), // 发送给上游的模型标识符
   name: text('name').notNull(), // 显示名称（用户可自定义）
+  capabilities: text('capabilities', { mode: 'json' }).$type<ModelCapability[]>(), // 模型能力列表
   estimatedTime: integer('estimated_time').notNull().default(60), // 预计时间（秒）
   keyName: text('key_name').notNull().default('default'), // 使用的 Key 名称
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),

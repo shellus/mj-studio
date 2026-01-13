@@ -72,6 +72,16 @@ export const VIDEO_MODEL_TYPES: VideoModelType[] = [
 export const ALL_MODEL_TYPES: ModelType[] = [...IMAGE_MODEL_TYPES, ...CHAT_MODEL_TYPES, ...VIDEO_MODEL_TYPES]
 
 /**
+ * 模型分类选项
+ * - 使用场景：模型编辑表单的分类下拉选项
+ */
+export const MODEL_CATEGORY_OPTIONS: { label: string; value: ModelCategory }[] = [
+  { label: '对话', value: 'chat' },
+  { label: '图片', value: 'image' },
+  { label: '视频', value: 'video' },
+]
+
+/**
  * 所有 API 格式列表
  * - 使用场景：
  *   - index.post.ts: 创建任务时验证 apiFormat 参数

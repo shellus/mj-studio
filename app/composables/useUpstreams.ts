@@ -1,5 +1,5 @@
 // 上游配置管理
-import type { ApiKeyConfig, ModelCategory, ModelType, ApiFormat, UpstreamPlatform, UpstreamInfo, AimodelInput } from '../shared/types'
+import type { ApiKeyConfig, ModelCategory, ModelType, ApiFormat, UpstreamPlatform, UpstreamInfo, AimodelInput, ModelCapability } from '../shared/types'
 
 export type { AimodelInput }
 
@@ -12,6 +12,7 @@ export interface Aimodel {
   apiFormat: ApiFormat
   modelName: string
   name: string  // 显示名称（用户可自定义）
+  capabilities: ModelCapability[] | null
   estimatedTime: number
   keyName: string
   createdAt: string
