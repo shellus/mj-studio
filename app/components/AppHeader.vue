@@ -17,6 +17,7 @@ const userProfile = ref<{ avatar?: string | null; name?: string | null } | null>
 async function loadUserProfile() {
   if (!loggedIn.value) return
   try {
+    // @ts-expect-error Nuxt 路由类型推断导致栈溢出
     userProfile.value = await $fetch('/api/user')
   } catch {
     // 忽略错误

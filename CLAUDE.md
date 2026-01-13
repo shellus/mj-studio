@@ -63,8 +63,16 @@ pnpm drizzle-kit generate --custom --name=my-migration
 
 事件驱动模式实现多端同步。事件处理器在插件中注册（`app/plugins/global-events.client.ts`），Composable 只提供状态和方法。
 
-> 详见 [docs/dev-spec/全局事件订阅系统设计.md](docs/dev-spec/全局事件订阅系统设计.md)
+> 详见 [docs/features/多端同步和流式输出.md](docs/features/多端同步和流式输出.md)
 
 ### UI 规范
 
 Nuxt UI 4 + Fluent 2 风格。详见 [docs/dev-spec/设计系统.md](docs/dev-spec/设计系统.md)。
+
+### 测试规则
+
+修改代码后必须运行类型检查：
+
+```bash
+npx vue-tsc --noEmit
+```
