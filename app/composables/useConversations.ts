@@ -44,6 +44,25 @@ export interface ConversationInputState {
   showCompressHint: boolean
 }
 
+// 模块级单例：流式订阅的 AbortController 映射（messageId -> AbortController）
+// 放在 composable 外部以确保所有调用共享同一个 Map，避免重复订阅
+//
+// 【流式订阅的状态管理难点】
+// 问题背景：
+// 1. useConversations() 在多处调用（插件、页面），每次调用产生独立闭包
+// 2. 闭包内的普通变量（如 let streamingMessageId）不共享，导致：
+//    - 插件中 subscribeToMessageStream 设置的 messageId
+//    - 页面中 stopStreaming 读取的是另一个闭包的变量（始终为初始值）
+// 3. 切换对话时，旧订阅未取消会导致：
+//    - 切回来时重复订阅，服务端返回已缓存内容被当作增量追加，内容重复
+//
+// 解决方案：
+// 1. activeStreamSubscriptions 放在模块级，所有调用共享同一个 Map
+// 2. stopStreaming 从 streamingStates（useState 共享状态）获取 messageId
+// 3. selectConversation 开头调用 unsubscribeAllMessageStreams() 取消旧订阅
+//    这样切换对话时：先取消旧订阅 → 加载新对话 → 服务端返回完整缓存 → 正常追加
+const activeStreamSubscriptions = new Map<number, AbortController>()
+
 export function useConversations() {
   const conversations = useState<Conversation[]>('conversations', () => [])
   const messages = useState<Message[]>('messages', () => [])
@@ -137,15 +156,11 @@ export function useConversations() {
 
   // ==================== 独立流式订阅管理 ====================
 
-  // 当前活跃的流式订阅（messageId -> AbortController）
-  const activeStreamSubscriptions = new Map<number, AbortController>()
-
   // 订阅单个消息的流式输出
   async function subscribeToMessageStream(messageId: number, conversationId: number, initialContent?: string) {
-    // 如果已经在订阅，先取消
+    // 如果已经在订阅，直接返回，避免重复订阅导致内容重复
     if (activeStreamSubscriptions.has(messageId)) {
-      activeStreamSubscriptions.get(messageId)?.abort()
-      activeStreamSubscriptions.delete(messageId)
+      return
     }
 
     const { getAuthHeader } = useAuth()
@@ -309,6 +324,9 @@ export function useConversations() {
 
   // 选择对话并加载消息
   async function selectConversation(id: number) {
+    // 切换对话前，取消所有活跃的流式订阅
+    unsubscribeAllMessageStreams()
+
     currentConversationId.value = id
     try {
       const result = await $fetch<{ conversation: Conversation, messages: Message[] }>(`/api/conversations/${id}`)
