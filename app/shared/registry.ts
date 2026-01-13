@@ -109,14 +109,21 @@ export const PROVIDER_REGISTRY: ProviderMeta[] = [
     label: 'OpenAI Chat',
     category: 'chat',
     isAsync: false,
-    supportedModelTypes: ['gpt', 'deepseek', 'qwen-chat', 'grok', 'llama', 'moonshot', 'glm', 'doubao-chat', 'minimax', 'hunyuan', 'mixtral', 'phi', 'gemini-chat'],
+    supportedModelTypes: ['gpt', 'claude', 'deepseek', 'qwen-chat', 'grok', 'llama', 'moonshot', 'glm', 'doubao-chat', 'minimax', 'hunyuan', 'mixtral', 'phi', 'gemini-chat'],
   },
   {
     apiFormat: 'claude',
     label: 'Claude API',
     category: 'chat',
     isAsync: false,
-    supportedModelTypes: ['claude'],
+    supportedModelTypes: ['gpt', 'claude', 'deepseek', 'qwen-chat', 'grok', 'llama', 'moonshot', 'glm', 'doubao-chat', 'minimax', 'hunyuan', 'mixtral', 'phi', 'gemini-chat'],
+  },
+  {
+    apiFormat: 'gemini',
+    label: 'Gemini API',
+    category: 'chat',
+    isAsync: false,
+    supportedModelTypes: ['gpt', 'claude', 'deepseek', 'qwen-chat', 'grok', 'llama', 'moonshot', 'glm', 'doubao-chat', 'minimax', 'hunyuan', 'mixtral', 'phi', 'gemini-chat'],
   },
 ]
 

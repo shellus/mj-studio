@@ -10,11 +10,13 @@ export * from './types'
 // 导入所有 Provider
 import { openaiChatProvider } from './openaiChat'
 import { claudeProvider } from './claude'
+import { geminiProvider } from './gemini'
 
 // 所有 Provider 列表
 const providers: ChatProvider[] = [
   openaiChatProvider,
   claudeProvider,
+  geminiProvider,
 ]
 
 /**

@@ -8,7 +8,7 @@ import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { LogContext } from '../../utils/logger'
 
 /** Chat API 格式类型 */
-export type ChatApiFormat = 'openai-chat' | 'claude'
+export type ChatApiFormat = 'openai-chat' | 'claude' | 'gemini'
 
 /** 流式响应块 */
 export interface ChatStreamChunk {

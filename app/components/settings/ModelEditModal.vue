@@ -115,20 +115,17 @@ function onModelTypeChange() {
   form.name = getModelTypeLabel(form.modelType) || ''
 }
 
-// 对话模型名称变化时自动推断
-function onChatModelNameChange() {
+// 监听对话模型名称变化，自动推断类型（不改变 API 格式）
+watch(() => form.modelName, (newName) => {
   if (form.category !== 'chat') return
 
-  form.name = form.modelName
-  const inferred = inferChatModelType(form.modelName)
+  form.name = newName
+  const inferred = inferChatModelType(newName)
   if (inferred) {
     form.modelType = inferred
-    const availableFormats = getAvailableFormats(inferred)
-    if (!availableFormats.includes(form.apiFormat)) {
-      form.apiFormat = availableFormats[0] || 'openai-chat'
-    }
+    // 不自动更改 apiFormat，让用户手动选择
   }
-}
+})
 
 // 能力选项
 const capabilityOptions: { label: string; value: ModelCapability; icon: string }[] = [
@@ -214,7 +211,6 @@ function onSave() {
             v-model="form.modelName"
             :placeholder="form.category === 'chat' ? 'gpt-4o, claude-3-opus...' : '可选'"
             class="w-full"
-            @input="onChatModelNameChange"
           />
         </UFormField>
 

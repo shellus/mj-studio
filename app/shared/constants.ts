@@ -114,7 +114,7 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   // 对话模型（支持 OpenAI Chat 和 Claude 格式）
   'gpt': ['openai-chat', 'claude'],
   'claude': ['openai-chat', 'claude'],
-  'gemini-chat': ['openai-chat', 'claude'],
+  'gemini-chat': ['openai-chat', 'claude', 'gemini'],
   'deepseek': ['openai-chat', 'claude'],
   'qwen-chat': ['openai-chat', 'claude'],
   'grok': ['openai-chat', 'claude'],
