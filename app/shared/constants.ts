@@ -540,6 +540,18 @@ export const CHAT_MODELS_WITH_THINKING: ChatModelType[] = ['claude', 'gpt']
  */
 export const OPENAI_REASONING_EFFORT = 'medium' as const
 
+/**
+ * Claude 思考功能 budget_tokens 默认值
+ * 参考: https://docs.anthropic.com/claude/docs/extended-thinking
+ */
+export const CLAUDE_THINKING_BUDGET_TOKENS = 10000 as const
+
+/**
+ * Gemini 思考功能 thinkingBudget 默认值
+ * 参考: https://ai.google.dev/gemini-api/docs/thinking
+ */
+export const GEMINI_THINKING_BUDGET = 8000 as const
+
 // ==================== 图片上传限制 ====================
 
 /**

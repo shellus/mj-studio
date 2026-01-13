@@ -11,11 +11,14 @@ import type { ChatApiFormat } from './chatProviders'
 import {
   startStreamingSession,
   updateSessionStatus,
+  updateThinkingState,
+  getThinkingState,
   appendStreamingContent,
   endStreamingSession,
   getStreamingSession,
   getSessionAbortController,
-  getStreamingContent,  // 新增：获取内容但不清理
+  getStreamingContent,
+  tryFinalizeSession,
 } from './streamingCache'
 import { emitToUser } from './globalEvents'
 import type { ChatMessageDone } from './globalEvents'
@@ -183,6 +186,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 首次收到思考内容时，输出开标签
         if (!thinkingStarted) {
           thinkingStarted = true
+          updateThinkingState(messageId, true, false)  // 同步到缓存
           appendStreamingContent(messageId, '<thinking>\n')
         }
         appendStreamingContent(messageId, chunk.thinking)
@@ -192,6 +196,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 如果有思考内容且尚未闭合，先输出闭标签
         if (thinkingStarted && !thinkingEnded) {
           thinkingEnded = true
+          updateThinkingState(messageId, true, true)  // 同步到缓存
           appendStreamingContent(messageId, '\n</thinking>\n\n')
         }
 
@@ -231,27 +236,34 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         appendStreamingContent(messageId, '\n</thinking>\n\n')
       }
 
-      // 被中止的情况：保存已生成的内容，状态设为 stopped
-      const cachedContent = getStreamingContent(messageId)  // 获取内容但不清理
-      const contentToSave = cachedContent || fullContent
-      await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
+      // 【竞态条件处理】尝试完成会话（原子操作）
+      // 这里和 stopStreamingTask() 可能同时尝试保存内容
+      // 通过 tryFinalizeSession 确保只有一方成功保存，避免重复写入数据库
+      // 详见 streamingCache.ts 中 tryFinalizeSession 的注释
+      const finalizeResult = tryFinalizeSession(messageId)
+      if (finalizeResult) {
+        // 被中止的情况：保存已生成的内容，状态设为 stopped
+        const contentToSave = finalizeResult.content || fullContent
+        await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
 
-      // 广播 done 事件（在清理缓存之前）
-      await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
-        conversationId,
-        messageId,
-        status: 'stopped',
-        ...(updatedEstimatedTime !== null ? {
-          estimatedTime: updatedEstimatedTime,
-          upstreamId: aimodel.upstreamId,
-          aimodelId: aimodel.id,
-        } : {}),
-      })
+        // 广播 done 事件（在清理缓存之前）
+        await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+          conversationId,
+          messageId,
+          status: 'stopped',
+          ...(updatedEstimatedTime !== null ? {
+            estimatedTime: updatedEstimatedTime,
+            upstreamId: aimodel.upstreamId,
+            aimodelId: aimodel.id,
+          } : {}),
+        })
 
-      // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
-      setTimeout(() => {
-        endStreamingSession(messageId)
-      }, 2000)
+        // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
+        setTimeout(() => {
+          endStreamingSession(messageId)
+        }, 2000)
+      }
+      // 如果 finalizeResult 为 null，说明已被 stopStreamingTask 处理，不需要再保存
       return
     }
 
@@ -315,9 +327,36 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
   }
 }
 
-// 停止正在进行的生成任务
+/**
+ * 停止正在进行的生成任务
+ *
+ * 【执行流程】
+ * 1. 触发 abortController.abort() 中止上游请求
+ * 2. 等待 100ms 给流式循环优先处理的机会
+ * 3. 尝试通过 tryFinalizeSession 获取保存权
+ * 4. 如果获取成功则保存内容，否则说明流式循环已处理
+ *
+ * 【竞态条件说明】
+ * 此函数和流式循环 (startStreamingTask) 中的 abort 检测可能同时尝试保存内容。
+ * 通过 tryFinalizeSession 的原子操作确保只有一方成功保存。
+ *
+ * 等待 100ms 的原因：
+ * - 给流式循环优先处理的机会，因为它有更完整的上下文（如 responseMark）
+ * - 如果流式循环在 100ms 内处理完成，tryFinalizeSession 会返回 null
+ * - 如果流式循环还在等待上游响应（如思考阶段），由我们来保存内容
+ */
 export async function stopStreamingTask(messageId: number): Promise<boolean> {
   const conversationService = useConversationService()
+
+  // 获取会话信息
+  const session = getStreamingSession(messageId)
+  if (!session) {
+    // 没有活跃会话，可能已经完成
+    return false
+  }
+
+  // 保存会话信息（因为后面可能会被清理）
+  const { userId, conversationId } = session
 
   // 获取 AbortController 并中止
   const abortController = getSessionAbortController(messageId)
@@ -325,23 +364,37 @@ export async function stopStreamingTask(messageId: number): Promise<boolean> {
     abortController.abort()
   }
 
-  // 获取缓存内容
-  const session = getStreamingSession(messageId)
-  if (!session) {
-    // 没有活跃会话，可能已经完成
-    return false
+  // 【关键】等待 100ms，给流式循环优先处理的机会
+  // 流式循环有更完整的上下文（如 responseMark、updatedEstimatedTime 等）
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  // 【竞态条件处理】尝试获取保存权
+  // 如果流式循环已经在这 100ms 内处理完成，tryFinalizeSession 会返回 null
+  // 闭合未完成的思考标签
+  const thinkingState = getThinkingState(messageId)
+  if (thinkingState.started && !thinkingState.ended) {
+    appendStreamingContent(messageId, '\n</thinking>\n\n')
   }
 
-  // 保存已生成的内容
-  const cachedContent = endStreamingSession(messageId)
-  await conversationService.updateMessageContentAndStatus(messageId, cachedContent, 'stopped')
+  const finalizeResult = tryFinalizeSession(messageId)
+  if (!finalizeResult) {
+    // 流式循环已经处理完成（保存了内容），我们不需要再保存
+    return true
+  }
+
+  // 流式循环还没处理完（可能卡在等待上游响应，如思考阶段）
+  // 由我们来保存已累积的内容
+  await conversationService.updateMessageContentAndStatus(messageId, finalizeResult.content, 'stopped')
 
   // 广播 done 事件
-  await emitToUser<ChatMessageDone>(session.userId, 'chat.message.done', {
-    conversationId: session.conversationId,
+  await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+    conversationId,
     messageId,
     status: 'stopped',
   })
+
+  // 清理缓存
+  endStreamingSession(messageId)
 
   return true
 }

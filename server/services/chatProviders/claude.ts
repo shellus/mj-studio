@@ -12,6 +12,7 @@ import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
+import { CLAUDE_THINKING_BUDGET_TOKENS } from '../../../app/shared/constants'
 import { getErrorMessage, isAbortError } from '../../../app/shared/types'
 
 // Claude 多模态消息内容类型
@@ -215,7 +216,7 @@ export const claudeProvider: ChatProvider = {
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
-        _enableThinking?: boolean  // Claude API 格式暂不支持
+        enableThinking?: boolean
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/messages`
         const messages = buildMessages(historyMessages, userMessage, userFiles)
@@ -230,6 +231,14 @@ export const claudeProvider: ChatProvider = {
 
         if (systemPrompt) {
           body.system = systemPrompt
+        }
+
+        // Claude 原生思考功能参数
+        if (enableThinking) {
+          body.thinking = {
+            type: 'enabled',
+            budget_tokens: CLAUDE_THINKING_BUDGET_TOKENS,
+          }
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -325,10 +334,22 @@ export const claudeProvider: ChatProvider = {
                 const parsed = JSON.parse(data)
 
                 if (parsed.type === 'content_block_delta') {
-                  const text = parsed.delta?.text || ''
-                  if (text) {
-                    totalContent += text
-                    yield { content: text, done: false }
+                  const delta = parsed.delta
+                  // 处理思考内容（Claude 原生 thinking_delta）
+                  if (delta?.type === 'thinking_delta' && delta.thinking) {
+                    yield { content: '', thinking: delta.thinking, done: false }
+                  }
+
+                  // 处理文本内容（Claude 原生 text_delta）
+                  if (delta?.type === 'text_delta' && delta.text) {
+                    totalContent += delta.text
+                    yield { content: delta.text, done: false }
+                  }
+
+                  // 兼容旧格式：直接在 delta 中的 text 字段
+                  if (!delta?.type && delta?.text) {
+                    totalContent += delta.text
+                    yield { content: delta.text, done: false }
                   }
                 } else if (parsed.type === 'message_stop') {
                   const durationMs = Date.now() - startTime

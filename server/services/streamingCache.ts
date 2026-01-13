@@ -14,6 +14,21 @@ interface StreamingSession {
   updatedAt: number
   abortController?: AbortController  // 用于中止上游请求
   streams?: Set<EventStream>  // 订阅此消息流的 SSE 连接
+  thinkingStarted?: boolean   // 是否已输出思考开标签
+  thinkingEnded?: boolean     // 是否已输出思考闭标签
+  /**
+   * 是否已完成保存（防止重复保存）
+   *
+   * 背景：流式生成的中断存在竞态条件问题
+   * - stopStreamingTask() 被调用时会触发 abort 并尝试保存内容
+   * - 流式循环检测到 abort 后也会尝试保存内容
+   * - 两者可能同时执行，导致内容被重复保存或覆盖
+   *
+   * 解决方案：通过 finalized 标志实现"先到先得"的原子操作
+   * 第一个调用 tryFinalizeSession() 的地方会成功并负责保存
+   * 后续调用者会得到 null，知道已被其他地方处理
+   */
+  finalized?: boolean
 }
 
 // 内存缓存：以消息 ID 为 key
@@ -46,6 +61,25 @@ export function updateSessionStatus(messageId: number, status: MessageStatus): v
   if (session) {
     session.status = status
     session.updatedAt = Date.now()
+  }
+}
+
+// 更新思考状态
+export function updateThinkingState(messageId: number, started: boolean, ended: boolean): void {
+  const session = streamingSessions.get(messageId)
+  if (session) {
+    session.thinkingStarted = started
+    session.thinkingEnded = ended
+    session.updatedAt = Date.now()
+  }
+}
+
+// 获取思考状态
+export function getThinkingState(messageId: number): { started: boolean; ended: boolean } {
+  const session = streamingSessions.get(messageId)
+  return {
+    started: session?.thinkingStarted ?? false,
+    ended: session?.thinkingEnded ?? false,
   }
 }
 
@@ -104,6 +138,54 @@ export function endStreamingSession(messageId: number): string {
 
   streamingSessions.delete(messageId)
   return content
+}
+
+/**
+ * 尝试完成会话并获取内容（原子操作）
+ *
+ * 【问题背景】
+ * 流式生成中断时存在竞态条件：
+ * 1. 用户调用 /api/messages/:id/stop 接口
+ * 2. stopStreamingTask() 触发 abortController.abort()
+ * 3. 此时有两个地方都会尝试保存内容：
+ *    - stopStreamingTask() 本身会尝试保存
+ *    - 流式循环 (startStreamingTask) 检测到 abort 信号后也会尝试保存
+ * 4. 如果不加控制，可能导致：
+ *    - 内容被重复保存（两次数据库写入）
+ *    - 内容被覆盖（后保存的覆盖先保存的，可能是空内容）
+ *
+ * 【解决方案】
+ * 使用 finalized 标志实现"先到先得"的原子操作：
+ * - 第一个调用此函数的地方会成功获取内容，并将 finalized 设为 true
+ * - 后续调用者会看到 finalized=true，返回 null 表示已被其他地方处理
+ * - 这样保证只有一方负责保存内容到数据库
+ *
+ * 【调用时机】
+ * - 流式循环中检测到 aborted 信号时
+ * - stopStreamingTask() 中等待 100ms 后（给流式循环优先处理的机会）
+ *
+ * @returns 会话内容信息，如果已被其他地方处理则返回 null
+ */
+export function tryFinalizeSession(messageId: number): { content: string; userId: number; conversationId: number } | null {
+  const session = streamingSessions.get(messageId)
+  if (!session) {
+    // 会话不存在，可能已被清理
+    return null
+  }
+
+  if (session.finalized) {
+    // 已被其他地方完成，不要重复处理
+    return null
+  }
+
+  // 标记为已完成
+  session.finalized = true
+
+  return {
+    content: session.content,
+    userId: session.userId,
+    conversationId: session.conversationId,
+  }
 }
 
 // 获取会话的 AbortController

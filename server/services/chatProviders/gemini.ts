@@ -13,6 +13,7 @@ import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
+import { GEMINI_THINKING_BUDGET } from '../../../app/shared/constants'
 import { getErrorMessage, isAbortError } from '../../../app/shared/types'
 
 // Gemini 消息内容类型
@@ -188,7 +189,7 @@ export const geminiProvider: ChatProvider = {
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
-        _enableThinking?: boolean
+        enableThinking?: boolean
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
         const contents = buildContents(historyMessages, userMessage, userFiles)
@@ -198,6 +199,16 @@ export const geminiProvider: ChatProvider = {
 
         if (systemPrompt) {
           body.systemInstruction = { parts: [{ text: systemPrompt }] }
+        }
+
+        // Gemini 原生思考功能参数
+        if (enableThinking) {
+          body.generationConfig = {
+            thinkingConfig: {
+              includeThoughts: true,
+              thinkingBudget: GEMINI_THINKING_BUDGET,
+            },
+          }
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -286,17 +297,24 @@ export const geminiProvider: ChatProvider = {
 
               try {
                 const parsed = JSON.parse(data) as {
-                  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+                  candidates?: Array<{
+                    content?: {
+                      parts?: Array<{ text?: string; thought?: boolean }>
+                    }
+                  }>
                 }
 
-                const text = parsed.candidates?.[0]?.content?.parts
-                  ?.filter((p): p is { text: string } => 'text' in p)
-                  .map(p => p.text)
-                  .join('') || ''
+                const parts = parsed.candidates?.[0]?.content?.parts || []
+                for (const part of parts) {
+                  if (!part.text) continue
 
-                if (text) {
-                  totalContent += text
-                  yield { content: text, done: false }
+                  // Gemini 原生思考格式：通过 thought 布尔字段判断
+                  if (part.thought) {
+                    yield { content: '', thinking: part.text, done: false }
+                  } else {
+                    totalContent += part.text
+                    yield { content: part.text, done: false }
+                  }
                 }
               } catch {
                 // 忽略解析错误
