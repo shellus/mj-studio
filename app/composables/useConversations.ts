@@ -485,11 +485,13 @@ export function useConversations() {
   // 停止流式输出
   async function stopStreaming(conversationId?: number) {
     const convId = conversationId ?? currentConversationId.value
+    // 从共享状态获取 messageId，而非闭包内的 streamingMessageId
+    const messageId = convId ? streamingStates.value[convId]?.messageId : undefined
 
-    if (streamingMessageId > 0) {
+    if (messageId && messageId > 0) {
       try {
         // 调用后端停止接口
-        await $fetch(`/api/messages/${streamingMessageId}/stop`, {
+        await $fetch(`/api/messages/${messageId}/stop`, {
           method: 'POST',
         })
       } catch (error) {
@@ -497,8 +499,8 @@ export function useConversations() {
     }
 
     // 更新消息状态为已停止
-    if (streamingMessageId !== -1) {
-      const targetMessage = messages.value.find(m => m.id === streamingMessageId)
+    if (messageId && messageId > 0) {
+      const targetMessage = messages.value.find(m => m.id === messageId)
       if (targetMessage) {
         targetMessage.status = 'stopped'
       }
