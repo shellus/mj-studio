@@ -45,6 +45,7 @@ const groupFilter = ref<string>('all')
 const showEditModal = ref(false)
 const showImportModal = ref(false)
 const editingModel = ref<AimodelInput | null>(null)
+const editingIndex = ref<number | null>(null)
 
 // 能力配置（图标 + 颜色）
 const capabilityConfig: Record<ModelCapability, { icon: string; color: string }> = {
@@ -165,28 +166,28 @@ onMounted(() => {
 
 // 打开编辑模态框（新增）
 function openAddModal() {
+  editingIndex.value = null
   editingModel.value = null
   showEditModal.value = true
 }
 
 // 打开编辑模态框（编辑）
 function openEditModal(model: AimodelInput) {
+  editingIndex.value = aimodels.value.indexOf(model)
   editingModel.value = { ...model }
   showEditModal.value = true
 }
 
 // 保存模型（新增或更新）
 function onSaveModel(model: AimodelInput) {
-  if (model.id) {
-    // 更新现有模型
-    const index = aimodels.value.findIndex(m => m.id === model.id)
-    if (index !== -1) {
-      aimodels.value[index] = model
-    }
+  if (editingIndex.value !== null && editingIndex.value >= 0) {
+    // 编辑模式：按下标更新
+    aimodels.value[editingIndex.value] = model
   } else {
-    // 新增模型
+    // 新增模式
     aimodels.value.push(model)
   }
+  editingIndex.value = null
 }
 
 // 删除模型（通过模型对象查找并删除）
@@ -201,8 +202,22 @@ function removeModel(model: AimodelInput) {
 
 // 从上游导入模型
 function onImportModels(models: AimodelInput[]) {
-  aimodels.value.push(...models)
-  toast.add({ title: `已导入 ${models.length} 个模型`, color: 'success' })
+  const existingNames = new Set(aimodels.value.map(m => m.modelName))
+  const newModels = models.filter(m => !existingNames.has(m.modelName))
+
+  if (newModels.length === 0) {
+    toast.add({ title: '所选模型已全部存在', color: 'warning' })
+    return
+  }
+
+  aimodels.value.push(...newModels)
+
+  const skipped = models.length - newModels.length
+  if (skipped > 0) {
+    toast.add({ title: `已导入 ${newModels.length} 个模型，跳过 ${skipped} 个已存在的`, color: 'success' })
+  } else {
+    toast.add({ title: `已导入 ${newModels.length} 个模型`, color: 'success' })
+  }
 }
 
 // ==================== Key 管理 ====================

@@ -135,7 +135,7 @@ export const openaiChatProvider: ChatProvider = {
               historyCount: historyMessages.length,
               historySize,
               currentSize,
-              enableThinking,
+              enableThinking: false,
               apiFormat: 'openai-chat',
             })
           }
