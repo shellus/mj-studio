@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Message } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
-import { renderMarkdown } from '~/composables/useMarkdown'
 import { useConversationSuggestions } from '~/composables/useConversationSuggestions'
 import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME } from '~/shared/constants'
 
@@ -122,10 +121,6 @@ function handleScroll() {
   isAtBottom.value = checkIfAtBottom()
 }
 
-// 渲染后的消息内容缓存
-const renderedMessages = ref<Map<number, string>>(new Map())
-const renderingIds = ref<Set<number>>(new Set())
-
 // 自动滚动到底部（仅当用户在底部时）
 function scrollToBottom() {
   if (!isAtBottom.value) return
@@ -163,66 +158,23 @@ function scrollToCompressRequest() {
 // 暴露给父组件
 defineExpose({ scrollToBottom: forceScrollToBottom, scrollToCompressRequest })
 
-// 流式渲染的内容长度记录（用于判断是否需要重新渲染，非响应式）
-const lastRenderedLength = new Map<number, number>()
+// 流式滚动定时器（仅用于滚动，不再用于渲染）
+const streamingScrollTimer = ref<ReturnType<typeof setInterval> | null>(null)
 
-// 流式渲染定时器
-const streamingRenderTimer = ref<ReturnType<typeof setInterval> | null>(null)
-
-// 渲染单条消息的 Markdown
-async function renderMessage(message: Message, force = false) {
-  // 正在渲染中的跳过（除非强制渲染）
-  if (!force && renderingIds.value.has(message.id)) return
-
-  // 检查内容长度是否变化
-  const lastLength = lastRenderedLength.get(message.id) || 0
-  const currentLength = message.content?.length || 0
-
-  // 如果内容没变化且已有缓存，跳过
-  if (!force && lastLength === currentLength && renderedMessages.value.has(message.id)) {
-    return
-  }
-
-  renderingIds.value.add(message.id)
-  try {
-    const html = await renderMarkdown(message.content)
-    renderedMessages.value.set(message.id, html)
-    lastRenderedLength.set(message.id, currentLength)
-  } finally {
-    renderingIds.value.delete(message.id)
-  }
-}
-
-// 启动流式渲染定时器
-function startStreamingRender() {
-  if (streamingRenderTimer.value) return
-
-  streamingRenderTimer.value = setInterval(() => {
-    // 找到正在流式输出的消息并渲染
-    for (const msg of props.messages) {
-      if (msg.role === 'assistant' && msg.status === 'streaming' && msg.content) {
-        renderMessage(msg)
-      }
-    }
-    // 流式输出时跟随滚动（与渲染同步，避免高频滚动抖动）
+// 启动流式滚动定时器
+function startStreamingScroll() {
+  if (streamingScrollTimer.value) return
+  streamingScrollTimer.value = setInterval(() => {
     scrollToBottom()
   }, 150)
 }
 
-// 停止流式渲染定时器
-function stopStreamingRender() {
-  if (streamingRenderTimer.value) {
-    clearInterval(streamingRenderTimer.value)
-    streamingRenderTimer.value = null
+// 停止流式滚动定时器
+function stopStreamingScroll() {
+  if (streamingScrollTimer.value) {
+    clearInterval(streamingScrollTimer.value)
+    streamingScrollTimer.value = null
   }
-}
-
-// 获取渲染后的内容
-function getRenderedContent(message: Message): string {
-  const rendered = renderedMessages.value.get(message.id)
-  if (!rendered) {
-  }
-  return rendered || message.content
 }
 
 // 检查消息是否正在生成中（显示加载动画）
@@ -313,21 +265,6 @@ onUnmounted(() => {
 })
 // ==================== 首字倒计时逻辑结束 ====================
 
-// 检查是否需要显示原始内容
-function shouldShowRaw(message: Message): boolean {
-  // 流式输出中的消息，只要有内容就尝试显示渲染结果（即使还没渲染完成）
-  // 这样可以在流式输出时也显示 Markdown
-  if (message.status === 'streaming' && message.content) {
-    return false
-  }
-  // 非流式消息，还没有渲染完成时显示原始内容
-  const hasRendered = renderedMessages.value.has(message.id)
-  if (!hasRendered) {
-    return true
-  }
-  return false
-}
-
 // 监听消息变化，自动滚动
 // 新消息添加时强制滚动到底部（让用户看到新消息）
 // 注意：只在消息数量增加时滚动，删除消息时不滚动
@@ -336,54 +273,23 @@ watch(() => props.messages.length, (newLen, oldLen) => {
     forceScrollToBottom()
   }
 })
-// 流式输出时的滚动已移至 startStreamingRender 定时器中，避免高频滚动导致抖动
 
-// 监听消息列表变化，渲染已完成的消息
-watch(
-  () => props.messages,
-  async (newMessages, oldMessages) => {
-    // 如果是切换对话（数组引用变化），清空渲染缓存
-    if (newMessages !== oldMessages) {
-      renderedMessages.value.clear()
-      lastRenderedLength.clear()
-    }
-    // 渲染所有非 streaming 状态的消息（streaming 消息由定时器处理）
-    for (const msg of props.messages) {
-      if (msg.content && msg.status !== 'streaming') {
-        await renderMessage(msg)
-      }
-    }
-  },
-  { immediate: true }
-)
-
-// 监听流式状态，控制定时渲染
+// 监听流式状态，控制滚动定时器
 watch(
   () => props.isStreaming,
-  async (streaming, prevStreaming) => {
+  (streaming) => {
     if (streaming) {
-      // 开始流式输出，启动定时渲染
-      startStreamingRender()
+      startStreamingScroll()
     } else {
-      // 流式输出结束，停止定时渲染
-      stopStreamingRender()
-
-      // 强制渲染最终内容
-      if (prevStreaming) {
-        for (const msg of props.messages) {
-          if (msg.content) {
-            await renderMessage(msg, true)
-          }
-        }
-      }
+      stopStreamingScroll()
     }
   },
   { immediate: true }
 )
 
-// 组件卸载时清理定时器
+// 组件卸载时清理滚动定时器
 onUnmounted(() => {
-  stopStreamingRender()
+  stopStreamingScroll()
 })
 
 // 复制消息内容
@@ -571,12 +477,6 @@ function saveEdit() {
     const message = props.messages.find(m => m.id === editingId.value)
     if (message) {
       message.content = editingContent.value
-      // 如果是 AI 消息，清除渲染缓存以便重新渲染
-      if (message.role === 'assistant') {
-        renderedMessages.value.delete(message.id)
-        lastRenderedLength.delete(message.id)
-        renderMessage(message, true)
-      }
     }
     emit('edit', editingId.value, editingContent.value)
     editingId.value = null
@@ -727,8 +627,7 @@ function isEditing(messageId: number): boolean {
               class="mt-2 text-(--ui-text)"
             >
               <!-- 渲染 Markdown -->
-              <ChatMarkdownContent v-if="!shouldShowRaw(message)" :html="getRenderedContent(message)" />
-              <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
+              <ChatStreamMarkdown :content="message.content" />
             </div>
           </div>
           <!-- 用户消息：Markdown 渲染 + 文件附件 -->
@@ -789,8 +688,7 @@ function isEditing(messageId: number): boolean {
             </template>
             <!-- 文本内容（显示模式）：Markdown 渲染 -->
             <template v-else-if="message.content">
-              <ChatMarkdownContent v-if="!shouldShowRaw(message)" :html="getRenderedContent(message)" />
-              <span v-else class="whitespace-pre-wrap break-words">{{ message.content }}</span>
+              <ChatStreamMarkdown :content="message.content" />
             </template>
           </div>
           <!-- 错误消息 -->
@@ -833,21 +731,11 @@ function isEditing(messageId: number): boolean {
                 <span v-else-if="isOvertime" class="ml-1 text-xs text-(--ui-text-muted) tabular-nums">+{{ overtimeDisplay }}s</span>
               </div>
             </template>
-            <!-- 有渲染内容时显示 Markdown -->
-            <template v-else-if="!shouldShowRaw(message)">
-              <ChatMarkdownContent :html="getRenderedContent(message)" />
-              <!-- 流式输出时在末尾显示光标 -->
-              <span
-                v-if="isMessageStreaming(message)"
-                class="inline-block w-2 h-4 bg-current animate-pulse align-middle"
-              />
-            </template>
-            <!-- 还没有渲染内容时显示原始文本 -->
-            <template v-else>
-              <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
-              <span
-                v-if="isMessageStreaming(message)"
-                class="inline-block w-2 h-4 bg-current animate-pulse ml-0.5"
+            <!-- 有内容时使用 StreamMarkdown 渲染 -->
+            <template v-else-if="message.content">
+              <ChatStreamMarkdown
+                :content="message.content"
+                :is-streaming="isMessageStreaming(message)"
               />
             </template>
             <!-- 被中断的标记 -->
