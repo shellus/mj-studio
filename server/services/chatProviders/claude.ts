@@ -151,6 +151,7 @@ export const claudeProvider: ChatProvider = {
               historyCount: historyMessages.length,
               historySize,
               currentSize,
+              apiFormat: 'claude',
             })
           }
         }
@@ -264,6 +265,8 @@ export const claudeProvider: ChatProvider = {
               historyCount: historyMessages.length,
               historySize,
               currentSize,
+              enableThinking,
+              apiFormat: 'claude',
             })
           }
         }

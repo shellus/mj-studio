@@ -125,7 +125,7 @@ export const geminiProvider: ChatProvider = {
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
           } else {
-            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize })
+            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, apiFormat: 'gemini' })
           }
         }
 
@@ -229,7 +229,7 @@ export const geminiProvider: ChatProvider = {
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
           } else {
-            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize })
+            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, enableThinking, apiFormat: 'gemini' })
           }
         }
 
