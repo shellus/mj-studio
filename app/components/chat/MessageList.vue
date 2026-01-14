@@ -4,6 +4,8 @@ import type { MessageFile } from '~/shared/types'
 import { useConversationSuggestions } from '~/composables/useConversationSuggestions'
 import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME } from '~/shared/constants'
 
+const { isMessageStreaming: checkMessageStreaming } = useConversations()
+
 const props = defineProps<{
   messages: Message[]
   isStreaming: boolean
@@ -762,7 +764,7 @@ function isEditing(messageId: number): boolean {
           <!-- 操作按钮 -->
           <!-- 编辑按钮 -->
           <button
-            v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
             class="p-1 hover:bg-(--ui-bg-elevated) rounded"
             title="编辑"
             @click="startEdit(message)"
@@ -771,7 +773,7 @@ function isEditing(messageId: number): boolean {
           </button>
           <!-- 重放按钮 -->
           <button
-            v-if="!isStreaming"
+            v-if="!checkMessageStreaming(message.id)"
             class="p-1 hover:bg-(--ui-bg-elevated) rounded"
             :title="message.role === 'user' ? '重新发送' : '重新生成'"
             @click="emit('replay', message)"
@@ -780,7 +782,7 @@ function isEditing(messageId: number): boolean {
           </button>
           <!-- 删除按钮 -->
           <button
-            v-if="!isStreaming"
+            v-if="!checkMessageStreaming(message.id)"
             class="p-1 hover:bg-(--ui-bg-elevated) rounded"
             title="删除"
             @click="handleDelete(message.id)"
@@ -789,7 +791,7 @@ function isEditing(messageId: number): boolean {
           </button>
           <!-- 更多操作下拉菜单 -->
           <UDropdownMenu
-            v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
             :items="getMessageMenuItems(message)"
             @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
           >

@@ -86,6 +86,13 @@ export function useConversations() {
     return streamingStates.value[currentConversationId.value]?.isStreaming ?? false
   })
 
+  // 判断某条消息是否正在流式输出
+  function isMessageStreaming(messageId: number): boolean {
+    return Object.values(streamingStates.value).some(
+      state => state.isStreaming && state.messageId === messageId
+    )
+  }
+
   // 新对话的输入状态（conversationId 为 null 时使用）
   const newConversationInputState = ref<ConversationInputState>({ content: '', uploadingFiles: [], showCompressHint: false })
 
@@ -594,6 +601,7 @@ export function useConversations() {
     currentConversationId,
     currentConversation,
     isStreaming,
+    isMessageStreaming,
     loadConversations,
     selectConversation,
     createConversation,
