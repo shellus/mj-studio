@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { content, role } = body
+  const { content, role, modelDisplayName, mark } = body
 
   if (!content?.trim()) {
     throw createError({ statusCode: 400, message: '消息内容不能为空' })
@@ -42,6 +42,8 @@ export default defineEventHandler(async (event) => {
     conversationId,
     role,
     content: content.trim(),
+    modelDisplayName: modelDisplayName || undefined,
+    mark: mark || undefined,
   })
 
   return message

@@ -60,9 +60,9 @@ async function handleAvatarUpload(e: Event) {
   const file = target.files?.[0]
   if (!file) return
 
-  // 限制大小 2MB
-  if (file.size > 2 * 1024 * 1024) {
-    toast.add({ title: '图片大小不能超过 2MB', color: 'error' })
+  // 限制大小 500KB
+  if (file.size > 500 * 1024) {
+    toast.add({ title: '图片大小不能超过 500KB', color: 'error' })
     return
   }
 
@@ -269,7 +269,7 @@ async function deleteAccount() {
               </div>
               <div class="text-sm text-(--ui-text-muted)">
                 <p>点击上传头像</p>
-                <p class="text-xs">支持 JPG、PNG，最大 2MB</p>
+                <p class="text-xs">支持 JPG、PNG，最大 500KB</p>
               </div>
             </div>
           </UFormField>

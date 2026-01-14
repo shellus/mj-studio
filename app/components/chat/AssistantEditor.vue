@@ -69,9 +69,9 @@ async function handleAvatarUpload(e: Event) {
   const file = target.files?.[0]
   if (!file) return
 
-  // 限制大小 2MB
-  if (file.size > 2 * 1024 * 1024) {
-    useToast().add({ title: '图片大小不能超过 2MB', color: 'error' })
+  // 限制大小 500KB
+  if (file.size > 500 * 1024) {
+    useToast().add({ title: '图片大小不能超过 500KB', color: 'error' })
     return
   }
 
