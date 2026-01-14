@@ -14,7 +14,6 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Content-Type', 'text/event-stream')
   setHeader(event, 'Cache-Control', 'no-cache')
   setHeader(event, 'Connection', 'keep-alive')
-  setHeader(event, 'X-Accel-Buffering', 'no') // 禁用 Nginx 缓冲
 
   // 注册订阅
   addUserSubscriber(user.id, event)

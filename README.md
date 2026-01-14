@@ -118,42 +118,6 @@ pnpm install && pnpm dev
 
 访问 http://localhost:3000 ，注册账户后在「设置」页面添加 API 配置即可开始使用。
 
-### Nginx 反向代理
-
-如果使用 Nginx 反向代理，需要为 SSE（流式输出）添加特殊配置，否则对话消息会延迟或无法实时显示：
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    # ... SSL 配置 ...
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # 全局事件 SSE（关键配置）
-    location = /api/events {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Connection '';
-        proxy_buffering off;        # 禁用缓冲，实时推送
-        proxy_cache off;            # 禁用缓存
-        proxy_read_timeout 86400s;  # 长连接超时
-    }
-}
-```
-
-> **重要**：`proxy_buffering off` 是 SSE 正常工作的关键，Nginx 默认会缓冲响应，导致流式消息无法实时到达客户端。
-
 ## 核心概念
 
 ### 上游（Upstream）
