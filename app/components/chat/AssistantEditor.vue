@@ -13,6 +13,7 @@ const emit = defineEmits<{
   'update:open': [value: boolean]
   save: [data: Partial<Assistant>]
   delete: [id: number]
+  duplicate: [id: number]
 }>()
 
 // 删除确认弹窗状态
@@ -115,6 +116,13 @@ function handleDeleteConfirm() {
     deleteConfirmOpen.value = false
   }
 }
+
+// 复制助手
+function handleDuplicate() {
+  if (props.assistant) {
+    emit('duplicate', props.assistant.id)
+  }
+}
 </script>
 
 <template>
@@ -126,7 +134,7 @@ function handleDeleteConfirm() {
   >
     <template #body>
       <UForm :state="formData" :validate="validate" class="space-y-5" @submit="onSubmit">
-        <!-- 头像 + 名称 + 简介 同一行 -->
+        <!-- 头像 + 名称 + 模型 + 思考模式 同一区域 -->
         <div class="flex gap-4">
           <!-- 头像（圆形样式） -->
           <div class="relative w-30 h-30 shrink-0 rounded-full overflow-hidden group">
@@ -159,25 +167,27 @@ function handleDeleteConfirm() {
             </button>
           </div>
 
-          <!-- 名称 + 模型配置 -->
-          <div class="flex-1 space-y-3">
+          <!-- 名称 + 模型配置 + 思考模式（两列布局） -->
+          <div class="flex-1 grid grid-cols-2 gap-x-4 gap-y-2 content-start">
             <UFormField label="助手名称" name="name" required>
               <UInput
                 v-model="formData.name"
                 placeholder="如：代码助手"
-                class="w-56"
-              />
-            </UFormField>
-            <UFormField label="模型配置" name="modelConfig">
-              <ModelSelector
-                :upstreams="upstreams"
-                category="chat"
-                v-model:aimodel-id="formData.aimodelId"
               />
             </UFormField>
             <UFormField label="思考模式" name="enableThinking">
-              <USwitch v-model="formData.enableThinking" />
-              <span class="ml-2 text-sm text-(--ui-text-muted)">启用后 AI 会先进行深度思考再回答</span>
+              <div class="flex items-center h-9">
+                <USwitch v-model="formData.enableThinking" />
+                <span class="ml-2 text-sm text-(--ui-text-muted)">深度思考</span>
+              </div>
+            </UFormField>
+            <UFormField label="模型配置" name="modelConfig" class="col-span-2">
+              <ModelSelector
+                :upstreams="upstreams"
+                category="chat"
+                list-layout
+                v-model:aimodel-id="formData.aimodelId"
+              />
             </UFormField>
           </div>
         </div>
@@ -204,8 +214,8 @@ function handleDeleteConfirm() {
 
         <!-- 底部按钮 -->
         <div class="flex justify-between pt-2">
-          <!-- 左侧：删除按钮（仅编辑模式且非默认助手时显示） -->
-          <div>
+          <!-- 左侧：删除和复制按钮（仅编辑模式显示） -->
+          <div class="flex gap-2">
             <UButton
               v-if="assistant && !assistant.isDefault"
               color="error"
@@ -214,6 +224,14 @@ function handleDeleteConfirm() {
               @click="deleteConfirmOpen = true"
             >
               删除助手
+            </UButton>
+            <UButton
+              v-if="assistant"
+              variant="ghost"
+              type="button"
+              @click="handleDuplicate"
+            >
+              复制助手
             </UButton>
           </div>
           <!-- 右侧：取消和保存 -->

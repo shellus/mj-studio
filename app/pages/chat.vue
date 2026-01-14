@@ -20,6 +20,7 @@ const {
   currentAssistantId,
   currentAssistant,
   getDefaultAssistant,
+  loadAssistants,
   selectAssistant,
   createAssistant,
   updateAssistant,
@@ -141,14 +142,20 @@ watch(currentAssistantId, async (id, oldId) => {
   // 助手实际变化时才加载
   if (id && id !== oldId) {
     await loadConversations(id)
+    // 自动选择最新的对话（如果有）
+    const latestConversation = conversations.value[0]
+    if (latestConversation) {
+      await selectConversation(latestConversation.id)
+      updateUrlParams(id, latestConversation.id)
+    }
   }
 })
 
 // 选择助手
 async function handleSelectAssistant(id: number) {
   selectAssistant(id)
-  updateUrlParams(id, null)
   showLeftDrawer.value = false
+  // URL 更新由 watch 中处理
 }
 
 // 打开创建助手弹窗
@@ -202,6 +209,26 @@ async function handleDeleteAssistant(id: number) {
     }
   } catch (error: any) {
     toast.add({ title: error.message || '删除失败', color: 'error' })
+  }
+}
+
+// 复制助手
+async function handleDuplicateAssistant(id: number) {
+  try {
+    const result = await $fetch<{
+      success: boolean
+      assistant: { id: number; name: string }
+    }>(`/api/assistants/${id}/duplicate`, {
+      method: 'POST',
+    })
+    showAssistantEditor.value = false
+    // 刷新助手列表并选中新助手
+    await loadAssistants()
+    await selectAssistant(result.assistant.id)
+    updateUrlParams(result.assistant.id, null)
+    toast.add({ title: '助手已复制', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '复制助手失败', color: 'error' })
   }
 }
 
@@ -276,6 +303,24 @@ async function handleShare(id: number) {
     window.open(shareUrl, '_blank')
   } catch (error: any) {
     toast.add({ title: error.message || '生成分享链接失败', color: 'error' })
+  }
+}
+
+// 复制对话
+async function handleDuplicateConversation(id: number) {
+  try {
+    const result = await $fetch<{
+      success: boolean
+      conversation: { id: number; title: string }
+    }>(`/api/conversations/${id}/duplicate`, {
+      method: 'POST',
+    })
+    // 跳转到新对话
+    await selectConversation(result.conversation.id)
+    updateUrlParams(currentAssistantId.value, result.conversation.id)
+    toast.add({ title: '对话已复制', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: error.message || '复制对话失败', color: 'error' })
   }
 }
 
@@ -549,6 +594,7 @@ onUnmounted(() => {
           @rename="handleRenameConversation"
           @generate-title="handleGenerateTitle"
           @share="handleShare"
+          @duplicate="handleDuplicateConversation"
         />
       </div>
     </div>
@@ -586,6 +632,7 @@ onUnmounted(() => {
             @rename="handleRenameConversation"
             @generate-title="handleGenerateTitle"
             @share="handleShare"
+            @duplicate="handleDuplicateConversation"
           />
         </div>
       </template>
@@ -598,6 +645,7 @@ onUnmounted(() => {
       :upstreams="upstreams"
       @save="handleSaveAssistant"
       @delete="handleDeleteAssistant"
+      @duplicate="handleDuplicateAssistant"
     />
   </div>
 </template>

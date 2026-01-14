@@ -13,6 +13,7 @@ const emit = defineEmits<{
   rename: [id: number, title: string]
   generateTitle: [id: number]
   share: [id: number]
+  duplicate: [id: number]
 }>()
 
 // 删除确认
@@ -157,6 +158,7 @@ function handleKeydown(e: KeyboardEvent) {
               [
                 { label: 'AI 智能重命名', icon: 'i-heroicons-sparkles', onSelect: () => emit('generateTitle', conv.id) },
                 { label: '重命名', icon: 'i-heroicons-pencil', onSelect: () => startEdit(conv) },
+                { label: '复制', icon: 'i-heroicons-document-duplicate', onSelect: () => emit('duplicate', conv.id) },
                 { label: '分享', icon: 'i-heroicons-share', onSelect: () => emit('share', conv.id) },
               ],
               [
