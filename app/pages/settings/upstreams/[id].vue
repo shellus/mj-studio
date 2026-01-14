@@ -343,7 +343,10 @@ async function confirmDelete() {
             />
           </UFormField>
 
-          <UFormField label="API地址" name="baseUrl" required hint="无需添加 /v1 后缀，MJ 绘图使用 /mj，视频接口使用 /v1/video 等路径">
+          <UFormField label="API地址" name="baseUrl" required>
+            <template #hint>
+              <span>无需添加 /v1 后缀，<a href="/docs/features/上游和模型配置#api-paths" target="_blank" class="text-(--ui-primary) hover:underline">查看各模型的完整请求路径</a></span>
+            </template>
             <UInput
               v-model="form.baseUrl"
               type="url"
