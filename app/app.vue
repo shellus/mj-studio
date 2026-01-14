@@ -7,10 +7,16 @@ useHead({
     { name: 'description', content: config.public.siteSlogan },
   ],
 })
+
+const toaster = {
+  position: 'top-right' as const,
+  duration: 1500,
+  swipeDirection: 'right' as const,
+}
 </script>
 
 <template>
-  <UApp>
+  <UApp :toaster="toaster">
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
