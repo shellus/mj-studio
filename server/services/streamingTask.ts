@@ -25,6 +25,7 @@ import type { ChatMessageDone } from './globalEvents'
 import type { MessageMark, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
 import { getErrorMessage } from '../../app/shared/types'
+import { MESSAGE_MARK } from '../../app/shared/constants'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
@@ -99,12 +100,12 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     if (isCompressRequest) {
       // 压缩请求：发送待压缩的消息（从上次压缩点到压缩请求之前）
-      const compressRequestIndex = result.messages.findIndex(m => m.mark === 'compress-request')
+      const compressRequestIndex = result.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
       if (compressRequestIndex > 0) {
         let startIndex = 0
         for (let i = compressRequestIndex - 1; i >= 0; i--) {
           const msg = result.messages[i]
-          if (msg && msg.mark === 'compress-response') {
+          if (msg && msg.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
             startIndex = i
             break
           }
@@ -116,14 +117,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       // 排除 compress-request 消息和当前的 AI 消息（status 为非 completed 的）
       for (let i = result.messages.length - 1; i >= 0; i--) {
         const msg = result.messages[i]
-        if (msg && msg.mark === 'compress-response') {
+        if (msg && msg.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
           historyMessages = result.messages.slice(i)
           break
         }
       }
       // 排除：compress-request 消息、当前 AI 消息、当前用户消息（会通过 userContent 单独传递）
       historyMessages = historyMessages.filter(m =>
-        m.mark !== 'compress-request'
+        m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
         && m.id !== messageId  // 排除当前 AI 消息
         && m.id !== userMessageId  // 排除当前用户消息（用 ID 精确匹配）
       )

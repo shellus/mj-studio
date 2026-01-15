@@ -4,6 +4,7 @@ import { useUserSettingsService } from '../../../services/userSettings'
 import {
   USER_SETTING_KEYS,
   DEFAULT_COMPRESS_PROMPT,
+  MESSAGE_MARK,
 } from '../../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
   const { messages } = result
 
   // 过滤掉压缩请求消息，只保留有效消息
-  const validMessages = messages.filter(m => m.mark !== 'compress-request')
+  const validMessages = messages.filter(m => m.mark !== MESSAGE_MARK.COMPRESS_REQUEST)
 
   if (validMessages.length < compressKeepCount + 2) {
     throw createError({ statusCode: 400, message: '对话消息太少，无需压缩' })
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
   let lastCompressIndex = -1
   for (let i = validMessages.length - 1; i >= 0; i--) {
     const msg = validMessages[i]
-    if (msg && msg.mark === 'compress-response') {
+    if (msg && msg.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
       lastCompressIndex = i
       break
     }
@@ -94,7 +95,7 @@ export default defineEventHandler(async (event) => {
     conversationId,
     role: 'user',
     content: finalPrompt,
-    mark: 'compress-request',
+    mark: MESSAGE_MARK.COMPRESS_REQUEST,
     sortId: compressRequestSortId,
   })
 

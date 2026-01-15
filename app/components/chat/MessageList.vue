@@ -2,7 +2,7 @@
 import type { Message } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
 import { useConversationSuggestions } from '~/composables/useConversationSuggestions'
-import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME } from '~/shared/constants'
+import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME, MESSAGE_MARK } from '~/shared/constants'
 
 const { isMessageStreaming: checkMessageStreaming } = useConversations()
 
@@ -156,7 +156,7 @@ function forceScrollToBottom() {
 
 // 滚动到压缩请求位置
 function scrollToCompressRequest() {
-  const compressRequestIndex = props.messages.findIndex(m => m.mark === 'compress-request')
+  const compressRequestIndex = props.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
   if (compressRequestIndex < 0 || !messagesContainer.value) return
 
   // 找到对应的 DOM 元素并滚动
@@ -342,8 +342,8 @@ function toggleCompressResponse(id: number) {
 
 function isCompressResponseExpanded(message: Message) {
   // 流式输出中的压缩响应始终展开
-  if (props.isStreaming && message.mark === 'compress-response') {
-    const compressResponseIndex = props.messages.findIndex(m => m.mark === 'compress-response')
+  if (props.isStreaming && message.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
+    const compressResponseIndex = props.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_RESPONSE)
     const compressResponse = props.messages[compressResponseIndex]
     if (compressResponseIndex >= 0 && compressResponse?.id === message.id) {
       return true
@@ -568,7 +568,7 @@ function isEditing(messageId: number): boolean {
 
       <!-- 压缩请求前的分界线 -->
       <div
-        v-if="message.mark === 'compress-request'"
+        v-if="message.mark === MESSAGE_MARK.COMPRESS_REQUEST"
         class="flex items-center gap-4 py-4"
       >
         <div class="flex-1 h-px bg-(--ui-border)" />
@@ -583,21 +583,25 @@ function isEditing(messageId: number): boolean {
         class="flex gap-3"
         :class="message.role === 'user' ? 'flex-row-reverse' : ''"
         :data-message-id="message.id"
+        style="position: relative;"
       >
       <!-- 头像（移动端隐藏） -->
+      <!-- 角色标签（用于复制和辅助功能） -->
+      <span v-if="message.mark === null" class="sr-only">[{{ message.role === 'user' ? '用户' : '助手' }} {{ formatDateTime(message.createdAt) }}]
+</span>
       <div
         class="hidden md:flex w-8 h-8 rounded-full items-center justify-center flex-shrink-0"
         :class="[
-          message.mark === 'compress-request' ? 'bg-blue-500' :
+          message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'bg-blue-500' :
           message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'
         ]"
       >
         <UIcon
-          :name="message.mark === 'compress-request' ? 'i-heroicons-archive-box-arrow-down' :
+          :name="message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'i-heroicons-archive-box-arrow-down' :
                  message.role === 'user' ? 'i-heroicons-user' : 'i-heroicons-sparkles'"
           class="w-4 h-4"
           :class="[
-            message.mark === 'compress-request' ? 'text-white' :
+            message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'text-white' :
             message.role === 'user' ? 'text-white' : 'text-(--ui-primary)'
           ]"
         />
@@ -615,30 +619,28 @@ function isEditing(messageId: number): boolean {
           :class="[
             'px-4 py-2 rounded-2xl max-w-full overflow-hidden cursor-pointer md:cursor-auto',
             isEditing(message.id) ? 'block' : 'inline-block',
-            message.role === 'user' && message.mark !== 'compress-request'
+            message.role === 'user' && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
-              : message.mark === 'error'
+              : message.mark === MESSAGE_MARK.ERROR
                 ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
-                : message.mark === 'compress-request'
+                : message.mark === MESSAGE_MARK.COMPRESS_REQUEST
                   ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
-                  : message.mark === 'compress-response'
+                  : message.mark === MESSAGE_MARK.COMPRESS_RESPONSE
                     ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
                     : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
           @click="toggleMessageActions(message.id)"
         >
-          <!-- 角色标签（用于复制和辅助功能） -->
-          <span class="sr-only">[{{ message.role === 'user' ? '用户' : '助手' }} {{ formatDateTime(message.createdAt) }}]</span>
 
           <!-- 压缩请求消息 -->
-          <div v-if="message.mark === 'compress-request'" class="text-sm">
+          <div v-if="message.mark === MESSAGE_MARK.COMPRESS_REQUEST" class="text-sm">
             <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400">
               <UIcon name="i-heroicons-archive-box-arrow-down" class="w-4 h-4" />
               <span class="font-medium">压缩请求</span>
             </div>
           </div>
           <!-- 压缩响应消息（可折叠） -->
-          <div v-else-if="message.mark === 'compress-response'" class="text-sm">
+          <div v-else-if="message.mark === MESSAGE_MARK.COMPRESS_RESPONSE" class="text-sm">
             <button
               class="flex items-center gap-2 text-amber-600 dark:text-amber-400 hover:opacity-80 transition-opacity w-full"
               @click="toggleCompressResponse(message.id)"
@@ -721,7 +723,7 @@ function isEditing(messageId: number): boolean {
             </template>
           </div>
           <!-- 错误消息 -->
-          <div v-else-if="message.mark === 'error'" class="text-sm flex items-start gap-2">
+          <div v-else-if="message.mark === MESSAGE_MARK.ERROR" class="text-sm flex items-start gap-2">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
           </div>
@@ -791,7 +793,7 @@ function isEditing(messageId: number): boolean {
           <!-- 操作按钮 -->
           <!-- 编辑按钮 -->
           <button
-            v-if="!checkMessageStreaming(message.id) && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST && message.mark !== MESSAGE_MARK.COMPRESS_RESPONSE"
             class="p-1 hover:bg-(--ui-bg-elevated) rounded"
             title="编辑"
             @click="startEdit(message)"
@@ -818,7 +820,7 @@ function isEditing(messageId: number): boolean {
           </button>
           <!-- 更多操作下拉菜单 -->
           <UDropdownMenu
-            v-if="!checkMessageStreaming(message.id) && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST && message.mark !== MESSAGE_MARK.COMPRESS_RESPONSE"
             :items="getMessageMenuItems(message)"
             @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
           >

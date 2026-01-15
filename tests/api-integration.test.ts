@@ -13,6 +13,9 @@
  *    - TEST_EPHONE_BASE_URL
  *    - TEST_EPHONE_API_KEY_DEFAULT
  *    - TEST_EPHONE_BALANCE_KEY
+ *    - TEST_CHAT_MODEL_NAME (可选，默认: claude-sonnet-4-20250514)
+ *    - TEST_IMAGE_MODEL_NAME_GEMINI (可选，默认: gemini-2.5-flash-image)
+ *    - TEST_IMAGE_MODEL_NAME_DALLE (可选，默认: dall-e-3)
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
@@ -23,6 +26,9 @@ const TEST_CONFIG = {
   baseUrl: process.env.TEST_EPHONE_BASE_URL || '',
   apiKey: process.env.TEST_EPHONE_API_KEY_DEFAULT || '',
   balanceKey: process.env.TEST_EPHONE_BALANCE_KEY || '',
+  chatModelName: process.env.TEST_CHAT_MODEL_NAME || 'claude-sonnet-4-20250514',
+  imageModelNameGemini: process.env.TEST_IMAGE_MODEL_NAME_GEMINI || 'gemini-2.5-flash-image',
+  imageModelNameDalle: process.env.TEST_IMAGE_MODEL_NAME_DALLE || 'dall-e-3',
 }
 
 // 存储 JWT token（认证使用 Bearer token 而非 Cookie）
@@ -273,8 +279,8 @@ describe('上游配置管理', () => {
             category: 'chat',
             modelType: 'claude',
             apiFormat: 'openai-chat',
-            modelName: 'claude-3-7-sonnet-20250219',
-            name: 'Claude 3.7 Sonnet',
+            modelName: TEST_CONFIG.chatModelName,
+            name: 'Claude Sonnet 4',
             estimatedTime: 3,
             keyName: 'default',
           },
@@ -283,7 +289,7 @@ describe('上游配置管理', () => {
             category: 'image',
             modelType: 'gemini',
             apiFormat: 'openai-chat',
-            modelName: 'gemini-2.5-flash-image',
+            modelName: TEST_CONFIG.imageModelNameGemini,
             name: 'Gemini 2.5 Flash Image',
             estimatedTime: 30,
             keyName: 'default',
@@ -293,7 +299,7 @@ describe('上游配置管理', () => {
             category: 'image',
             modelType: 'dalle',
             apiFormat: 'dalle',
-            modelName: 'dall-e-3',
+            modelName: TEST_CONFIG.imageModelNameDalle,
             name: 'DALL-E 3',
             estimatedTime: 20,
             keyName: 'default',

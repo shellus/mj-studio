@@ -5,7 +5,7 @@
  * 修改常量时需同步检查所有使用位置。
  */
 
-import type { ModelType, ImageModelType, ChatModelType, VideoModelType, ApiFormat, ModelCategory } from './types'
+import type { ModelType, ImageModelType, ChatModelType, VideoModelType, ApiFormat, ModelCategory, MessageMark } from './types'
 
 // ==================== 模型类型列表 ====================
 
@@ -813,4 +813,30 @@ export const USER_SETTING_DEFAULTS: Record<UserSettingKey, UserSettingValue> = {
   [USER_SETTING_KEYS.DRAWING_WORKBENCH_AIMODEL_ID]: 0,
   // 视频设置默认值
   [USER_SETTING_KEYS.VIDEO_WORKBENCH_AIMODEL_ID]: 0,
+}
+
+// ==================== 消息标记常量 ====================
+
+/**
+ * 消息标记常量
+ * - 使用场景：标识消息的特殊状态
+ *   - NORMAL: 普通消息（无特殊标记）
+ *   - ERROR: 错误消息
+ *   - COMPRESS_REQUEST: 压缩请求消息
+ *   - COMPRESS_RESPONSE: 压缩响应消息
+ */
+export const MESSAGE_MARK = {
+  NORMAL: null,
+  ERROR: 'error',
+  COMPRESS_REQUEST: 'compress-request',
+  COMPRESS_RESPONSE: 'compress-response',
+} as const
+
+/**
+ * 消息标记的中文显示名称
+ */
+export const MESSAGE_MARK_LABELS: Record<MessageMark, string> = {
+  'error': '错误',
+  'compress-request': '压缩请求',
+  'compress-response': '压缩响应',
 }

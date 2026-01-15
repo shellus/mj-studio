@@ -1,6 +1,7 @@
 // 全局事件订阅插件
 // 登录后自动建立 SSE 连接，并注册所有事件处理器
 
+import { MESSAGE_MARK } from '~/shared/constants'
 import type {
   ChatAssistantUpdated,
   ChatMessageCreated,
@@ -125,7 +126,7 @@ export default defineNuxtPlugin(() => {
       targetMessage.status = status
       if (error) {
         targetMessage.content = error
-        targetMessage.mark = 'error'
+        targetMessage.mark = MESSAGE_MARK.ERROR
       }
     }
 

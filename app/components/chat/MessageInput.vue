@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MESSAGE_MARK } from '~/shared/constants'
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { Message, UploadingFile } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
@@ -225,7 +226,7 @@ const conversationStats = computed(() => {
   let startIndex = 0
   for (let i = props.messages.length - 1; i >= 0; i--) {
     const msg = props.messages[i]
-    if (msg?.mark === 'compress-response') {
+    if (msg?.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
       startIndex = i
       break
     }
@@ -234,7 +235,7 @@ const conversationStats = computed(() => {
   // 从 compress-response 开始，排除 compress-request
   const relevantMessages = props.messages
     .slice(startIndex)
-    .filter(msg => msg.mark !== 'compress-request')
+    .filter(msg => msg.mark !== MESSAGE_MARK.COMPRESS_REQUEST)
 
   let fileCount = 0
   const messagesSize = relevantMessages.reduce((sum, msg) => {

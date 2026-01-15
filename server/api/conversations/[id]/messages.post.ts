@@ -5,6 +5,7 @@ import { useAssistantService } from '../../../services/assistant'
 import { useAimodelService } from '../../../services/aimodel'
 import { startStreamingTask } from '../../../services/streamingTask'
 import type { MessageMark, MessageFile } from '../../../database/schema'
+import { MESSAGE_MARK } from '../../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -73,7 +74,7 @@ export default defineEventHandler(async (event) => {
 
   if (isCompressRequest) {
     // 找到压缩请求消息，获取其 sortId
-    const compressRequestMsg = result.messages.find(m => m.mark === 'compress-request' && m.content === content.trim())
+    const compressRequestMsg = result.messages.find(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST && m.content === content.trim())
     if (compressRequestMsg) {
       responseSortId = (compressRequestMsg.sortId || compressRequestMsg.id) + 1
       responseMark = 'compress-response'
