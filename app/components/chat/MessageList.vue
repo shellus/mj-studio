@@ -6,10 +6,21 @@ import { DEFAULT_CHAT_FALLBACK_ESTIMATED_TIME } from '~/shared/constants'
 
 const { isMessageStreaming: checkMessageStreaming } = useConversations()
 
+// 格式化时间为友好格式
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${month}月${day}日 ${hours}:${minutes}`
+}
+
 const props = defineProps<{
   messages: Message[]
   isStreaming: boolean
   assistantId?: number | null
+  conversationId?: number | null
   estimatedTime?: number | null  // 预计首字时长（秒）
 }>()
 
@@ -542,6 +553,19 @@ function isEditing(messageId: number): boolean {
 
     <!-- 消息列表 -->
     <template v-for="(message, index) in messages" :key="message.id">
+      <!-- 对话已开始分界线（第一条消息前显示） -->
+      <div
+        v-if="props.conversationId && index === 0"
+        class="flex items-center gap-4 py-4"
+      >
+        <div class="flex-1 h-px bg-(--ui-border)" />
+        <span class="text-xs text-(--ui-text-muted) flex items-center gap-1">
+          <UIcon name="i-heroicons-chat-bubble-left-right" class="w-3 h-3" />
+          对话已开始
+        </span>
+        <div class="flex-1 h-px bg-(--ui-border)" />
+      </div>
+
       <!-- 压缩请求前的分界线 -->
       <div
         v-if="message.mark === 'compress-request'"
@@ -603,6 +627,10 @@ function isEditing(messageId: number): boolean {
           ]"
           @click="toggleMessageActions(message.id)"
         >
+          <!-- 角色标签（用于复制和辅助功能） -->
+          <span class="sr-only">[{{ message.role === 'user' ? '用户' : '助手' }} {{ formatDateTime(message.createdAt) }}]
+</span>
+
           <!-- 压缩请求消息 -->
           <div v-if="message.mark === 'compress-request'" class="text-sm">
             <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400">
@@ -755,7 +783,7 @@ function isEditing(messageId: number): boolean {
         <div
           v-if="!isMessageStreaming(message) && !isMessageLoading(message)"
           :class="[
-            'mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2 transition-opacity',
+            'mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2 transition-opacity select-none',
             isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
           ]"
         >

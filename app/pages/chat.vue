@@ -539,6 +539,7 @@ onUnmounted(() => {
           :messages="messages"
           :is-streaming="isStreaming"
           :assistant-id="currentAssistantId"
+          :conversation-id="currentConversationId"
           :estimated-time="currentEstimatedTime"
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
