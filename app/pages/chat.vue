@@ -13,6 +13,58 @@ const route = useRoute()
 const showLeftDrawer = ref(false)
 const showRightDrawer = ref(false)
 
+// 侧边栏状态（桌面端）
+const {
+  leftCollapsed,
+  rightCollapsed,
+  leftWidth,
+  rightWidth,
+  toggleLeft,
+  toggleRight,
+  setLeftWidth,
+  setRightWidth
+} = useSidebarState()
+
+// 拖拽状态
+const isDraggingLeft = ref(false)
+const isDraggingRight = ref(false)
+
+function startDragLeft(e: MouseEvent) {
+  isDraggingLeft.value = true
+  document.addEventListener('mousemove', onDragLeft)
+  document.addEventListener('mouseup', stopDragLeft)
+  e.preventDefault()
+}
+
+function onDragLeft(e: MouseEvent) {
+  if (!isDraggingLeft.value) return
+  setLeftWidth(e.clientX)
+}
+
+function stopDragLeft() {
+  isDraggingLeft.value = false
+  document.removeEventListener('mousemove', onDragLeft)
+  document.removeEventListener('mouseup', stopDragLeft)
+}
+
+function startDragRight(e: MouseEvent) {
+  isDraggingRight.value = true
+  document.addEventListener('mousemove', onDragRight)
+  document.addEventListener('mouseup', stopDragRight)
+  e.preventDefault()
+}
+
+function onDragRight(e: MouseEvent) {
+  if (!isDraggingRight.value) return
+  setRightWidth(window.innerWidth - e.clientX)
+}
+
+function stopDragRight() {
+  isDraggingRight.value = false
+  document.removeEventListener('mousemove', onDragRight)
+  document.removeEventListener('mouseup', stopDragRight)
+}
+
 // 助手状态
 const {
   assistants,
@@ -516,14 +568,38 @@ onUnmounted(() => {
     <!-- 主体内容 -->
     <div class="flex-1 flex overflow-hidden min-h-0">
       <!-- 左侧：助手列表（桌面端显示） -->
-      <div class="w-[300px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden lg:block">
-        <ChatAssistantList
-          :assistants="assistants"
-          :current-assistant-id="currentAssistantId"
-          @select="handleSelectAssistant"
-          @create="handleCreateAssistant"
-          @pin="handlePinAssistant"
+      <div
+        class="flex-shrink-0 overflow-hidden hidden lg:block"
+        :class="isDraggingLeft ? '' : 'transition-[width] duration-200'"
+        :style="{ width: leftCollapsed ? '0px' : `${leftWidth}px` }"
+      >
+        <div class="h-full overflow-y-auto border-r border-(--ui-border)" :style="{ width: `${leftWidth}px` }">
+          <ChatAssistantList
+            :assistants="assistants"
+            :current-assistant-id="currentAssistantId"
+            @select="handleSelectAssistant"
+            @create="handleCreateAssistant"
+            @pin="handlePinAssistant"
+          />
+        </div>
+      </div>
+      <!-- 左侧拖拽区域和折叠按钮 -->
+      <div class="hidden lg:block relative flex-shrink-0 w-0">
+        <!-- 拖拽区域 -->
+        <div
+          v-if="!leftCollapsed"
+          class="absolute -left-1 top-0 bottom-0 w-2 cursor-col-resize hover:bg-(--ui-primary)/50 transition-colors z-10"
+          :class="isDraggingLeft ? 'bg-(--ui-primary)/50' : ''"
+          @mousedown="startDragLeft"
         />
+        <!-- 折叠按钮 -->
+        <button
+          class="absolute top-1/2 -translate-y-1/2 left-0 w-4 h-8 bg-(--ui-bg-elevated) border border-(--ui-border) rounded-r-full flex items-center justify-center hover:bg-(--ui-bg-accented) transition-colors z-20"
+          :title="leftCollapsed ? '展开助手列表' : '折叠助手列表'"
+          @click="toggleLeft"
+        >
+          <UIcon :name="leftCollapsed ? 'i-heroicons-chevron-right' : 'i-heroicons-chevron-left'" class="w-3 h-3 text-(--ui-text-muted)" />
+        </button>
       </div>
 
       <!-- 中间：消息区域（始终显示） -->
@@ -576,27 +652,50 @@ onUnmounted(() => {
         />
       </div>
 
+      <!-- 右侧拖拽区域和折叠按钮 -->
+      <div class="hidden lg:block relative flex-shrink-0 w-0">
+        <!-- 折叠按钮 -->
+        <button
+          class="absolute top-1/2 -translate-y-1/2 right-0 w-4 h-8 bg-(--ui-bg-elevated) border border-(--ui-border) rounded-l-full flex items-center justify-center hover:bg-(--ui-bg-accented) transition-colors z-20"
+          :title="rightCollapsed ? '展开对话列表' : '折叠对话列表'"
+          @click="toggleRight"
+        >
+          <UIcon :name="rightCollapsed ? 'i-heroicons-chevron-left' : 'i-heroicons-chevron-right'" class="w-3 h-3 text-(--ui-text-muted)" />
+        </button>
+        <!-- 拖拽区域 -->
+        <div
+          v-if="!rightCollapsed"
+          class="absolute -right-1 top-0 bottom-0 w-2 cursor-col-resize hover:bg-(--ui-primary)/50 transition-colors z-10"
+          :class="isDraggingRight ? 'bg-(--ui-primary)/50' : ''"
+          @mousedown="startDragRight"
+        />
+      </div>
       <!-- 右侧：助手信息 + 对话列表（桌面端显示） -->
-      <div class="w-[310px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden lg:flex">
-        <!-- 助手信息 -->
-        <ChatAssistantInfo
-          :assistant="currentAssistant"
-          @edit="handleEditAssistant"
-        />
-
-        <!-- 对话列表 -->
-        <ChatConversationList
-          :conversations="conversations"
-          :current-conversation-id="currentConversationId"
-          class="flex-1 min-h-0"
-          @select="handleSelectConversation"
-          @create="handleCreateConversation"
-          @delete="handleDeleteConversation"
-          @rename="handleRenameConversation"
-          @generate-title="handleGenerateTitle"
-          @share="handleShare"
-          @duplicate="handleDuplicateConversation"
-        />
+      <div
+        class="flex-shrink-0 overflow-hidden bg-(--ui-bg-elevated) hidden lg:block"
+        :class="isDraggingRight ? '' : 'transition-[width] duration-200'"
+        :style="{ width: rightCollapsed ? '0px' : `${rightWidth}px` }"
+      >
+        <div class="h-full flex flex-col overflow-hidden border-l border-(--ui-border)" :style="{ width: `${rightWidth}px` }">
+          <!-- 助手信息 -->
+          <ChatAssistantInfo
+            :assistant="currentAssistant"
+            @edit="handleEditAssistant"
+          />
+          <!-- 对话列表 -->
+          <ChatConversationList
+            :conversations="conversations"
+            :current-conversation-id="currentConversationId"
+            class="flex-1 min-h-0"
+            @select="handleSelectConversation"
+            @create="handleCreateConversation"
+            @delete="handleDeleteConversation"
+            @rename="handleRenameConversation"
+            @generate-title="handleGenerateTitle"
+            @share="handleShare"
+            @duplicate="handleDuplicateConversation"
+          />
+        </div>
       </div>
     </div>
 
