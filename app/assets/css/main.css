@@ -1,6 +1,19 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Screen reader only - 仅屏幕阅读器可见，不占据布局空间 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* 深色模式下调整边框颜色，增强与背景的对比度 */
 .dark {
   --ui-border: var(--color-zinc-700);

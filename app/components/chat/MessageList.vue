@@ -628,8 +628,7 @@ function isEditing(messageId: number): boolean {
           @click="toggleMessageActions(message.id)"
         >
           <!-- 角色标签（用于复制和辅助功能） -->
-          <span class="sr-only">[{{ message.role === 'user' ? '用户' : '助手' }} {{ formatDateTime(message.createdAt) }}]
-</span>
+          <span class="sr-only">[{{ message.role === 'user' ? '用户' : '助手' }} {{ formatDateTime(message.createdAt) }}]</span>
 
           <!-- 压缩请求消息 -->
           <div v-if="message.mark === 'compress-request'" class="text-sm">
