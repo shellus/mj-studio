@@ -105,6 +105,13 @@ export const PROVIDER_REGISTRY: ProviderMeta[] = [
   },
   // 对话模型 Provider
   {
+    apiFormat: 'openai-response',
+    label: 'OpenAI Response',
+    category: 'chat',
+    isAsync: false,
+    supportedModelTypes: ['gpt', 'claude', 'deepseek', 'qwen-chat', 'grok', 'llama', 'moonshot', 'glm', 'doubao-chat', 'minimax', 'hunyuan', 'mixtral', 'phi', 'gemini-chat'],
+  },
+  {
     apiFormat: 'openai-chat',
     label: 'OpenAI Chat',
     category: 'chat',

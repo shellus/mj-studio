@@ -388,6 +388,11 @@ export function inferApiFormat(modelId: string): ApiFormat {
   if (/kling|luma|runway|pika|veo|jimeng/.test(id)) return 'video-unified'
   if (/sora/.test(id)) return 'openai-video'
 
+  // OpenAI 模型按版本选择 API 格式
+  // gpt-3 系列用 Chat Completion，其他 OpenAI 模型用 Response API
+  if (/gpt-3/.test(id)) return 'openai-chat'
+  if (/gpt-4|gpt-5|o1|o3|o4/.test(id)) return 'openai-response'
+
   return 'openai-chat'
 }
 

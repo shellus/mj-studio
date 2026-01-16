@@ -8,7 +8,7 @@ import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { LogContext } from '../../utils/logger'
 
 /** Chat API 格式类型 */
-export type ChatApiFormat = 'openai-chat' | 'claude' | 'gemini'
+export type ChatApiFormat = 'openai-chat' | 'openai-response' | 'claude' | 'gemini'
 
 /** Web Search 结果项 */
 export interface WebSearchResultItem {

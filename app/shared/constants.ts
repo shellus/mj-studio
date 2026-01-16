@@ -377,6 +377,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
   'gemini': 'Gemini API',
   'dalle': 'DALL-E API',
   'openai-chat': 'OpenAI Chat',
+  'openai-response': 'OpenAI Response',
   'claude': 'Claude API',
   'koukoutu': '抠抠图 API',
   'video-unified': '视频统一格式',

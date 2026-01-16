@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
 
     // 验证 API 格式
     const validApiFormats = getAllApiFormats()
-    const chatApiFormats = ['openai-chat', 'claude'] // 对话模型专用格式
+    const chatApiFormats = ['openai-chat', 'openai-response', 'claude'] // 对话模型专用格式
     const validImageModelTypes = IMAGE_MODEL_REGISTRY.map(m => m.type)
     for (const model of aimodels as AimodelInput[]) {
       const isValidFormat = validApiFormats.includes(model.apiFormat) || chatApiFormats.includes(model.apiFormat)

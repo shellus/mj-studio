@@ -1,8 +1,13 @@
 /**
- * Claude API Provider
+ * OpenAI Response API Provider
  *
- * 支持 Anthropic Claude 及兼容 API 的对话服务。
- * 端点: POST /v1/messages
+ * 支持 OpenAI Response API 格式，优先用于 OpenAI 模型。
+ * 端点: POST /v1/responses
+ *
+ * 与 Chat Completion API 的主要区别：
+ * - 系统提示使用 instructions 字段
+ * - Web Search 使用 tools: [{type: "web_search"}]
+ * - 流式事件格式不同
  */
 
 import type { Upstream, Message, MessageFile } from '../../database/schema'
@@ -12,42 +17,32 @@ import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
-import { CLAUDE_THINKING_BUDGET_TOKENS } from '../../../app/shared/constants'
+import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
 import { getErrorMessage, isAbortError } from '../../../app/shared/types'
 
-// Claude 多模态消息内容类型
-type ClaudeContentBlock =
-  | { type: 'text'; text: string }
-  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+// OpenAI 多模态消息内容类型
+type ResponseMessageContent =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string; detail?: 'auto' | 'low' | 'high' }
 
-interface ClaudeMessage {
+interface ResponseMessage {
   role: 'user' | 'assistant'
-  content: string | ClaudeContentBlock[]
+  content: string | ResponseMessageContent[]
 }
 
-// 将文件转换为 Claude 多模态内容
-function filesToClaudeContent(files: MessageFile[]): ClaudeContentBlock[] {
-  const contents: ClaudeContentBlock[] = []
+// 将文件转换为多模态消息内容
+function filesToContent(files: MessageFile[]): ResponseMessageContent[] {
+  const contents: ResponseMessageContent[] = []
 
   for (const file of files) {
     if (isImageMimeType(file.mimeType)) {
       const base64 = readFileAsBase64(file.fileName)
       if (base64) {
-        const match = base64.match(/^data:([^;]+);base64,(.+)$/)
-        if (match) {
-          const mediaType = match[1]
-          const data = match[2]
-          if (mediaType && data) {
-            contents.push({
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: data,
-              },
-            })
-          }
-        }
+        contents.push({
+          type: 'input_image',
+          image_url: base64,
+          detail: 'auto',
+        })
       }
     }
   }
@@ -56,68 +51,58 @@ function filesToClaudeContent(files: MessageFile[]): ClaudeContentBlock[] {
 }
 
 // 构建单条消息的 content（支持多模态）
-function buildClaudeMessageContent(text: string, files?: MessageFile[] | null): string | ClaudeContentBlock[] {
+function buildMessageContent(text: string, files?: MessageFile[] | null): string | ResponseMessageContent[] {
   if (!files || files.length === 0) {
     return text
   }
 
-  const contents: ClaudeContentBlock[] = []
-
-  // Claude 要求图片在文本之前
-  const fileContents = filesToClaudeContent(files)
-  contents.push(...fileContents)
+  const contents: ResponseMessageContent[] = []
 
   if (text) {
-    contents.push({ type: 'text', text })
+    contents.push({ type: 'input_text', text })
   }
 
-  if (contents.length === 1) {
-    const firstContent = contents[0]
-    if (firstContent?.type === 'text') {
-      return text
-    }
+  const fileContents = filesToContent(files)
+  contents.push(...fileContents)
+
+  const firstContent = contents[0]
+  if (contents.length === 1 && firstContent?.type === 'input_text') {
+    return text
   }
 
   return contents
 }
 
-export const claudeProvider: ChatProvider = {
-  apiFormat: 'claude',
-  label: 'Claude',
+export const openaiResponseProvider: ChatProvider = {
+  apiFormat: 'openai-response',
+  label: 'OpenAI Response',
 
   createService(upstream: Upstream, keyName?: string): ChatService {
     const upstreamService = useUpstreamService()
     const apiKey = upstreamService.getApiKey(upstream, keyName)
 
-    const headers: Record<string, string> = {
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
     }
 
-    // 支持两种认证方式：x-api-key 或 Bearer token
-    if (apiKey.startsWith('sk-ant-')) {
-      headers['x-api-key'] = apiKey
-    } else {
-      headers['Authorization'] = `Bearer ${apiKey}`
-    }
-
-    function buildMessages(
+    function buildInput(
       historyMessages: Message[],
       userMessage: string,
       userFiles?: MessageFile[]
-    ): ClaudeMessage[] {
-      const messages: ClaudeMessage[] = []
+    ): ResponseMessage[] {
+      const messages: ResponseMessage[] = []
 
       for (const msg of historyMessages) {
         messages.push({
           role: msg.role,
-          content: buildClaudeMessageContent(msg.content, msg.files),
+          content: buildMessageContent(msg.content, msg.files),
         })
       }
 
       messages.push({
         role: 'user',
-        content: buildClaudeMessageContent(userMessage, userFiles),
+        content: buildMessageContent(userMessage, userFiles),
       })
 
       return messages
@@ -133,8 +118,8 @@ export const claudeProvider: ChatProvider = {
         signal?: AbortSignal,
         logContext?: LogContext
       ): Promise<ChatResult> {
-        const url = `${upstream.baseUrl}/v1/messages`
-        const messages = buildMessages(historyMessages, userMessage, userFiles)
+        const url = `${upstream.baseUrl}/v1/responses`
+        const input = buildInput(historyMessages, userMessage, userFiles)
         const startTime = Date.now()
 
         if (logContext) {
@@ -151,19 +136,20 @@ export const claudeProvider: ChatProvider = {
               historyCount: historyMessages.length,
               historySize,
               currentSize,
-              apiFormat: 'claude',
+              enableThinking: false,
+              apiFormat: 'openai-response',
             })
           }
         }
 
         const body: Record<string, unknown> = {
           model: modelName,
-          messages,
-          max_tokens: 8192,
+          input,
+          stream: false,
         }
 
         if (systemPrompt) {
-          body.system = systemPrompt
+          body.instructions = systemPrompt
         }
 
         try {
@@ -184,10 +170,8 @@ export const claudeProvider: ChatProvider = {
           }
 
           const data = await response.json()
-          const content = data.content
-            ?.filter((block: { type: string; text?: string }) => block.type === 'text')
-            .map((block: { type: string; text?: string }) => block.text)
-            .join('') || ''
+          // Response API 返回格式: { output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }] }
+          const content = data.output?.[0]?.content?.[0]?.text || ''
           const durationMs = Date.now() - startTime
 
           if (logContext) {
@@ -220,38 +204,27 @@ export const claudeProvider: ChatProvider = {
         enableThinking?: boolean,
         enableWebSearch?: boolean
       ): AsyncGenerator<ChatStreamChunk> {
-        const url = `${upstream.baseUrl}/v1/messages`
-        const messages = buildMessages(historyMessages, userMessage, userFiles)
+        const url = `${upstream.baseUrl}/v1/responses`
+        const input = buildInput(historyMessages, userMessage, userFiles)
         const startTime = Date.now()
 
         const body: Record<string, unknown> = {
           model: modelName,
-          messages,
-          max_tokens: 8192,
+          input,
           stream: true,
         }
 
         if (systemPrompt) {
-          body.system = systemPrompt
+          body.instructions = systemPrompt
         }
 
-        // Claude 原生思考功能参数
         if (enableThinking) {
-          body.thinking = {
-            type: 'enabled',
-            budget_tokens: CLAUDE_THINKING_BUDGET_TOKENS,
-          }
+          body.reasoning = { effort: OPENAI_REASONING_EFFORT }
         }
 
-        // Claude Web Search 工具
+        // Response API Web Search 使用 tools
         if (enableWebSearch) {
-          body.tools = [
-            {
-              type: 'web_search_20250305',
-              name: 'web_search',
-              max_uses: 5,
-            },
-          ]
+          body.tools = [{ type: 'web_search_preview' }]
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -278,13 +251,14 @@ export const claudeProvider: ChatProvider = {
               historySize,
               currentSize,
               enableThinking,
-              enableWebSearch: enableWebSearch,
-              apiFormat: 'claude',
+              enableWebSearch,
+              apiFormat: 'openai-response',
             })
           }
         }
 
         let totalContent = ''
+        const webSearchResults: WebSearchResultItem[] = []
 
         try {
           const response = await fetch(url, {
@@ -344,66 +318,32 @@ export const claudeProvider: ChatProvider = {
               if (!trimmed || !trimmed.startsWith('data:')) continue
 
               const data = trimmed.slice(5).trim()
-              if (!data || data === '[DONE]') continue
+              if (data === '[DONE]') {
+                const durationMs = Date.now() - startTime
+
+                if (conversationId !== undefined && messageId !== undefined) {
+                  logConversationResponse(conversationId, messageId, {
+                    status: 200,
+                    content: totalContent,
+                    durationMs,
+                  })
+                }
+
+                if (logContext) {
+                  logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
+                }
+                yield { content: '', done: true }
+                return
+              }
 
               try {
                 const parsed = JSON.parse(data)
-
-                // 处理 Web Search 事件
-                if (parsed.type === 'content_block_start') {
-                  const block = parsed.content_block
-                  // 搜索开始
-                  if (block?.type === 'server_tool_use' && block?.name === 'web_search') {
-                    yield { content: '', done: false, webSearch: { status: 'searching' } }
+                const chunk = processResponseEvent(parsed, webSearchResults)
+                if (chunk) {
+                  if (chunk.content) {
+                    totalContent += chunk.content
                   }
-                  // 搜索结果
-                  if (block?.type === 'web_search_tool_result') {
-                    const results = (block.content || [])
-                      .filter((item: { type: string }) => item.type === 'web_search_result')
-                      .map((item: { url: string; title: string; page_age?: string }) => ({
-                        url: item.url,
-                        title: item.title,
-                        pageAge: item.page_age,
-                      }))
-                    console.log(`[Claude] 收到搜索结果: ${results.length} 条`, results.map((r: WebSearchResultItem) => r.title))
-                    yield { content: '', done: false, webSearch: { status: 'completed', results } }
-                  }
-                }
-
-                if (parsed.type === 'content_block_delta') {
-                  const delta = parsed.delta
-                  // 处理思考内容（Claude 原生 thinking_delta）
-                  if (delta?.type === 'thinking_delta' && delta.thinking) {
-                    yield { content: '', thinking: delta.thinking, done: false }
-                  }
-
-                  // 处理文本内容（Claude 原生 text_delta）
-                  if (delta?.type === 'text_delta' && delta.text) {
-                    totalContent += delta.text
-                    yield { content: delta.text, done: false }
-                  }
-
-                  // 兼容旧格式：直接在 delta 中的 text 字段
-                  if (!delta?.type && delta?.text) {
-                    totalContent += delta.text
-                    yield { content: delta.text, done: false }
-                  }
-                } else if (parsed.type === 'message_stop') {
-                  const durationMs = Date.now() - startTime
-
-                  if (conversationId !== undefined && messageId !== undefined) {
-                    logConversationResponse(conversationId, messageId, {
-                      status: 200,
-                      content: totalContent,
-                      durationMs,
-                    })
-                  }
-
-                  if (logContext) {
-                    logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
-                  }
-                  yield { content: '', done: true }
-                  return
+                  yield chunk
                 }
               } catch {
                 // 忽略解析错误
@@ -452,4 +392,115 @@ export const claudeProvider: ChatProvider = {
       },
     }
   },
+}
+
+/**
+ * 处理 Response API 流式事件
+ */
+function processResponseEvent(
+  event: Record<string, unknown>,
+  webSearchResults: WebSearchResultItem[]
+): ChatStreamChunk | null {
+  const eventType = event.type as string
+
+  switch (eventType) {
+    // 文本增量
+    case 'response.output_text.delta': {
+      const delta = event.delta as string
+      if (delta) {
+        return { content: delta, done: false }
+      }
+      break
+    }
+
+    // 推理/思考增量
+    case 'response.reasoning_summary_text.delta': {
+      const delta = event.delta as string
+      if (delta) {
+        return { content: '', thinking: delta, done: false }
+      }
+      break
+    }
+
+    // Web Search 开始搜索
+    case 'response.web_search_call.in_progress': {
+      console.log('[OpenAI Response] Web Search 开始搜索')
+      return { content: '', done: false, webSearch: { status: 'searching' } }
+    }
+
+    // Web Search 搜索完成
+    case 'response.web_search_call.completed': {
+      console.log('[OpenAI Response] Web Search 搜索完成')
+      break
+    }
+
+    // 文本注解（包含搜索结果引用）
+    case 'response.output_text.annotation.added': {
+      const annotation = event.annotation as {
+        type: string
+        url?: string
+        title?: string
+      } | undefined
+
+      if (annotation?.type === 'url_citation' && annotation.url) {
+        webSearchResults.push({
+          url: annotation.url,
+          title: annotation.title || annotation.url,
+        })
+        console.log(`[OpenAI Response] 收到搜索引用: ${annotation.title}`)
+      }
+      break
+    }
+
+    // 输出项完成（可能包含完整的 annotations）
+    case 'response.output_item.done': {
+      const item = event.item as {
+        type: string
+        content?: Array<{
+          type: string
+          annotations?: Array<{
+            type: string
+            url?: string
+            title?: string
+          }>
+        }>
+      } | undefined
+
+      if (item?.type === 'message' && item.content) {
+        for (const content of item.content) {
+          if (content.annotations) {
+            for (const ann of content.annotations) {
+              if (ann.type === 'url_citation' && ann.url) {
+                // 避免重复添加
+                if (!webSearchResults.some(r => r.url === ann.url)) {
+                  webSearchResults.push({
+                    url: ann.url,
+                    title: ann.title || ann.url,
+                  })
+                }
+              }
+            }
+          }
+        }
+
+        if (webSearchResults.length > 0) {
+          console.log(`[OpenAI Response] 搜索结果汇总: ${webSearchResults.length} 条`)
+          return { content: '', done: false, webSearch: { status: 'completed', results: [...webSearchResults] } }
+        }
+      }
+      break
+    }
+
+    // 响应完成
+    case 'response.completed':
+    case 'response.done': {
+      // 最终检查是否有搜索结果需要发送
+      if (webSearchResults.length > 0) {
+        return { content: '', done: false, webSearch: { status: 'completed', results: [...webSearchResults] } }
+      }
+      break
+    }
+  }
+
+  return null
 }

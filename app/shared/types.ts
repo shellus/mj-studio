@@ -100,6 +100,7 @@ export type ApiFormat =
   | 'gemini'         // Google Gemini API 原生格式
   | 'dalle'          // OpenAI DALL-E Images API 格式
   | 'openai-chat'    // OpenAI Chat Completions API 格式
+  | 'openai-response' // OpenAI Response API 格式（优先用于 OpenAI 模型）
   | 'claude'         // Anthropic Claude Messages API 格式
   | 'koukoutu'       // 抠抠图 API 格式（异步轮询）
   | 'video-unified'  // 视频统一格式（/v1/video/create），用于即梦、Veo
