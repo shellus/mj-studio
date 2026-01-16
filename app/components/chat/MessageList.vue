@@ -539,15 +539,18 @@ function isEditing(messageId: number): boolean {
 
     <!-- 消息列表 -->
     <template v-for="(message, index) in messages" :key="message.id">
-      <!-- 对话已开始分界线（第一条消息前显示） -->
+      <!-- 对话已开始分界线（第一条消息前显示，点击跳转到底部） -->
       <div
         v-if="props.conversationId && index === 0"
-        class="flex items-center gap-4 py-4"
+        class="flex items-center gap-4 py-4 cursor-pointer group"
+        title="点击跳转到底部"
+        @click="forceScrollToBottom"
       >
         <div class="flex-1 h-px bg-(--ui-border)" />
-        <span class="text-xs text-(--ui-text-muted) flex items-center gap-1">
+        <span class="text-xs text-(--ui-text-muted) flex items-center gap-1 group-hover:text-(--ui-text) transition-colors">
           <UIcon name="i-heroicons-chat-bubble-left-right" class="w-3 h-3" />
           对话已开始
+          <UIcon name="i-heroicons-chevron-double-down" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
         </span>
         <div class="flex-1 h-px bg-(--ui-border)" />
       </div>
