@@ -217,7 +217,8 @@ export const claudeProvider: ChatProvider = {
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
-        enableThinking?: boolean
+        enableThinking?: boolean,
+        enableWebSearch?: boolean
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/messages`
         const messages = buildMessages(historyMessages, userMessage, userFiles)
@@ -240,6 +241,17 @@ export const claudeProvider: ChatProvider = {
             type: 'enabled',
             budget_tokens: CLAUDE_THINKING_BUDGET_TOKENS,
           }
+        }
+
+        // Claude Web Search 工具
+        if (enableWebSearch) {
+          body.tools = [
+            {
+              type: 'web_search_20250305',
+              name: 'web_search',
+              max_uses: 5,
+            },
+          ]
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -335,6 +347,26 @@ export const claudeProvider: ChatProvider = {
 
               try {
                 const parsed = JSON.parse(data)
+
+                // 处理 Web Search 事件
+                if (parsed.type === 'content_block_start') {
+                  const block = parsed.content_block
+                  // 搜索开始
+                  if (block?.type === 'server_tool_use' && block?.name === 'web_search') {
+                    yield { content: '', done: false, webSearch: { status: 'searching' } }
+                  }
+                  // 搜索结果
+                  if (block?.type === 'web_search_tool_result') {
+                    const results = (block.content || [])
+                      .filter((item: { type: string }) => item.type === 'web_search_result')
+                      .map((item: { url: string; title: string; page_age?: string }) => ({
+                        url: item.url,
+                        title: item.title,
+                        pageAge: item.page_age,
+                      }))
+                    yield { content: '', done: false, webSearch: { status: 'completed', results } }
+                  }
+                }
 
                 if (parsed.type === 'content_block_delta') {
                   const delta = parsed.delta

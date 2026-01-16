@@ -195,7 +195,8 @@ export const openaiChatProvider: ChatProvider = {
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
-        enableThinking?: boolean
+        enableThinking?: boolean,
+        _enableWebSearch?: boolean
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/chat/completions`
         const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)

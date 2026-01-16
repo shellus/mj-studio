@@ -2,6 +2,7 @@
 import { db } from '../database'
 import { aimodels, upstreams, assistants, type Aimodel, type NewAimodel, type ModelCategory, type ModelType, type ApiFormat } from '../database/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import type { ModelCapability } from '../../app/shared/types'
 
 export function useAimodelService() {
   // 获取上游的所有模型
@@ -136,6 +137,7 @@ export function useAimodelService() {
     name: string  // 显示名称
     estimatedTime?: number
     keyName: string  // Key 名称
+    capabilities?: ModelCapability[]  // 模型能力
   }>): Promise<Aimodel[]> {
     if (data.length === 0) return []
 
@@ -148,6 +150,7 @@ export function useAimodelService() {
       name: d.name,  // 显示名称
       estimatedTime: d.estimatedTime ?? 60,
       keyName: d.keyName,
+      capabilities: d.capabilities ?? null,  // 模型能力
     }))
 
     return db.insert(aimodels).values(values).returning()
@@ -221,6 +224,7 @@ export function useAimodelService() {
     name: string  // 显示名称
     estimatedTime?: number
     keyName: string  // Key 名称
+    capabilities?: ModelCapability[]  // 模型能力
   }>): Promise<Aimodel[]> {
     // 获取现有的所有模型（包括已软删除的）
     const existing = await db.query.aimodels.findMany({
@@ -241,6 +245,7 @@ export function useAimodelService() {
           name: model.name,  // 显示名称
           estimatedTime: model.estimatedTime ?? 60,
           keyName: model.keyName,
+          capabilities: model.capabilities ?? null,  // 模型能力
           deletedAt: null,  // 如果之前被软删除，恢复它
         })
         .where(eq(aimodels.id, model.id!))

@@ -303,6 +303,38 @@ const FUNCTION_CALLING_EXCLUDED = [
   /rerank/i,
 ]
 
+// Web Search 能力匹配规则
+const WEB_SEARCH_PATTERNS = [
+  // Claude 支持的模型
+  /claude-3[.-]5-sonnet/i,
+  /claude-3[.-]7-sonnet/i,
+  /claude-3[.-]5-haiku/i,
+  /claude-sonnet-4/i,
+  /claude-opus-4/i,
+  /claude-haiku-4/i,
+  // OpenAI（预留）
+  /gpt-4o-search/i,
+  /gpt-4\.1(?!-nano)/i,
+  // Gemini（预留）
+  /gemini-2(?!.*-image)/i,
+  /gemini-3/i,
+  // Grok
+  /grok-[34]/i,
+  // Perplexity
+  /sonar/i,
+  // 阿里云
+  /qwen-turbo/i,
+  /qwen-max/i,
+  /qwen-plus/i,
+  /qwq/i,
+  /qwen-flash/i,
+  /qwen3-max/i,
+  // 智谱
+  /glm-4-/i,
+  // 腾讯混元（排除 lite）
+  /hunyuan(?!-lite)/i,
+]
+
 /**
  * 推断模型能力
  */
@@ -328,6 +360,11 @@ export function inferCapabilities(modelId: string): ModelCapability[] {
   const isExcluded = FUNCTION_CALLING_EXCLUDED.some(p => p.test(modelId))
   if (!isExcluded && FUNCTION_CALLING_PATTERNS.some(p => p.test(modelId))) {
     capabilities.push('function_calling')
+  }
+
+  // Web Search 能力
+  if (WEB_SEARCH_PATTERNS.some(p => p.test(modelId))) {
+    capabilities.push('web_search')
   }
 
   return capabilities

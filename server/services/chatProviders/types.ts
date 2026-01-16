@@ -10,11 +10,23 @@ import type { LogContext } from '../../utils/logger'
 /** Chat API 格式类型 */
 export type ChatApiFormat = 'openai-chat' | 'claude' | 'gemini'
 
+/** Web Search 结果项 */
+export interface WebSearchResultItem {
+  url: string
+  title: string
+  pageAge?: string
+}
+
 /** 流式响应块 */
 export interface ChatStreamChunk {
   content: string
   thinking?: string  // 思考/推理内容
   done: boolean
+  /** Web Search 状态和结果 */
+  webSearch?: {
+    status: 'searching' | 'completed'
+    results?: WebSearchResultItem[]
+  }
 }
 
 /** 非流式响应结果 */
@@ -48,7 +60,8 @@ export interface ChatService {
     logContext?: LogContext,
     conversationId?: number,
     messageId?: number,
-    enableThinking?: boolean
+    enableThinking?: boolean,
+    enableWebSearch?: boolean
   ): AsyncGenerator<ChatStreamChunk>
 }
 

@@ -15,6 +15,13 @@ import { Marked } from 'marked'
 import type { Token, Tokens } from 'marked'
 import { codeToHtml, type BundledLanguage } from 'shiki'
 import type { MjDrawingParams } from '~/composables/useMarkdown'
+import type { WebSearchResult } from './WebSearchResults.vue'
+
+// Web Search 解析结果
+interface WebSearchParams {
+  status: 'searching' | 'completed'
+  results?: WebSearchResult[]
+}
 
 const props = defineProps<{
   content: string
@@ -151,6 +158,36 @@ function parseMjDrawingParams(text: string): MjDrawingParams {
   return params
 }
 
+// 解析 web-search 参数
+function parseWebSearchParams(text: string): WebSearchParams {
+  const params: WebSearchParams = {
+    status: 'searching',
+  }
+
+  const lines = text.trim().split('\n')
+  for (const line of lines) {
+    const colonIndex = line.indexOf(':')
+    if (colonIndex === -1) continue
+
+    const key = line.slice(0, colonIndex).trim().toLowerCase()
+    const value = line.slice(colonIndex + 1).trim()
+
+    if (key === 'status') {
+      if (value === 'searching' || value === 'completed') {
+        params.status = value
+      }
+    } else if (key === 'results') {
+      try {
+        params.results = JSON.parse(value)
+      } catch {
+        // 忽略解析错误
+      }
+    }
+  }
+
+  return params
+}
+
 // 渲染行内元素（加粗、斜体、链接等）
 function renderInline(text: string): string {
   let result = escapeHtml(text)
@@ -179,7 +216,7 @@ function renderInline(text: string): string {
 }
 
 // 渲染单个 token 为 HTML
-async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming', content: string }> {
+async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search', content: string }> {
   switch (token.type) {
     case 'heading': {
       const sizes: Record<number, string> = {
@@ -213,6 +250,11 @@ async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | '
       // mj-drawing 绘图组件
       if (lang === 'mj-drawing') {
         return { type: 'drawing', content: code }
+      }
+
+      // web-search 搜索结果组件
+      if (lang === 'web-search') {
+        return { type: 'web-search', content: code }
       }
 
       // 普通代码块
@@ -310,9 +352,10 @@ function escapeHtml(text: string): string {
 // 每个块的渲染状态
 interface BlockState {
   index: number
-  type: 'html' | 'drawing' | 'think' | 'think-streaming'
+  type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search'
   content: string
   drawingParams?: MjDrawingParams
+  webSearchParams?: WebSearchParams
   isComplete: boolean
 }
 
@@ -354,6 +397,11 @@ watch(
         // 解析绘图参数
         if (result.type === 'drawing') {
           block.drawingParams = parseMjDrawingParams(result.content)
+        }
+
+        // 解析 web-search 参数
+        if (result.type === 'web-search') {
+          block.webSearchParams = parseWebSearchParams(result.content)
         }
 
         if (isComplete) {
@@ -426,6 +474,13 @@ function toggleThink(index: number) {
         </div>
         <div class="mt-2 pl-5 text-sm text-(--ui-text-muted) whitespace-pre-wrap">{{ block.content }}</div>
       </div>
+
+      <!-- Web Search 搜索结果块 -->
+      <ChatWebSearchResults
+        v-else-if="block.type === 'web-search' && block.webSearchParams"
+        :status="block.webSearchParams.status"
+        :results="block.webSearchParams.results"
+      />
     </template>
 
     <!-- 流式光标 -->

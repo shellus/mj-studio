@@ -95,6 +95,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     // 从助手配置读取思考开关
     const enableThinking = assistant.enableThinking || false
 
+    // 从模型能力读取 Web Search 开关
+    const enableWebSearch = aimodel.capabilities?.includes('web_search') || false
+
     // 构建历史消息上下文
     let historyMessages = result.messages
 
@@ -164,7 +167,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       logContext,
       conversationId,
       messageId,
-      enableThinking
+      enableThinking,
+      enableWebSearch
     )
 
     let fullContent = ''
@@ -191,6 +195,16 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           appendStreamingContent(messageId, '<thinking>\n')
         }
         appendStreamingContent(messageId, chunk.thinking)
+      }
+
+      // 处理 Web Search 状态
+      if (chunk.webSearch) {
+        if (chunk.webSearch.status === 'searching') {
+          appendStreamingContent(messageId, '\n```web-search\nstatus: searching\n```\n\n')
+        } else if (chunk.webSearch.status === 'completed' && chunk.webSearch.results) {
+          const json = JSON.stringify(chunk.webSearch.results)
+          appendStreamingContent(messageId, `\n\`\`\`web-search\nstatus: completed\nresults: ${json}\n\`\`\`\n\n`)
+        }
       }
 
       if (chunk.content) {
