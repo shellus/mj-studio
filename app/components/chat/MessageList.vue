@@ -145,13 +145,24 @@ function scrollToBottom() {
 }
 
 // 强制滚动到底部（新消息发送时使用）
+// 持续滚动 50ms，确保异步渲染完成后仍能滚到底部
 function forceScrollToBottom() {
   isAtBottom.value = true
-  nextTick(() => {
+  const startTime = Date.now()
+  const scrollOnce = () => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
-  })
+  }
+  // 立即滚动一次
+  scrollOnce()
+  // 持续滚动 50ms
+  const timer = setInterval(() => {
+    scrollOnce()
+    if (Date.now() - startTime >= 50) {
+      clearInterval(timer)
+    }
+  }, 10)
 }
 
 // 暴露给父组件
