@@ -9,6 +9,8 @@ import type { AuthUser } from '../../../app/shared/types'
 
 // 导入各个工具的实现
 import { listModels } from './tools/list-models'
+// 导入 prompts
+import { asyncTaskGuidePrompt } from './prompts/async-task-guide'
 import { listAssistants } from './tools/list-assistants'
 import { listConversations } from './tools/list-conversations'
 import { getConversation } from './tools/get-conversation'
@@ -78,11 +80,11 @@ export function createMcpServer(user: AuthUser): McpServer {
   // 图片生成工具
   server.tool(
     'generate_image',
-    'Create an image generation task',
+    'Generate or edit images. Supports: 1) Text-to-image: generate from prompt only; 2) Image-to-image: transform/edit based on reference images with prompt guidance',
     {
       aimodelId: z.number().describe('Model ID from list_models'),
-      prompt: z.string().describe('Image description prompt'),
-      images: z.array(z.string()).optional().describe('Reference image URLs'),
+      prompt: z.string().describe('Image description or editing instructions'),
+      images: z.array(z.string()).optional().describe('Reference images for editing/transformation (image-to-image). Provide URLs or base64 data'),
       modelParams: z.record(z.string(), z.unknown()).optional().describe('Model-specific parameters'),
     },
     async ({ aimodelId, prompt, images, modelParams }) =>
@@ -92,11 +94,11 @@ export function createMcpServer(user: AuthUser): McpServer {
   // 视频生成工具
   server.tool(
     'generate_video',
-    'Create a video generation task',
+    'Generate videos. Supports: 1) Text-to-video: generate from prompt only; 2) Image-to-video: animate a static image with prompt guidance',
     {
       aimodelId: z.number().describe('Model ID from list_models'),
-      prompt: z.string().describe('Video description prompt'),
-      images: z.array(z.string()).optional().describe('Reference image URLs'),
+      prompt: z.string().describe('Video description or animation instructions'),
+      images: z.array(z.string()).optional().describe('Starting frame images for image-to-video generation. Provide URLs or base64 data'),
       modelParams: z.record(z.string(), z.unknown()).optional().describe('Model-specific parameters'),
     },
     async ({ aimodelId, prompt, images, modelParams }) =>
@@ -120,6 +122,18 @@ export function createMcpServer(user: AuthUser): McpServer {
       limit: z.number().optional().describe('Max number of results, default 10, max 50'),
     },
     async ({ taskType, status, limit }) => listTasks(user, taskType, status, limit),
+  )
+
+  // 注册 prompts
+  server.prompt(
+    asyncTaskGuidePrompt.name,
+    asyncTaskGuidePrompt.description,
+    async () => ({
+      messages: [{
+        role: 'user',
+        content: { type: 'text', text: asyncTaskGuidePrompt.content },
+      }],
+    }),
   )
 
   return server

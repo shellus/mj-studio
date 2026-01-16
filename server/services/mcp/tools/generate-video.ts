@@ -78,6 +78,7 @@ export async function generateVideo(
       taskId: task.id,
       status: 'pending',
       estimatedTime: aimodel.estimatedTime,
+      message: `Task created. Please wait ${aimodel.estimatedTime} seconds before querying with get_task. Do NOT poll immediately.`,
     }) }],
   }
 }
