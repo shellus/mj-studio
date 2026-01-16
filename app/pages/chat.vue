@@ -491,15 +491,7 @@ async function handleCompress() {
   if (!currentConversationId.value) return
 
   try {
-    const stats = await compressConversation(
-      currentConversationId.value,
-      // 开始回调：跳转到压缩位置
-      () => {
-        nextTick(() => {
-          messageListRef.value?.scrollToCompressRequest()
-        })
-      }
-    )
+    const stats = await compressConversation(currentConversationId.value)
     if (stats) {
       toast.add({
         title: `已压缩 ${stats.messagesToCompressCount} 条消息`,

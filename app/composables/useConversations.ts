@@ -565,30 +565,18 @@ export function useConversations() {
   }
 
   // 压缩对话
-  async function compressConversation(conversationId: number, onStart?: () => void) {
-    // 1. 调用压缩 API 创建压缩请求消息
+  async function compressConversation(conversationId: number) {
+    // 调用压缩 API，后端会：
+    // 1. 创建压缩请求消息（通过 SSE 广播）
+    // 2. 创建 AI 响应消息（通过 SSE 广播）
+    // 3. 启动流式生成任务
     const result = await $fetch<{
       success: boolean
-      compressRequest: Message
+      compressRequestId: number
+      assistantMessageId: number
       stats: { messagesToCompressCount: number; keepMessagesCount: number }
     }>(`/api/conversations/${conversationId}/compress`, {
       method: 'POST',
-    })
-
-    // 2. 刷新消息列表（显示压缩请求和重排后的消息）
-    const data = await $fetch<{ conversation: Conversation; messages: Message[] }>(`/api/conversations/${conversationId}`)
-    messages.value = data.messages
-
-    // 触发开始回调（此时压缩请求已在列表中）
-    onStart?.()
-
-    // 3. 发送压缩请求触发 AI 生成摘要（AI 消息会通过全局 SSE 推送）
-    await $fetch<{ userMessageId: number | null; assistantMessageId: number }>(`/api/conversations/${conversationId}/messages`, {
-      method: 'POST',
-      body: {
-        content: result.compressRequest.content,
-        isCompressRequest: true,
-      },
     })
 
     return result.stats

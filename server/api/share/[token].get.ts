@@ -67,6 +67,7 @@ export default defineEventHandler(async (event) => {
       id: m.id,
       role: m.role,
       content: m.content,
+      mark: m.mark,  // 返回 mark 字段，用于前端判断消息类型
       createdAt: m.createdAt,
     })),
     assistant: assistant ? {

@@ -154,22 +154,8 @@ function forceScrollToBottom() {
   })
 }
 
-// 滚动到压缩请求位置
-function scrollToCompressRequest() {
-  const compressRequestIndex = props.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
-  if (compressRequestIndex < 0 || !messagesContainer.value) return
-
-  // 找到对应的 DOM 元素并滚动
-  nextTick(() => {
-    const messageElements = messagesContainer.value?.querySelectorAll('[data-message-id]')
-    if (messageElements && messageElements[compressRequestIndex]) {
-      messageElements[compressRequestIndex].scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  })
-}
-
 // 暴露给父组件
-defineExpose({ scrollToBottom: forceScrollToBottom, scrollToCompressRequest })
+defineExpose({ scrollToBottom: forceScrollToBottom })
 
 // 流式滚动定时器（仅用于滚动，不再用于渲染）
 const streamingScrollTimer = ref<ReturnType<typeof setInterval> | null>(null)

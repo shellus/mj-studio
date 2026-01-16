@@ -1,6 +1,9 @@
 // POST /api/conversations/[id]/compress - 发起对话压缩
 import { useConversationService } from '../../../services/conversation'
 import { useUserSettingsService } from '../../../services/userSettings'
+import { useAssistantService } from '../../../services/assistant'
+import { useAimodelService } from '../../../services/aimodel'
+import { startStreamingTask } from '../../../services/streamingTask'
 import {
   USER_SETTING_KEYS,
   DEFAULT_COMPRESS_PROMPT,
@@ -90,16 +93,16 @@ export default defineEventHandler(async (event) => {
   }
   const compressRequestSortId = (lastCompressMsg.sortId || lastCompressMsg.id) + 1
 
-  // 插入压缩请求消息
+  // 插入压缩请求消息（不存储 content，只存储标记）
   const compressRequest = await conversationService.addMessage(user.id, {
     conversationId,
     role: 'user',
-    content: finalPrompt,
+    content: '[压缩请求]',  // 只存储标记，不存储完整的 prompt
     mark: MESSAGE_MARK.COMPRESS_REQUEST,
     sortId: compressRequestSortId,
   })
 
-  // 更新保留消息的 sortId（压缩响应的 sortId 会在 messages.post.ts 中设置）
+  // 更新保留消息的 sortId（压缩响应的 sortId 会在下面设置）
   // 保留消息的 sortId 从 compressRequestSortId + 2 开始（+1 是压缩响应）
   for (let i = 0; i < keepMessages.length; i++) {
     const keepMsg = keepMessages[i]
@@ -109,13 +112,61 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // 获取助手和模型信息，用于设置 modelDisplayName
+  const assistantService = useAssistantService()
+  const aimodelService = useAimodelService()
+
+  const assistant = await assistantService.getById(result.conversation.assistantId)
+  if (!assistant) {
+    throw createError({ statusCode: 404, message: '助手不存在' })
+  }
+
+  // 获取模型显示名称（格式：上游 / 模型名称）
+  let modelDisplayName: string | null = null
+  if (assistant.aimodelId) {
+    const aimodelWithUpstream = await aimodelService.getByIdWithUpstream(assistant.aimodelId)
+    if (aimodelWithUpstream) {
+      modelDisplayName = `${aimodelWithUpstream.upstreamName} / ${aimodelWithUpstream.name}`
+    }
+  }
+
+  // 创建 AI 响应消息（status: created，content 为空）
+  // service.addMessage 会自动广播 chat.message.created 事件
+  const responseSortId = compressRequestSortId + 1
+  const assistantMessage = await conversationService.addMessage(user.id, {
+    conversationId,
+    role: 'assistant',
+    content: '',
+    modelDisplayName: modelDisplayName ?? undefined,
+    status: 'created',
+    mark: MESSAGE_MARK.COMPRESS_RESPONSE,
+    sortId: responseSortId,
+  })
+
+  // 异步启动流式生成任务（不阻塞响应）
+  setImmediate(() => {
+    startStreamingTask({
+      messageId: assistantMessage.id,
+      userMessageId: null,
+      conversationId,
+      userId: user.id,
+      userContent: finalPrompt,
+      userFiles: undefined,
+      isCompressRequest: true,
+      responseMark: MESSAGE_MARK.COMPRESS_RESPONSE,
+      responseSortId,
+    }).catch(err => {
+      console.error('压缩流式生成任务失败:', err)
+    })
+  })
+
   return {
     success: true,
-    compressRequest,
+    compressRequestId: compressRequest.id,
+    assistantMessageId: assistantMessage.id,
     stats: {
       messagesToCompressCount: messagesToCompress.length,
       keepMessagesCount: keepMessages.length,
-      compressRequestSortId,
     },
   }
 })

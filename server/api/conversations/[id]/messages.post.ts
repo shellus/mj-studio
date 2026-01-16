@@ -73,8 +73,10 @@ export default defineEventHandler(async (event) => {
   let responseSortId: number | undefined = undefined
 
   if (isCompressRequest) {
-    // 找到压缩请求消息，获取其 sortId
-    const compressRequestMsg = result.messages.find(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST && m.content === content.trim())
+    // 找到最新的压缩请求消息（按 ID 降序），获取其 sortId
+    const compressRequestMsg = result.messages
+      .filter(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
+      .sort((a, b) => b.id - a.id)[0]
     if (compressRequestMsg) {
       responseSortId = (compressRequestMsg.sortId || compressRequestMsg.id) + 1
       responseMark = 'compress-response'

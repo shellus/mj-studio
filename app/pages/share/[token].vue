@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { renderMarkdown } from '~/composables/useMarkdown'
+import { MESSAGE_MARK } from '~/shared/constants'
+import type { MessageMark } from '~/shared/types'
 
 definePageMeta({
   layout: false,
@@ -80,6 +82,9 @@ function replaceDrawingBlocks(html: string): string {
 async function renderMessages() {
   if (!data.value?.messages) return
   for (const msg of data.value.messages) {
+    // 跳过压缩请求消息的渲染（不需要渲染 markdown）
+    if (msg.mark === 'compress-request') continue
+
     if (msg.content && !renderedMessages.value.has(msg.id)) {
       let html = await renderMarkdown(msg.content)
       html = replaceDrawingBlocks(html)
@@ -89,7 +94,9 @@ async function renderMessages() {
 }
 
 // 获取渲染内容
-function getRenderedContent(msg: { id: number; content: string }): string {
+function getRenderedContent(msg: { id: number; content: string; mark?: MessageMark | null }): string {
+  // 压缩请求消息不渲染 content
+  if (msg.mark === 'compress-request') return ''
   return renderedMessages.value.get(msg.id) || msg.content
 }
 
@@ -159,8 +166,22 @@ watch(data, () => {
               <span class="role">{{ msg.role === 'user' ? '用户' : '助手' }}</span>
               <span class="time">{{ formatDateTime(msg.createdAt) }}</span>
             </div>
-            <div class="bubble">
-              <div class="markdown-content" v-html="getRenderedContent(msg)" />
+            <div
+              class="bubble"
+              :class="{
+                'compress-request': msg.mark === MESSAGE_MARK.COMPRESS_REQUEST,
+                'compress-response': msg.mark === MESSAGE_MARK.COMPRESS_RESPONSE
+              }"
+            >
+              <!-- 压缩请求消息 -->
+              <div v-if="msg.mark === MESSAGE_MARK.COMPRESS_REQUEST" class="compress-tag">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125 2.25 2.25m0 0 2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                </svg>
+                <span>压缩请求</span>
+              </div>
+              <!-- 普通消息 -->
+              <div v-else class="markdown-content" v-html="getRenderedContent(msg)" />
             </div>
           </div>
         </div>
@@ -323,6 +344,34 @@ watch(data, () => {
   background: #f3f4f6;
   border-top-left-radius: 4px;
   color: #1f2937;
+}
+
+/* 压缩请求消息样式 */
+.bubble.compress-request {
+  background: #dbeafe !important;
+  border: 1px solid #93c5fd;
+  color: #1e40af !important;
+}
+
+/* 压缩响应消息样式 */
+.bubble.compress-response {
+  background: #fef3c7 !important;
+  border: 1px solid #fcd34d;
+  color: #92400e !important;
+}
+
+/* 压缩请求标签 */
+.compress-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.compress-tag .icon {
+  width: 16px;
+  height: 16px;
 }
 
 /* 页脚 */
