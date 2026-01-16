@@ -278,6 +278,7 @@ export const claudeProvider: ChatProvider = {
               historySize,
               currentSize,
               enableThinking,
+              enableWebSearch: _enableWebSearch,
               apiFormat: 'claude',
             })
           }
@@ -364,6 +365,7 @@ export const claudeProvider: ChatProvider = {
                         title: item.title,
                         pageAge: item.page_age,
                       }))
+                    console.log(`[Claude] 收到搜索结果: ${results.length} 条`, results.map(r => r.title))
                     yield { content: '', done: false, webSearch: { status: 'completed', results } }
                   }
                 }

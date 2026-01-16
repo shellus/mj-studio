@@ -230,6 +230,96 @@ const request = {
 const response = await client.chat.completions.create(request)
 ```
 
+**Chat Completion 响应格式（流式）：**
+
+搜索引用通过 `delta.annotations` 字段返回：
+
+```typescript
+// 流式响应 chunk 示例
+{
+  "id": "chatcmpl-xxx",
+  "object": "chat.completion.chunk",
+  "choices": [{
+    "index": 0,
+    "delta": {
+      "content": "根据最新消息，OpenAI 发布了...",
+      "annotations": [
+        {
+          "type": "url_citation",
+          "url": "https://example.com/news/openai",
+          "title": "OpenAI 最新动态",
+          "start_index": 8,   // 引用在文本中的起始位置
+          "end_index": 25     // 引用在文本中的结束位置
+        }
+      ]
+    },
+    "finish_reason": null
+  }]
+}
+
+// 最终 chunk（包含 finish_reason）
+{
+  "choices": [{
+    "index": 0,
+    "delta": {},
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 200,
+    "total_tokens": 250
+  }
+}
+```
+
+**Chat Completion 响应格式（非流式）：**
+
+```typescript
+{
+  "id": "chatcmpl-xxx",
+  "object": "chat.completion",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "根据最新消息，OpenAI 发布了...",
+      "annotations": [
+        {
+          "type": "url_citation",
+          "url": "https://example.com/news/openai",
+          "title": "OpenAI 最新动态",
+          "start_index": 8,
+          "end_index": 25
+        },
+        {
+          "type": "url_citation",
+          "url": "https://example.com/tech/ai",
+          "title": "AI 行业报告",
+          "start_index": 50,
+          "end_index": 80
+        }
+      ]
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 200,
+    "total_tokens": 250
+  }
+}
+```
+
+**annotations 字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| type | string | 固定为 `"url_citation"` |
+| url | string | 引用来源的 URL |
+| title | string | 引用来源的标题 |
+| start_index | number | 引用文本在 content 中的起始字符位置 |
+| end_index | number | 引用文本在 content 中的结束字符位置 |
+
 ### 2.3 Google Gemini
 
 Gemini 使用 `google_search` 工具。

@@ -212,6 +212,13 @@ export const openaiChatProvider: ChatProvider = {
           body.reasoning_effort = OPENAI_REASONING_EFFORT
         }
 
+        // OpenAI Web Search 参数
+        if (_enableWebSearch) {
+          body.web_search_options = {
+            search_context_size: 'medium',
+          }
+        }
+
         if (conversationId !== undefined && messageId !== undefined) {
           logConversationRequest(conversationId, messageId, {
             url,
@@ -236,6 +243,7 @@ export const openaiChatProvider: ChatProvider = {
               historySize,
               currentSize,
               enableThinking,
+              enableWebSearch: _enableWebSearch,
               apiFormat: 'openai-chat',
             })
           }
@@ -326,6 +334,21 @@ export const openaiChatProvider: ChatProvider = {
                 const reasoningContent = delta?.reasoning_content || ''
                 if (reasoningContent) {
                   yield { content: '', thinking: reasoningContent, done: false }
+                }
+
+                // 处理 Web Search annotations（OpenAI 搜索引用）
+                const annotations = delta?.annotations as Array<{
+                  type: string
+                  url_citation?: { url: string; title: string }
+                }> | undefined
+                if (annotations && annotations.length > 0) {
+                  const results = annotations
+                    .filter(a => a.type === 'url_citation' && a.url_citation)
+                    .map(a => ({ url: a.url_citation!.url, title: a.url_citation!.title }))
+                  if (results.length > 0) {
+                    console.log(`[OpenAI] 收到搜索结果: ${results.length} 条`, results.map(r => r.title))
+                    yield { content: '', done: false, webSearch: { status: 'completed', results } }
+                  }
                 }
 
                 const content = delta?.content || ''

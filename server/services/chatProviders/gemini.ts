@@ -212,6 +212,11 @@ export const geminiProvider: ChatProvider = {
           }
         }
 
+        // Gemini Web Search 工具
+        if (_enableWebSearch) {
+          body.tools = [{ googleSearch: {} }]
+        }
+
         if (conversationId !== undefined && messageId !== undefined) {
           logConversationRequest(conversationId, messageId, {
             url,
@@ -230,7 +235,7 @@ export const geminiProvider: ChatProvider = {
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
           } else {
-            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, enableThinking, apiFormat: 'gemini' })
+            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, enableThinking, enableWebSearch: _enableWebSearch, apiFormat: 'gemini' })
           }
         }
 
@@ -302,10 +307,29 @@ export const geminiProvider: ChatProvider = {
                     content?: {
                       parts?: Array<{ text?: string; thought?: boolean }>
                     }
+                    groundingMetadata?: {
+                      groundingChunks?: Array<{
+                        web?: { uri: string; title: string }
+                      }>
+                    }
                   }>
                 }
 
-                const parts = parsed.candidates?.[0]?.content?.parts || []
+                const candidate = parsed.candidates?.[0]
+
+                // 处理 Gemini Web Search groundingMetadata
+                const groundingChunks = candidate?.groundingMetadata?.groundingChunks
+                if (groundingChunks && groundingChunks.length > 0) {
+                  const results = groundingChunks
+                    .filter(chunk => chunk.web)
+                    .map(chunk => ({ url: chunk.web!.uri, title: chunk.web!.title }))
+                  if (results.length > 0) {
+                    console.log(`[Gemini] 收到搜索结果: ${results.length} 条`, results.map(r => r.title))
+                    yield { content: '', done: false, webSearch: { status: 'completed', results } }
+                  }
+                }
+
+                const parts = candidate?.content?.parts || []
                 for (const part of parts) {
                   if (!part.text) continue
 

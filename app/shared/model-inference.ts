@@ -312,10 +312,13 @@ const WEB_SEARCH_PATTERNS = [
   /claude-sonnet-4/i,
   /claude-opus-4/i,
   /claude-haiku-4/i,
-  // OpenAI（预留）
-  /gpt-4o-search/i,
+  // OpenAI 支持的模型
+  /gpt-4o(?!-image)/i,  // gpt-4o 系列（排除 image 变体）
   /gpt-4\.1(?!-nano)/i,
-  // Gemini（预留）
+  /\bo3\b/i,
+  /\bo4\b/i,
+  /gpt-5(?!.*chat)/i,   // gpt-5 系列（排除 chat 变体）
+  // Gemini 支持的模型
   /gemini-2(?!.*-image)/i,
   /gemini-3/i,
   // Grok

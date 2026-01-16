@@ -31,6 +31,7 @@ export interface RequestStats {
   historySize: number         // 历史消息字节数
   currentSize: number         // 当前消息字节数
   enableThinking?: boolean    // 是否开启思考模式
+  enableWebSearch?: boolean   // 是否开启联网搜索
   apiFormat?: string          // API 格式（openai-chat, claude, gemini 等）
 }
 
@@ -84,9 +85,10 @@ export function logRequest(ctx: LogContext, stats: RequestStats): void {
     // 格式和思考模式信息
     const formatInfo = stats.apiFormat ? ` 格式:${stats.apiFormat}` : ''
     const thinkingInfo = stats.enableThinking !== undefined ? ` 思考:${stats.enableThinking ? '开' : '关'}` : ''
+    const searchInfo = stats.enableWebSearch !== undefined ? ` 搜索:${stats.enableWebSearch ? '开' : '关'}` : ''
     const parts = [
       prefix(ctx, '请求'),
-      `上游:${upstream} 模型:${ctx.modelName || '未知'}${keyInfo}${formatInfo}${thinkingInfo}`,
+      `上游:${upstream} 模型:${ctx.modelName || '未知'}${keyInfo}${formatInfo}${thinkingInfo}${searchInfo}`,
       `提示词:${formatSize(stats.systemPromptSize)} 历史:${stats.historyCount}条/${formatSize(stats.historySize)} 当前:${formatSize(stats.currentSize)}`,
       `总计:${formatSize(total)}`,
     ]
