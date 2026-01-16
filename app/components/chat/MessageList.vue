@@ -771,8 +771,11 @@ function isEditing(messageId: number): boolean {
             </template>
             <!-- 被中断的标记 -->
             <div
-              v-if="isMessageStopped(message) && message.content && !isEditing(message.id)"
-              class="mt-2 text-xs text-(--ui-text-muted) flex items-center gap-1"
+              v-if="isMessageStopped(message) && !isEditing(message.id)"
+              :class="[
+                'text-xs text-(--ui-text-muted) flex items-center gap-1',
+                message.content ? 'mt-2' : ''
+              ]"
             >
               <UIcon name="i-heroicons-stop-circle" class="w-3 h-3" />
               <span>已中断</span>
