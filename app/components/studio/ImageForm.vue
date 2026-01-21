@@ -80,6 +80,12 @@ const gptImageSizeOptions = [
   { label: '1024x1536 (竖版)', value: '1024x1536' },
 ]
 
+const geminiSizeOptions = [
+  { label: '1K (默认)', value: '1K' },
+  { label: '2K', value: '2K' },
+  { label: '4K', value: '4K' },
+]
+
 // 质量选项
 const dalleQualityOptions = [
   { label: '标准', value: 'standard' },
@@ -98,8 +104,8 @@ const styleOptions = [
   { label: '自然', value: 'natural' },
 ]
 
-// 宽高比选项 (Flux)
-const fluxAspectRatioOptions = [
+// 宽高比选项 (Flux/Gemini)
+const imageAspectRatioOptions = [
   { label: '1:1 (方形)', value: '1:1' },
   { label: '16:9 (横屏)', value: '16:9' },
   { label: '9:16 (竖屏)', value: '9:16' },
@@ -228,6 +234,7 @@ const isDalleModel = computed(() => selectedAimodel.value?.modelType === 'dalle'
 const isDoubaoModel = computed(() => selectedAimodel.value?.modelType === 'doubao')
 const isFluxModel = computed(() => selectedAimodel.value?.modelType === 'flux')
 const isGpt4oImageModel = computed(() => selectedAimodel.value?.modelType === 'gpt4o-image')
+const isGeminiModel = computed(() => ['gemini', 'banana'].includes(selectedAimodel.value?.modelType || ''))
 
 // 是否支持各参数
 const supportsSize = computed(() => capabilities.value.size === true)
@@ -251,8 +258,18 @@ const currentSizeOptions = computed(() => {
   if (isDalleModel.value) return dalleSizeOptions
   if (isDoubaoModel.value) return doubaoSizeOptions
   if (isGpt4oImageModel.value) return gptImageSizeOptions
+  if (isGeminiModel.value) return geminiSizeOptions
   return dalleSizeOptions
 })
+
+watch([currentSizeOptions, selectedAimodel], () => {
+  if (!selectedAimodel.value || !supportsSize.value) return
+  const options = currentSizeOptions.value
+  if (!options.length) return
+  if (!options.some(option => option.value === size.value)) {
+    size.value = options[0].value
+  }
+}, { immediate: true })
 
 // 获取当前模型的质量选项
 const currentQualityOptions = computed(() => {
@@ -587,11 +604,11 @@ defineExpose({
             />
           </UFormField>
 
-          <!-- 宽高比选择 (Flux) -->
+          <!-- 宽高比选择 (Flux/Gemini) -->
           <UFormField v-if="supportsAspectRatio" label="宽高比">
             <USelect
               v-model="aspectRatio"
-              :items="fluxAspectRatioOptions"
+              :items="imageAspectRatioOptions"
               value-key="value"
               label-key="label"
               class="w-full"

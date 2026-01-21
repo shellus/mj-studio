@@ -47,16 +47,26 @@ export const geminiProvider: SyncProvider = {
   createService(baseUrl: string, apiKey: string) {
     // 文生图
     async function generateText2Image(params: GenerateParams): Promise<SyncResult> {
-      const { taskId, prompt, modelName, signal } = params
+      const { taskId, prompt, modelName, modelParams, signal } = params
 
       if (!apiKey) {
         return { success: false, error: 'Gemini API Key 未配置' }
       }
 
       const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${apiKey}`
-      const body = {
+      const body: Record<string, unknown> = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseModalities: ['Text', 'Image'] },
+      }
+
+      if (modelParams?.size || modelParams?.aspectRatio) {
+        body.generationConfig = {
+          ...body.generationConfig as Record<string, unknown>,
+          imageConfig: {
+            ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
+            ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
+          },
+        }
       }
 
       const startTime = Date.now()
@@ -123,7 +133,7 @@ export const geminiProvider: SyncProvider = {
 
     // 垫图（带参考图）
     async function generateWithRef(params: GenerateParams): Promise<SyncResult> {
-      const { taskId, prompt, images, modelName, signal } = params
+      const { taskId, prompt, images, modelName, modelParams, signal } = params
 
       if (!apiKey) {
         return { success: false, error: 'Gemini API Key 未配置' }
@@ -150,9 +160,19 @@ export const geminiProvider: SyncProvider = {
       }
       parts.push({ text: prompt })
 
-      const body = {
+      const body: Record<string, unknown> = {
         contents: [{ parts }],
         generationConfig: { responseModalities: ['Text', 'Image'] },
+      }
+
+      if (modelParams?.size || modelParams?.aspectRatio) {
+        body.generationConfig = {
+          ...body.generationConfig as Record<string, unknown>,
+          imageConfig: {
+            ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
+            ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
+          },
+        }
       }
 
       const startTime = Date.now()

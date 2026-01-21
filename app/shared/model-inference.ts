@@ -169,6 +169,8 @@ export function getModelGroup(modelId: string): string {
 const IMAGE_MODEL_PATTERNS = [
   /dall-e/i,
   /gpt-image/i,
+  /gemini.*-image/i,
+  /banana/i,
   /flux/i,
   /stable-?diffusion/i,
   /midjourney/i,

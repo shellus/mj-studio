@@ -149,7 +149,7 @@ pnpm install && pnpm dev
 ## 技术栈
 
 - **框架**：Nuxt 4 + Vue 3
-- **UI**：Nuxt UI 3 (Tailwind CSS)
+- **UI**：Nuxt UI 4 (Tailwind CSS)
 - **数据库**：SQLite + Drizzle ORM
 - **认证**：JWT + localStorage
 

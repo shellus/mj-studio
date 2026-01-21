@@ -233,9 +233,9 @@ export interface ApiKeyConfig {
 export interface ImageModelParams {
   /** 负面提示词（MJ、Flux） */
   negativePrompt?: string
-  /** 尺寸：1024x1024 等（DALL-E、GPT-Image、豆包） */
+  /** 尺寸：1024x1024 或 1K/2K/4K（DALL-E、GPT-Image、豆包、Gemini） */
   size?: string
-  /** 宽高比：16:9 等（Flux） */
+  /** 宽高比：16:9 等（Flux、Gemini） */
   aspectRatio?: string
   /** 生成数量：1-10 */
   n?: number
