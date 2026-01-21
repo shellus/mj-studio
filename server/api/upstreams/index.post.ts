@@ -73,6 +73,7 @@ export default defineEventHandler(async (event) => {
       apiFormat: m.apiFormat,
       modelName: m.modelName,
       name: m.name,  // 显示名称
+      capabilities: m.capabilities,
       estimatedTime: m.estimatedTime,
       keyName: m.keyName ?? 'default',
     }))

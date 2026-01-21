@@ -269,6 +269,7 @@ async function handleExport() {
           apiFormat: m.apiFormat,
           modelName: m.modelName,
           name: m.name,
+          capabilities: m.capabilities,
           estimatedTime: m.estimatedTime,
           keyName: m.keyName,
         })),
