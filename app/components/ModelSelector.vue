@@ -10,6 +10,7 @@ type BaseAimodel = {
   id: number
   category: ModelCategory
   modelType: string
+  apiFormat?: string
   name: string
 }
 

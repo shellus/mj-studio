@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
       id: m.id,
       category: m.category,
       modelType: m.modelType,
+      apiFormat: m.apiFormat,
       name: m.name,
       capabilities: m.capabilities,
       estimatedTime: m.estimatedTime,

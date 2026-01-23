@@ -6,6 +6,7 @@ export interface AvailableAimodel {
   id: number
   category: ModelCategory
   modelType: string
+  apiFormat: string
   name: string
   capabilities: ModelCapability[] | null
   estimatedTime: number

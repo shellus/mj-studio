@@ -246,6 +246,7 @@ export const IMAGE_MODEL_REGISTRY: ModelTypeMeta[] = [
     icon: 'i-heroicons-scissors',
     cardDisplay: { label: '抠图', color: 'bg-pink-500/80' },
     defaults: { modelName: 'background-removal', estimatedTime: 10 },
+    capabilities: { referenceImage: true },
   },
 ]
 
