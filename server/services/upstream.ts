@@ -34,6 +34,32 @@ export function useUpstreamService() {
     return result
   }
 
+  // 获取用户的可用上游配置（仅启用的，包含 aimodels，用于模型选择器）
+  async function listAvailableByUser(userId: number): Promise<UpstreamWithModels[]> {
+    const upstreamList = await db.query.upstreams.findMany({
+      where: and(
+        eq(upstreams.userId, userId),
+        isNull(upstreams.deletedAt),
+        eq(upstreams.disabled, false),
+      ),
+      orderBy: [asc(upstreams.sortOrder), asc(upstreams.id)],
+    })
+
+    // 关联查询每个 upstream 的 aimodels（排除已软删除的，按 sortOrder 排序）
+    const result: UpstreamWithModels[] = []
+    for (const upstream of upstreamList) {
+      const models = await db.query.aimodels.findMany({
+        where: and(
+          eq(aimodels.upstreamId, upstream.id),
+          isNull(aimodels.deletedAt),
+        ),
+        orderBy: [asc(aimodels.sortOrder), asc(aimodels.id)],
+      })
+      result.push({ ...upstream, aimodels: models })
+    }
+    return result
+  }
+
   // 获取单个配置（包含 aimodels）
   async function getById(id: number): Promise<UpstreamWithModels | undefined> {
     const upstream = await db.query.upstreams.findFirst({
@@ -66,6 +92,7 @@ export function useUpstreamService() {
     apiKeys: ApiKeyConfig[]
     remark?: string
     sortOrder?: number
+    disabled?: boolean
     upstreamPlatform?: string
     userApiKey?: string
   }): Promise<Upstream> {
@@ -76,6 +103,7 @@ export function useUpstreamService() {
       apiKeys: data.apiKeys,
       remark: data.remark ?? null,
       sortOrder: data.sortOrder ?? 999,
+      disabled: data.disabled ?? false,
       upstreamPlatform: data.upstreamPlatform as any,
       userApiKey: data.userApiKey ?? null,
     }).returning()
@@ -93,6 +121,7 @@ export function useUpstreamService() {
     apiKeys: ApiKeyConfig[]
     remark: string | null
     sortOrder: number
+    disabled: boolean
     upstreamPlatform: string | null
     userApiKey: string | null
   }>): Promise<Upstream | undefined> {
@@ -174,6 +203,7 @@ export function useUpstreamService() {
 
   return {
     listByUser,
+    listAvailableByUser,
     getById,
     getByIdSimple,
     create,

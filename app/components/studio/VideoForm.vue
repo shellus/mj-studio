@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream } from '~/composables/useAvailableUpstreams'
 import type { VideoModelType, ApiFormat, ModelParams } from '../../shared/types'
 import { getApiFormatLabel } from '../../shared/registry'
 import {
@@ -8,7 +9,7 @@ import {
 } from '../../shared/constants'
 
 const props = defineProps<{
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
 }>()
 
 const emit = defineEmits<{

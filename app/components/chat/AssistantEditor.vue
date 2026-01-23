@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { Assistant } from '~/composables/useAssistants'
 import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream } from '~/composables/useAvailableUpstreams'
 import type { FormSubmitEvent, FormError } from '@nuxt/ui'
 
 const props = defineProps<{
   assistant: Assistant | null
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
   open: boolean
 }>()
 

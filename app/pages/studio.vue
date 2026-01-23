@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 const { loadTasks } = useTasks()
-const { upstreams } = useUpstreams()
+const { upstreams } = useAvailableUpstreams()
 const toast = useToast()
 
 // StudioWorkbench 组件引用

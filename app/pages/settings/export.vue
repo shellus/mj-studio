@@ -3,7 +3,7 @@ import type { Conversation, Message } from '~/composables/useConversations'
 import type { MessageMark } from '~/shared/types'
 
 const { assistants, isLoading: isLoadingAssistants, createAssistant } = useAssistants()
-const { upstreams, createUpstream } = useUpstreams()
+const { upstreams, isLoading: isLoadingUpstreams, loadUpstreams, createUpstream } = useUpstreams()
 const toast = useToast()
 
 // 加载状态
@@ -25,7 +25,11 @@ const isLoadingConversations = ref(false)
 
 // 加载数据
 onMounted(async () => {
-  // 数据已由插件加载，等待加载完成即可
+  // 加载上游数据
+  if (upstreams.value.length === 0) {
+    loadUpstreams()
+  }
+  // 等待助手数据加载完成
   while (isLoadingAssistants.value) {
     await new Promise(resolve => setTimeout(resolve, 50))
   }

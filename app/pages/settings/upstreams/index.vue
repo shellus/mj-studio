@@ -1,14 +1,46 @@
 <script setup lang="ts">
 import type { Aimodel } from '../../../composables/useUpstreams'
 
-const { upstreams, isLoading, moveToTop, queryBalance } = useUpstreams()
+const { upstreams, isLoading, loadUpstreams, moveToTop, updateUpstream, queryBalance } = useUpstreams()
+const { loadUpstreams: loadAvailableUpstreams } = useAvailableUpstreams()
 const toast = useToast()
 const router = useRouter()
+
+// 进入页面时加载数据
+onMounted(() => {
+  if (upstreams.value.length === 0) {
+    loadUpstreams()
+  }
+})
 
 // 余额查询中的配置 ID
 const queryingBalanceIds = ref<Set<number>>(new Set())
 // 移动到顶部中的配置 ID
 const movingToTopIds = ref<Set<number>>(new Set())
+// 切换禁用状态中的配置 ID
+const togglingDisabledIds = ref<Set<number>>(new Set())
+
+// 切换禁用状态
+async function handleToggleDisabled(id: number, currentDisabled: boolean) {
+  togglingDisabledIds.value.add(id)
+  try {
+    await updateUpstream(id, { disabled: !currentDisabled })
+    // 同步刷新可用上游数据（用于模型选择器）
+    await loadAvailableUpstreams()
+    toast.add({
+      title: currentDisabled ? '上游已启用' : '上游已禁用',
+      color: 'success'
+    })
+  } catch (error: any) {
+    toast.add({
+      title: '操作失败',
+      description: error.data?.message || error.message,
+      color: 'error',
+    })
+  } finally {
+    togglingDisabledIds.value.delete(id)
+  }
+}
 
 // 移动到顶部
 async function handleMoveToTop(id: number) {
@@ -104,13 +136,34 @@ const platformLabels: Record<string, string> = {
       <div
         v-for="upstream in upstreams"
         :key="upstream.id"
-        class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
+        class="bg-(--ui-bg-elevated) rounded-lg p-6 border transition-colors cursor-pointer flex flex-col"
+        :class="upstream.disabled
+          ? 'border-(--ui-border) opacity-60'
+          : 'border-(--ui-border) hover:border-(--ui-border-accented)'"
         @click="router.push(`/settings/upstreams/${upstream.id}`)"
       >
         <!-- 标题行 -->
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-(--ui-text) font-medium truncate min-w-0">{{ upstream.name }}</h3>
+          <div class="flex items-center gap-2 min-w-0">
+            <h3 class="text-(--ui-text) font-medium truncate">{{ upstream.name }}</h3>
+            <span
+              v-if="upstream.disabled"
+              class="text-xs px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 shrink-0"
+            >
+              已禁用
+            </span>
+          </div>
           <div class="flex gap-1 shrink-0" @click.stop>
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              :title="upstream.disabled ? '启用' : '禁用'"
+              :loading="togglingDisabledIds.has(upstream.id)"
+              @click="handleToggleDisabled(upstream.id, upstream.disabled)"
+            >
+              <UIcon :name="upstream.disabled ? 'i-heroicons-play' : 'i-heroicons-pause'" class="w-4 h-4" />
+            </UButton>
             <UButton
               size="xs"
               variant="ghost"

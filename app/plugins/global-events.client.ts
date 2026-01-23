@@ -67,7 +67,7 @@ export default defineNuxtPlugin(() => {
     unsubscribeFromMessageStream,
     endStreamingState,
   } = useConversations()
-  const { upstreams } = useUpstreams()
+  const { upstreams } = useAvailableUpstreams()
 
   on<ChatMessageCreated>('chat.message.created', (data) => {
     const { conversationId, assistantId, lastActiveAt, message } = data

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { MESSAGE_MARK } from '~/shared/constants'
-import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream } from '~/composables/useAvailableUpstreams'
 import type { Message, UploadingFile } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
 
 const props = defineProps<{
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
   currentAimodelId: number | null
   disabled: boolean
   isStreaming?: boolean

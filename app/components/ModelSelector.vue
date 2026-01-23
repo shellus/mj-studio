@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { onClickOutside } from '@vueuse/core'
-import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream, AvailableAimodel } from '~/composables/useAvailableUpstreams'
 import type { ModelCategory } from '~/shared/types'
 import { MODEL_TYPE_ICONS } from '~/shared/constants'
 
+// 基础模型类型（Aimodel 和 AvailableAimodel 的共同字段）
+type BaseAimodel = {
+  id: number
+  category: ModelCategory
+  modelType: string
+  name: string
+}
+
 const props = defineProps<{
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
   category: ModelCategory
   aimodelId?: number | null
   // 只读模式（用于查看，不可选择）
@@ -89,15 +98,14 @@ function isImageModelType(modelType: string): boolean {
 }
 
 // 过滤出当前分类的模型
-function filterModelsByCategory(aimodels: Aimodel[]): Aimodel[] {
+function filterModelsByCategory(aimodels: BaseAimodel[]): BaseAimodel[] {
   return aimodels.filter(m => {
     if (props.category === 'image') {
       return m.category === 'image' || (!m.category && isImageModelType(m.modelType))
     } else if (props.category === 'video') {
       return m.category === 'video'
     } else {
-      return m.category === 'chat' ||
-        (!m.category && m.apiFormat === 'openai-chat' && !isImageModelType(m.modelType))
+      return m.category === 'chat'
     }
   })
 }
@@ -107,7 +115,7 @@ const groupedModels = computed(() => {
   const groups: Array<{
     upstreamId: number
     upstreamName: string
-    aimodels: Aimodel[]
+    aimodels: BaseAimodel[]
   }> = []
 
   for (const upstream of props.upstreams) {
@@ -133,7 +141,7 @@ const selectedUpstream = computed(() => {
 })
 
 // 当前选中的 AI 模型
-const selectedAimodel = computed((): Aimodel | undefined => {
+const selectedAimodel = computed((): BaseAimodel | undefined => {
   if (!selectedUpstream.value || !selectedAimodelId.value) return undefined
   return selectedUpstream.value.aimodels?.find(
     m => m.id === selectedAimodelId.value
@@ -162,7 +170,7 @@ function getModelIcon(modelType: string): string {
 }
 
 // 获取模型显示文本
-function getModelDisplayText(aimodel: Aimodel): string {
+function getModelDisplayText(aimodel: BaseAimodel): string {
   return aimodel.name
 }
 

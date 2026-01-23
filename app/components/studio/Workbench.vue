@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream } from '~/composables/useAvailableUpstreams'
 import type { ImageModelType, VideoModelType, ApiFormat, ImageModelParams, ModelParams } from '../../shared/types'
 
 const props = defineProps<{
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
 }>()
 
 const emit = defineEmits<{

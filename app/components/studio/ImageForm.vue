@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { Upstream } from '~/composables/useUpstreams'
+import type { AvailableUpstream } from '~/composables/useAvailableUpstreams'
 import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
 import { getModelCapabilities, getApiFormatLabel } from '../../shared/registry'
 import {
@@ -9,7 +10,7 @@ import {
 } from '../../shared/constants'
 
 const props = defineProps<{
-  upstreams: Upstream[]
+  upstreams: (Upstream | AvailableUpstream)[]
 }>()
 
 const emit = defineEmits<{
@@ -266,8 +267,9 @@ watch([currentSizeOptions, selectedAimodel], () => {
   if (!selectedAimodel.value || !supportsSize.value) return
   const options = currentSizeOptions.value
   if (!options.length) return
-  if (!options.some(option => option.value === size.value)) {
-    size.value = options[0].value
+  const firstOption = options[0]
+  if (firstOption && !options.some(option => option.value === size.value)) {
+    size.value = firstOption.value
   }
 }, { immediate: true })
 

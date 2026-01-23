@@ -116,7 +116,7 @@ const {
 const currentInputState = computed(() => getInputState(currentConversationId.value))
 
 // 上游配置
-const { upstreams } = useUpstreams()
+const { upstreams } = useAvailableUpstreams()
 
 // 当前助手的预计首字时长（秒）
 const currentEstimatedTime = computed(() => {

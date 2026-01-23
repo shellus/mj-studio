@@ -28,6 +28,7 @@ export interface Upstream {
   apiKeys: ApiKeyConfig[]
   remark: string | null
   sortOrder: number
+  disabled: boolean
   upstreamPlatform?: UpstreamPlatform | null
   userApiKey?: string | null
   upstreamInfo?: UpstreamInfo | null
@@ -60,6 +61,7 @@ export function useUpstreams() {
     aimodels: AimodelInput[]
     remark?: string
     sortOrder?: number
+    disabled?: boolean
     upstreamPlatform?: UpstreamPlatform
     userApiKey?: string
   }) {
@@ -81,6 +83,7 @@ export function useUpstreams() {
     aimodels: AimodelInput[]
     remark: string | null
     sortOrder: number
+    disabled: boolean
     upstreamPlatform: UpstreamPlatform | null
     userApiKey: string | null
   }>) {

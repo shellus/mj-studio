@@ -3,7 +3,7 @@ import { USER_SETTING_KEYS } from '../../shared/constants'
 import type { ImageModelType } from '../../shared/types'
 
 const { settings, isLoading, isLoaded, loadSettings, updateSettings } = useUserSettings()
-const { upstreams } = useUpstreams()
+const { upstreams } = useAvailableUpstreams()
 const toast = useToast()
 
 // 表单状态

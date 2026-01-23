@@ -45,6 +45,7 @@ export const upstreams = sqliteTable('upstreams', {
   apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>().notNull(), // 多Key配置
   remark: text('remark'), // 备注说明
   sortOrder: integer('sort_order').notNull().default(999), // 排序顺序，0 表示置顶
+  disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false), // 是否禁用
   upstreamPlatform: text('upstream_platform').$type<UpstreamPlatform>(), // 上游平台类型（用于余额查询）
   userApiKey: text('user_api_key'), // 用户在该平台的 Key（用于余额查询等）
   upstreamInfo: text('upstream_info', { mode: 'json' }).$type<UpstreamInfo>(), // 上游信息缓存（余额、用户信息等）

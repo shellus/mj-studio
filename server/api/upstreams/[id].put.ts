@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, upstreamPlatform, userApiKey } = body
+  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, disabled, upstreamPlatform, userApiKey } = body
 
   // 构建更新数据
   const updateData: Record<string, any> = {}
@@ -62,6 +62,10 @@ export default defineEventHandler(async (event) => {
 
   if (userApiKey !== undefined) {
     updateData.userApiKey = userApiKey
+  }
+
+  if (disabled !== undefined) {
+    updateData.disabled = disabled
   }
 
   const upstreamService = useUpstreamService()

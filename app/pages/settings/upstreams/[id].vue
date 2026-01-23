@@ -14,7 +14,7 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { upstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
+const { upstreams, loadUpstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
@@ -30,6 +30,7 @@ const form = reactive({
   remark: '',
   upstreamPlatform: undefined as UpstreamPlatform | undefined,
   userApiKey: '',
+  disabled: false,
 })
 
 // 多 Key 配置
@@ -193,6 +194,7 @@ async function loadUpstreamData() {
         remark: upstream.remark || '',
         upstreamPlatform: upstream.upstreamPlatform || undefined,
         userApiKey: upstream.userApiKey || '',
+        disabled: upstream.disabled || false,
       })
       apiKeys.value = upstream.apiKeys
       // 统一加载所有模型
@@ -219,7 +221,11 @@ async function loadUpstreamData() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 确保上游数据已加载
+  if (upstreams.value.length === 0) {
+    await loadUpstreams()
+  }
   loadUpstreamData()
 })
 
@@ -338,6 +344,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         remark: form.remark,
         upstreamPlatform: form.upstreamPlatform,
         userApiKey: form.userApiKey || undefined,
+        disabled: form.disabled,
       })
       toast.add({ title: '配置已创建', color: 'success' })
     } else {
@@ -349,6 +356,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         remark: form.remark || null,
         upstreamPlatform: form.upstreamPlatform || null,
         userApiKey: form.userApiKey || null,
+        disabled: form.disabled,
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
@@ -498,6 +506,14 @@ async function confirmDelete() {
               class="w-full"
             />
           </UFormField>
+
+          <label class="flex items-center justify-between cursor-pointer">
+            <div>
+              <span class="text-(--ui-text)">禁用此上游</span>
+              <p class="text-xs text-(--ui-text-muted) mt-1">禁用后不会出现在模型选择器中，也无法用于对话/绘图/视频任务</p>
+            </div>
+            <UCheckbox v-model="form.disabled" />
+          </label>
         </div>
 
         <!-- 模型配置卡片 -->
@@ -635,7 +651,7 @@ async function confirmDelete() {
                     'bg-orange-500/10 text-orange-500': model.category === 'video',
                   }"
                 >
-                  {{ CATEGORY_LABELS[model.category] }}
+                  {{ CATEGORY_LABELS[model.category as ModelCategory] }}
                 </span>
 
                 <!-- 显示名称 -->
@@ -648,9 +664,9 @@ async function confirmDelete() {
                   <UIcon
                     v-for="cap in (model.capabilities || [])"
                     :key="cap"
-                    :name="capabilityConfig[cap].icon"
+                    :name="capabilityConfig[cap as ModelCapability]?.icon"
                     class="w-4 h-4"
-                    :class="capabilityConfig[cap].color"
+                    :class="capabilityConfig[cap as ModelCapability]?.color"
                   />
                 </div>
 
