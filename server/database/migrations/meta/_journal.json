@@ -120,6 +120,13 @@
       "when": 1768299885205,
       "tag": "0016_add-capabilities-to-aimodels",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1769150840914,
+      "tag": "0017_add-aimodels-sort-order",
+      "breakpoints": true
     }
   ]
 }

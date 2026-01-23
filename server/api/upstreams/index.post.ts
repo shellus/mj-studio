@@ -76,6 +76,7 @@ export default defineEventHandler(async (event) => {
       capabilities: m.capabilities,
       estimatedTime: m.estimatedTime,
       keyName: m.keyName ?? 'default',
+      sortOrder: m.sortOrder,  // 排序顺序
     }))
   )
 

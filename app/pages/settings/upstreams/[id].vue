@@ -5,6 +5,7 @@ import type { AimodelInput } from '../../../composables/useUpstreams'
 import { CATEGORY_LABELS } from '../../../shared/constants'
 import { getModelLogo } from '../../../shared/model-logo'
 import { getModelGroup } from '../../../shared/model-inference'
+import draggable from 'vuedraggable'
 
 definePageMeta({
   middleware: 'auth',
@@ -46,6 +47,76 @@ const showEditModal = ref(false)
 const showImportModal = ref(false)
 const editingModel = ref<AimodelInput | null>(null)
 const editingIndex = ref<number | null>(null)
+
+// 批量管理状态
+const isBatchMode = ref(false)
+const selectedModels = ref<Set<string>>(new Set())
+
+// 获取模型唯一标识
+function getModelKey(model: AimodelInput): string {
+  return model.id ? `id-${model.id}` : `name-${model.modelName}`
+}
+
+// 切换批量管理模式
+function toggleBatchMode() {
+  isBatchMode.value = !isBatchMode.value
+  if (!isBatchMode.value) {
+    selectedModels.value.clear()
+  }
+}
+
+// 切换单个模型选中状态
+function toggleModelSelection(model: AimodelInput) {
+  const key = getModelKey(model)
+  if (selectedModels.value.has(key)) {
+    selectedModels.value.delete(key)
+  } else {
+    selectedModels.value.add(key)
+  }
+}
+
+// 全选/取消全选（仅筛选后的模型）
+function toggleSelectAll() {
+  const filteredKeys = filteredModels.value.map(m => getModelKey(m))
+  const allSelected = filteredKeys.every(key => selectedModels.value.has(key))
+
+  if (allSelected) {
+    // 取消选中筛选后的模型
+    filteredKeys.forEach(key => selectedModels.value.delete(key))
+  } else {
+    // 选中所有筛选后的模型
+    filteredKeys.forEach(key => selectedModels.value.add(key))
+  }
+}
+
+// 是否全选状态
+const isAllSelected = computed(() => {
+  if (filteredModels.value.length === 0) return false
+  return filteredModels.value.every(m => selectedModels.value.has(getModelKey(m)))
+})
+
+// 删除选中的模型
+const showDeleteConfirmBatch = ref(false)
+function deleteSelectedModels() {
+  showDeleteConfirmBatch.value = true
+}
+function confirmDeleteSelected() {
+  const keysToDelete = new Set(selectedModels.value)
+  aimodels.value = aimodels.value.filter(m => !keysToDelete.has(getModelKey(m)))
+  selectedModels.value.clear()
+  updateSortOrder()
+  showDeleteConfirmBatch.value = false
+}
+
+// 筛选变化时清除不可见模型的选择状态
+watch([categoryFilter, groupFilter], () => {
+  const currentKeys = new Set(filteredModels.value.map(m => getModelKey(m)))
+  for (const key of selectedModels.value) {
+    if (!currentKeys.has(key)) {
+      selectedModels.value.delete(key)
+    }
+  }
+})
 
 // 能力配置（图标 + 颜色）
 const capabilityConfig: Record<ModelCapability, { icon: string; color: string }> = {
@@ -92,19 +163,6 @@ const filteredModels = computed(() => {
   return models
 })
 
-// 按 group 分组的模型列表
-const groupedModels = computed(() => {
-  const groups: Record<string, AimodelInput[]> = {}
-  for (const model of filteredModels.value) {
-    const group = getModelGroup(model.modelName || model.name || '')
-    if (!groups[group]) {
-      groups[group] = []
-    }
-    groups[group]!.push(model)
-  }
-  return groups
-})
-
 // 表单验证
 function validate(state: typeof form): FormError[] {
   const errors: FormError[] = []
@@ -149,6 +207,7 @@ async function loadUpstreamData() {
           capabilities: m.capabilities || [],
           estimatedTime: m.estimatedTime,
           keyName: m.keyName,
+          sortOrder: m.sortOrder,
         }))
       }
     } else {
@@ -211,6 +270,7 @@ function onImportModels(models: AimodelInput[]) {
   }
 
   aimodels.value.push(...newModels)
+  updateSortOrder()
 
   const skipped = models.length - newModels.length
   if (skipped > 0) {
@@ -218,6 +278,13 @@ function onImportModels(models: AimodelInput[]) {
   } else {
     toast.add({ title: `已导入 ${newModels.length} 个模型`, color: 'success' })
   }
+}
+
+// 拖拽结束后更新 sortOrder
+function updateSortOrder() {
+  aimodels.value.forEach((model, index) => {
+    model.sortOrder = index
+  })
 }
 
 // ==================== Key 管理 ====================
@@ -436,7 +503,29 @@ async function confirmDelete() {
         <!-- 模型配置卡片 -->
         <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-medium text-(--ui-text)">模型配置</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-medium text-(--ui-text)">模型配置</h2>
+              <UButton
+                v-if="!isBatchMode"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-heroicons-squares-2x2"
+                @click="toggleBatchMode"
+              >
+                批量管理
+              </UButton>
+              <UButton
+                v-else
+                size="xs"
+                variant="soft"
+                color="primary"
+                icon="i-heroicons-x-mark"
+                @click="toggleBatchMode"
+              >
+                取消批量
+              </UButton>
+            </div>
             <div class="flex items-center gap-2">
               <USelectMenu
                 v-model="groupFilter"
@@ -464,85 +553,124 @@ async function confirmDelete() {
             </div>
           </div>
 
+          <!-- 批量操作栏 -->
+          <div v-if="isBatchMode" class="flex items-center gap-3 mb-3 p-2 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)">
+            <UCheckbox
+              :model-value="isAllSelected"
+              @update:model-value="toggleSelectAll"
+            />
+            <span class="text-sm text-(--ui-text-muted)">
+              已选 {{ selectedModels.size }} / {{ filteredModels.length }} 项
+            </span>
+            <UButton
+              v-if="selectedModels.size > 0"
+              size="xs"
+              color="error"
+              variant="soft"
+              icon="i-heroicons-trash"
+              @click="deleteSelectedModels"
+            >
+              删除选中
+            </UButton>
+          </div>
+
           <!-- 模型列表 -->
-          <div v-if="filteredModels.length === 0" class="text-center py-12 text-(--ui-text-muted)">
+          <div v-if="aimodels.length === 0" class="text-center py-12 text-(--ui-text-muted)">
             <UIcon name="i-heroicons-cube" class="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>暂无模型配置</p>
             <p class="text-sm mt-1">点击"添加模型"或"从上游导入"开始配置</p>
           </div>
 
-          <div v-else class="max-h-96 overflow-y-auto space-y-4">
-            <div v-for="(models, group) in groupedModels" :key="group">
-              <div class="text-xs font-medium text-(--ui-text-muted) mb-2 sticky top-0 bg-(--ui-bg-elevated) py-1">
-                {{ group }}
-              </div>
-              <div class="space-y-1">
+          <draggable
+            v-else
+            v-model="aimodels"
+            :item-key="(item: AimodelInput) => item.id || item.modelName"
+            handle=".drag-handle"
+            ghost-class="opacity-50"
+            class="space-y-1"
+            @end="updateSortOrder"
+          >
+            <template #item="{ element: model }">
+              <div
+                v-show="(categoryFilter === 'all' || model.category === categoryFilter) && (groupFilter === 'all' || getModelGroup(model.modelName || model.name || '') === groupFilter)"
+                class="flex items-center gap-3 p-2 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) hover:border-(--ui-primary)/50 transition-colors"
+              >
+                <!-- 批量选择复选框 -->
+                <UCheckbox
+                  v-if="isBatchMode"
+                  :model-value="selectedModels.has(getModelKey(model))"
+                  @update:model-value="toggleModelSelection(model)"
+                  @click.stop
+                />
+
+                <!-- 拖拽手柄 -->
+                <UIcon
+                  v-if="!isBatchMode"
+                  name="i-heroicons-bars-3"
+                  class="drag-handle w-4 h-4 text-(--ui-text-dimmed) cursor-grab active:cursor-grabbing shrink-0"
+                />
+
+                <!-- 模型图标 -->
+                <img
+                  v-if="getModelLogo(model)"
+                  :src="getModelLogo(model)"
+                  class="w-5 h-5 rounded shrink-0 object-contain cursor-pointer"
+                  :alt="model.name"
+                  @click="openEditModal(model)"
+                />
                 <div
-                  v-for="model in models"
-                  :key="model.id || model.modelName"
-                  class="flex items-center gap-3 p-2 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) hover:border-(--ui-primary)/50 cursor-pointer transition-colors"
+                  v-else
+                  class="w-5 h-5 rounded shrink-0 bg-(--ui-bg-accented) flex items-center justify-center text-xs font-medium text-(--ui-text-muted) cursor-pointer"
                   @click="openEditModal(model)"
                 >
-                  <!-- 模型图标 -->
-                  <img
-                    v-if="getModelLogo(model)"
-                    :src="getModelLogo(model)"
-                    class="w-5 h-5 rounded shrink-0 object-contain"
-                    :alt="model.name"
-                  />
-                  <div
-                    v-else
-                    class="w-5 h-5 rounded shrink-0 bg-(--ui-bg-accented) flex items-center justify-center text-xs font-medium text-(--ui-text-muted)"
-                  >
-                    {{ (model.name || model.modelName || '?')[0]?.toUpperCase() }}
-                  </div>
+                  {{ (model.name || model.modelName || '?')[0]?.toUpperCase() }}
+                </div>
 
-                  <!-- 分类标签 -->
-                  <span
-                    class="text-xs px-1.5 py-0.5 rounded shrink-0"
-                    :class="{
-                      'bg-blue-500/10 text-blue-500': model.category === 'chat',
-                      'bg-purple-500/10 text-purple-500': model.category === 'image',
-                      'bg-orange-500/10 text-orange-500': model.category === 'video',
-                    }"
-                  >
-                    {{ CATEGORY_LABELS[model.category] }}
-                  </span>
+                <!-- 分类标签 -->
+                <span
+                  class="text-xs px-1.5 py-0.5 rounded shrink-0"
+                  :class="{
+                    'bg-blue-500/10 text-blue-500': model.category === 'chat',
+                    'bg-purple-500/10 text-purple-500': model.category === 'image',
+                    'bg-orange-500/10 text-orange-500': model.category === 'video',
+                  }"
+                >
+                  {{ CATEGORY_LABELS[model.category] }}
+                </span>
 
-                  <!-- 显示名称 -->
-                  <span class="text-sm text-(--ui-text) truncate flex-1">
-                    {{ model.name || model.modelName || '未命名' }}
-                  </span>
+                <!-- 显示名称 -->
+                <span class="text-sm text-(--ui-text) truncate flex-1 cursor-pointer" @click="openEditModal(model)">
+                  {{ model.name || model.modelName || '未命名' }}
+                </span>
 
-                  <!-- 能力图标 -->
-                  <div class="flex gap-1.5 shrink-0">
-                    <UIcon
-                      v-for="cap in (model.capabilities || [])"
-                      :key="cap"
-                      :name="capabilityConfig[cap].icon"
-                      class="w-4 h-4"
-                      :class="capabilityConfig[cap].color"
-                    />
-                  </div>
-
-                  <!-- ID 标签 -->
-                  <span v-if="model.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded shrink-0">
-                    ID:{{ model.id }}
-                  </span>
-
-                  <!-- 删除按钮 -->
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="error"
-                    icon="i-heroicons-trash"
-                    type="button"
-                    @click.stop="removeModel(model)"
+                <!-- 能力图标 -->
+                <div class="flex gap-1.5 shrink-0">
+                  <UIcon
+                    v-for="cap in (model.capabilities || [])"
+                    :key="cap"
+                    :name="capabilityConfig[cap].icon"
+                    class="w-4 h-4"
+                    :class="capabilityConfig[cap].color"
                   />
                 </div>
+
+                <!-- ID 标签 -->
+                <span v-if="model.id" class="text-xs text-(--ui-text-dimmed) font-mono bg-(--ui-bg-accented) px-1.5 py-0.5 rounded shrink-0">
+                  ID:{{ model.id }}
+                </span>
+
+                <!-- 删除按钮 -->
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  icon="i-heroicons-trash"
+                  type="button"
+                  @click.stop="removeModel(model)"
+                />
               </div>
-            </div>
-          </div>
+            </template>
+          </draggable>
         </div>
 
         <!-- 删除按钮（仅编辑模式） -->
@@ -564,6 +692,16 @@ async function confirmDelete() {
         <div class="flex justify-end gap-3">
           <UButton color="error" @click="confirmDelete">删除</UButton>
           <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 批量删除确认弹窗 -->
+    <UModal v-model:open="showDeleteConfirmBatch" title="确认批量删除" :description="`确定要删除选中的 ${selectedModels.size} 个模型吗？保存后生效。`" :close="false">
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="error" @click="confirmDeleteSelected">删除</UButton>
+          <UButton variant="outline" color="neutral" @click="showDeleteConfirmBatch = false">取消</UButton>
         </div>
       </template>
     </UModal>

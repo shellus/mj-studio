@@ -36,6 +36,7 @@
     "nuxt": "^4.2.2",
     "shiki": "^3.20.0",
     "tailwindcss": "^4.1.18",
+    "vuedraggable": "^4.1.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {

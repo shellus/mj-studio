@@ -19,7 +19,7 @@ export function useUpstreamService() {
       orderBy: [asc(upstreams.sortOrder), asc(upstreams.id)],
     })
 
-    // 关联查询每个 upstream 的 aimodels（排除已软删除的）
+    // 关联查询每个 upstream 的 aimodels（排除已软删除的，按 sortOrder 排序）
     const result: UpstreamWithModels[] = []
     for (const upstream of upstreamList) {
       const models = await db.query.aimodels.findMany({
@@ -27,6 +27,7 @@ export function useUpstreamService() {
           eq(aimodels.upstreamId, upstream.id),
           isNull(aimodels.deletedAt),
         ),
+        orderBy: [asc(aimodels.sortOrder), asc(aimodels.id)],
       })
       result.push({ ...upstream, aimodels: models })
     }
@@ -45,6 +46,7 @@ export function useUpstreamService() {
         eq(aimodels.upstreamId, id),
         isNull(aimodels.deletedAt),
       ),
+      orderBy: [asc(aimodels.sortOrder), asc(aimodels.id)],
     })
     return { ...upstream, aimodels: models }
   }

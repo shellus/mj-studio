@@ -67,6 +67,7 @@ export const aimodels = sqliteTable('aimodels', {
   capabilities: text('capabilities', { mode: 'json' }).$type<ModelCapability[]>(), // 模型能力列表
   estimatedTime: integer('estimated_time').notNull().default(60), // 预计时间（秒）
   keyName: text('key_name').notNull().default('default'), // 使用的 Key 名称
+  sortOrder: integer('sort_order').notNull().default(999), // 排序顺序，与 upstreams 表保持一致
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   deletedAt: integer('deleted_at', { mode: 'timestamp' }), // 软删除：null=正常，有值=已删除
 })

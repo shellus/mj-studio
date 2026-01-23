@@ -15,6 +15,7 @@ export interface Aimodel {
   capabilities: ModelCapability[] | null
   estimatedTime: number
   keyName: string
+  sortOrder: number  // 排序顺序
   createdAt: string
 }
 

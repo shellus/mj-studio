@@ -384,6 +384,8 @@ export interface AimodelInput {
   capabilities?: ModelCapability[]
   estimatedTime?: number
   keyName?: string
+  /** 排序顺序 */
+  sortOrder?: number
 }
 
 // ==================== 分页响应类型 ====================

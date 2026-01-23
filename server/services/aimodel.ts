@@ -138,6 +138,7 @@ export function useAimodelService() {
     estimatedTime?: number
     keyName: string  // Key 名称
     capabilities?: ModelCapability[]  // 模型能力
+    sortOrder?: number  // 排序顺序
   }>): Promise<Aimodel[]> {
     if (data.length === 0) return []
 
@@ -151,6 +152,7 @@ export function useAimodelService() {
       estimatedTime: d.estimatedTime ?? 60,
       keyName: d.keyName,
       capabilities: d.capabilities ?? null,  // 模型能力
+      sortOrder: d.sortOrder ?? 999,  // 排序顺序
     }))
 
     return db.insert(aimodels).values(values).returning()
@@ -225,6 +227,7 @@ export function useAimodelService() {
     estimatedTime?: number
     keyName: string  // Key 名称
     capabilities?: ModelCapability[]  // 模型能力
+    sortOrder?: number  // 排序顺序
   }>): Promise<Aimodel[]> {
     // 获取现有的所有模型（包括已软删除的）
     const existing = await db.query.aimodels.findMany({
@@ -246,6 +249,7 @@ export function useAimodelService() {
           estimatedTime: model.estimatedTime ?? 60,
           keyName: model.keyName,
           capabilities: model.capabilities ?? null,  // 模型能力
+          sortOrder: model.sortOrder ?? 999,  // 排序顺序
           deletedAt: null,  // 如果之前被软删除，恢复它
         })
         .where(eq(aimodels.id, model.id!))
