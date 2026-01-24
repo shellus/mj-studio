@@ -4,6 +4,7 @@
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import type { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import type { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { McpServer } from '../../database/schema'
 
@@ -11,7 +12,7 @@ import type { McpServer } from '../../database/schema'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 /** MCP 传输层类型 */
-export type McpTransport = SSEClientTransport | StreamableHTTPClientTransport
+export type McpTransport = SSEClientTransport | StreamableHTTPClientTransport | StdioClientTransport
 
 /** MCP 工具原始定义（来自 SDK） */
 export interface McpToolRaw {

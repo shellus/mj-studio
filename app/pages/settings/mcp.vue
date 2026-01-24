@@ -111,8 +111,12 @@ function openEditModal(server: McpServerDisplay) {
 async function handleSave(data: {
   name: string
   description?: string
+  type?: 'sse' | 'streamableHttp' | 'stdio'
   baseUrl?: string
   headers?: Record<string, string>
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
   timeout: number
   logoUrl?: string
 }) {
@@ -127,6 +131,38 @@ async function handleSave(data: {
   } catch (error) {
     const message = error instanceof Error ? error.message : '操作失败'
     toast.add({ title: '操作失败', description: message, color: 'error' })
+  }
+}
+
+async function handleSaveBatch(dataList: Array<{
+  name: string
+  description?: string
+  type?: 'sse' | 'streamableHttp' | 'stdio'
+  baseUrl?: string
+  headers?: Record<string, string>
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  timeout: number
+  logoUrl?: string
+}>) {
+  let successCount = 0
+  let failCount = 0
+
+  for (const data of dataList) {
+    try {
+      await createServer(data)
+      successCount++
+    } catch {
+      failCount++
+    }
+  }
+
+  if (successCount > 0) {
+    toast.add({ title: `成功添加 ${successCount} 个服务`, color: 'success' })
+  }
+  if (failCount > 0) {
+    toast.add({ title: `${failCount} 个服务添加失败`, color: 'error' })
   }
 }
 
@@ -221,6 +257,7 @@ onMounted(() => {
         v-model:open="showEditModal"
         v-model:server="editingServer"
         @save="handleSave"
+        @save-batch="handleSaveBatch"
       />
     </div>
 

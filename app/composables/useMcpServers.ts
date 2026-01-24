@@ -14,6 +14,9 @@ interface McpServerResponse {
   disabledTools: string[]
   autoApproveTools: string[]
   logoUrl: string | null
+  command: string | null
+  args: string[] | null
+  env: Record<string, string> | null
 }
 
 export function useMcpServers() {

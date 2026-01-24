@@ -56,10 +56,16 @@ MCP 客户端功能让 AI 助手能够调用外部 MCP 服务提供的工具，�
 
 ### 传输类型
 
-| 类型 | URL 特征 | 说明 |
+| 类型 | 配置方式 | 说明 |
 |-----|---------|------|
-| `streamableHttp` | 以 `/mcp` 结尾 | MCP 官方推荐的 HTTP 传输 |
+| `streamableHttp` | URL 以 `/mcp` 结尾 | MCP 官方推荐的 HTTP 传输 |
 | `sse` | 其他 HTTP URL | 传统 SSE 传输 |
+| `stdio` | 配置 `command` | 本地进程传输，通过 stdin/stdout 通信 |
+
+**stdio 传输配置**：
+- `command`: 可执行命令（如 `npx`、`node`、`python`）
+- `args`: 命令行参数数组
+- `env`: 环境变量（会与 `process.env` 合并，自定义变量优先）
 
 ---
 
@@ -74,11 +80,14 @@ MCP 客户端功能让 AI 助手能够调用外部 MCP 服务提供的工具，�
 | `id` | INTEGER | 主键 |
 | `user_id` | INTEGER | 所属用户 |
 | `name` | TEXT | 服务名称 |
-| `type` | TEXT | 传输类型：`sse` / `streamableHttp` |
+| `type` | TEXT | 传输类型：`sse` / `streamableHttp` / `stdio` |
 | `is_active` | INTEGER | 是否启用 |
 | `base_url` | TEXT | 服务地址 |
 | `headers` | TEXT (JSON) | 自定义请求头 |
 | `timeout` | INTEGER | 工具调用超时（秒） |
+| `command` | TEXT | stdio 命令（stdio 类型必填） |
+| `args` | TEXT (JSON) | 命令行参数数组 |
+| `env` | TEXT (JSON) | 环境变量 |
 | `disabled_tools` | TEXT (JSON) | 禁用的工具列表 |
 | `auto_approve_tools` | TEXT (JSON) | 自动批准的工具列表 |
 

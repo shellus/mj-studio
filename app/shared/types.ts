@@ -549,6 +549,10 @@ export interface McpServerDisplay {
   disabledTools: string[]
   autoApproveTools: string[]
   logoUrl: string | null
+  // stdio 类型字段
+  command: string | null
+  args: string[] | null
+  env: Record<string, string> | null
   connectionStatus?: McpConnectionStatus
   tools?: McpTool[]
   toolCount?: number

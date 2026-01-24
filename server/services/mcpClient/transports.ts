@@ -5,6 +5,7 @@
  */
 
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { McpServer } from '../../database/schema'
 import type { McpTransport } from './types'
@@ -17,16 +18,42 @@ export function inferTransportType(url: string): 'sse' | 'streamableHttp' {
 }
 
 /**
+ * 过滤环境变量中的 undefined 值
+ */
+function filterEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined) {
+      result[key] = value
+    }
+  }
+  return result
+}
+
+/**
  * 创建传输层实例
  */
 export function createTransport(server: McpServer): McpTransport {
-  if (!server.baseUrl) {
-    throw new Error('MCP 服务未配置 URL')
+  // stdio 类型
+  if (server.type === 'stdio') {
+    if (!server.command) {
+      throw new Error('stdio 类型必须配置 command')
+    }
+
+    return new StdioClientTransport({
+      command: server.command,
+      args: server.args || [],
+      env: {
+        ...filterEnv(process.env),
+        ...server.env,
+      },
+      stderr: 'pipe',
+    })
   }
 
-  // stdio 类型暂不支持
-  if (server.type === 'stdio') {
-    throw new Error('stdio 类型暂不支持，请使用 HTTP 类型')
+  // HTTP 类型需要 URL
+  if (!server.baseUrl) {
+    throw new Error('MCP 服务未配置 URL')
   }
 
   const url = new URL(server.baseUrl)

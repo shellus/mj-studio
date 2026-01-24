@@ -57,19 +57,29 @@ MCP 服务采用两层配置结构：
 
 支持批量导入 MCP 服务配置：
 
+**HTTP 类型示例**：
+
 ```json
 {
   "mcpServers": {
     "github": {
-      "type": "streamableHttp",
       "url": "https://api.example.com/mcp",
       "headers": {
         "Authorization": "Bearer your-token"
       }
-    },
-    "database": {
-      "type": "sse",
-      "url": "https://db-mcp.example.com/events"
+    }
+  }
+}
+```
+
+**stdio 类型示例**（本地进程）：
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-filesystem", "/path/to/dir"]
     }
   }
 }
@@ -199,7 +209,7 @@ AI 可以连续调用多个工具完成复杂任务：
 |-----|------|------|
 | StreamableHTTP | MCP 官方推荐的 HTTP 传输，URL 以 `/mcp` 结尾 | ✅ 支持 |
 | SSE | 传统 Server-Sent Events 传输 | ✅ 支持 |
-| stdio | 本地进程标准输入输出 | 待办 |
+| stdio | 本地进程标准输入输出 | ✅ 支持 |
 
 ## 常见问题
 
