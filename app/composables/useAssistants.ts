@@ -15,6 +15,7 @@ export interface Assistant {
   enableThinking: boolean
   pinnedAt: string | null
   lastActiveAt: string | null
+  mcpServerIds?: number[]
 }
 
 export function useAssistants() {

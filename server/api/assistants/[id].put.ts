@@ -1,5 +1,6 @@
 // PUT /api/assistants/[id] - 更新助手
 import { useAssistantService } from '../../services/assistant'
+import { useMcpServerService } from '../../services/mcpServer'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, description, avatar, systemPrompt, aimodelId, isDefault, enableThinking } = body
+  const { name, description, avatar, systemPrompt, aimodelId, isDefault, enableThinking, mcpServerIds } = body
 
   // 构建更新对象
   const updateData: Record<string, any> = {}
@@ -57,6 +58,12 @@ export default defineEventHandler(async (event) => {
 
   if (!updated) {
     throw createError({ statusCode: 404, message: '助手不存在或无权修改' })
+  }
+
+  // 更新 MCP 服务关联
+  if (mcpServerIds !== undefined && Array.isArray(mcpServerIds)) {
+    const mcpService = useMcpServerService()
+    await mcpService.setAssistantServers(assistantId, mcpServerIds)
   }
 
   return updated

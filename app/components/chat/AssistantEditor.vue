@@ -20,6 +20,9 @@ const emit = defineEmits<{
 // 删除确认弹窗状态
 const deleteConfirmOpen = ref(false)
 
+// MCP 服务列表
+const { servers, fetchServers } = useMcpServers()
+
 // 表单数据
 const formData = reactive({
   name: '',
@@ -28,6 +31,7 @@ const formData = reactive({
   systemPrompt: '',
   aimodelId: null as number | null,
   enableThinking: false,
+  mcpServerIds: [] as number[],
 })
 
 // 表单验证
@@ -39,8 +43,18 @@ function validate(state: typeof formData): FormError[] {
   return errors
 }
 
+// 加载助手的 MCP 服务关联
+async function loadMcpServerIds(assistantId: number) {
+  try {
+    const { serverIds } = await $fetch<{ serverIds: number[] }>(`/api/assistants/${assistantId}/mcp-servers`)
+    formData.mcpServerIds = serverIds
+  } catch {
+    formData.mcpServerIds = []
+  }
+}
+
 // 监听 assistant 变化，初始化表单
-watch(() => props.assistant, (assistant) => {
+watch(() => props.assistant, async (assistant) => {
   if (assistant) {
     Object.assign(formData, {
       name: assistant.name,
@@ -49,7 +63,10 @@ watch(() => props.assistant, (assistant) => {
       systemPrompt: assistant.systemPrompt || '',
       aimodelId: assistant.aimodelId,
       enableThinking: assistant.enableThinking || false,
+      mcpServerIds: [],
     })
+    // 加载 MCP 服务关联
+    await loadMcpServerIds(assistant.id)
   } else {
     Object.assign(formData, {
       name: '',
@@ -58,9 +75,17 @@ watch(() => props.assistant, (assistant) => {
       systemPrompt: '',
       aimodelId: null,
       enableThinking: false,
+      mcpServerIds: [],
     })
   }
 }, { immediate: true })
+
+// 监听弹窗打开，确保 MCP 服务列表已加载
+watch(() => props.open, (isOpen) => {
+  if (isOpen && servers.value.length === 0) {
+    fetchServers()
+  }
+})
 
 // 处理头像上传
 const isUploading = ref(false)
@@ -93,6 +118,16 @@ async function handleAvatarUpload(e: Event) {
   }
 }
 
+// 切换 MCP 服务选择
+function toggleMcpServer(serverId: number) {
+  const index = formData.mcpServerIds.indexOf(serverId)
+  if (index === -1) {
+    formData.mcpServerIds.push(serverId)
+  } else {
+    formData.mcpServerIds.splice(index, 1)
+  }
+}
+
 // 提交表单
 function onSubmit(event: FormSubmitEvent<typeof formData>) {
   emit('save', {
@@ -102,6 +137,7 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
     systemPrompt: event.data.systemPrompt?.trim() || null,
     aimodelId: event.data.aimodelId,
     enableThinking: event.data.enableThinking,
+    mcpServerIds: event.data.mcpServerIds,
   })
 }
 
@@ -124,6 +160,9 @@ function handleDuplicate() {
     emit('duplicate', props.assistant.id)
   }
 }
+
+// 活跃的 MCP 服务（仅显示已启用的）
+const activeServers = computed(() => servers.value.filter(s => s.isActive))
 </script>
 
 <template>
@@ -211,6 +250,32 @@ function handleDuplicate() {
             placeholder="设置助手的行为和角色，如：你是一个专业的编程助手..."
             class="w-full"
           />
+        </UFormField>
+
+        <!-- MCP 服务 -->
+        <UFormField v-if="activeServers.length > 0" label="MCP 服务" name="mcpServers">
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              v-for="server in activeServers"
+              :key="server.id"
+              size="sm"
+              :variant="formData.mcpServerIds.includes(server.id) ? 'solid' : 'outline'"
+              :color="formData.mcpServerIds.includes(server.id) ? 'primary' : 'neutral'"
+              type="button"
+              @click="toggleMcpServer(server.id)"
+            >
+              <img
+                v-if="server.logoUrl"
+                :src="server.logoUrl"
+                class="w-4 h-4 rounded mr-1"
+              >
+              <UIcon v-else name="i-heroicons-puzzle-piece" class="w-4 h-4 mr-1" />
+              {{ server.name }}
+            </UButton>
+          </div>
+          <p class="text-xs text-(--ui-text-muted) mt-2">
+            选择要启用的 MCP 服务，让助手可以调用外部工具
+          </p>
         </UFormField>
 
         <!-- 底部按钮 -->

@@ -7,7 +7,7 @@
  */
 
 import type { Upstream, Message, MessageFile } from '../../database/schema'
-import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk } from './types'
+import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
@@ -20,6 +20,8 @@ import { getErrorMessage, isAbortError } from '../../../app/shared/types'
 type GeminiPart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } }
+  | { functionCall: { name: string; args: Record<string, unknown> } }
+  | { functionResponse: { name: string; response: { content: unknown } } }
 
 interface GeminiContent {
   role: 'user' | 'model'
@@ -82,22 +84,69 @@ export const geminiProvider: ChatProvider = {
 
     function buildContents(
       historyMessages: Message[],
-      userMessage: string,
+      userMessage?: string,
       userFiles?: MessageFile[]
     ): GeminiContent[] {
       const contents: GeminiContent[] = []
 
       for (const msg of historyMessages) {
-        contents.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: buildGeminiParts(msg.content, msg.files),
-        })
+        if (msg.role === 'user') {
+          contents.push({
+            role: 'user',
+            parts: buildGeminiParts(msg.content, msg.files),
+          })
+        } else if (msg.role === 'assistant') {
+          // 检查是否有工具调用
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
+            const functionCallParts: GeminiPart[] = msg.toolCallData.calls.map(call => ({
+              functionCall: {
+                name: call.name,
+                args: call.input,
+              },
+            }))
+            // 如果有文本内容，添加到 parts 前面
+            if (msg.content) {
+              contents.push({
+                role: 'model',
+                parts: [{ text: msg.content }, ...functionCallParts],
+              })
+            } else {
+              contents.push({
+                role: 'model',
+                parts: functionCallParts,
+              })
+            }
+          } else {
+            contents.push({
+              role: 'model',
+              parts: buildGeminiParts(msg.content, msg.files),
+            })
+          }
+        } else if (msg.role === 'tool') {
+          // tool 消息转换为 user 消息带 functionResponse
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
+            contents.push({
+              role: 'user',
+              parts: [{
+                functionResponse: {
+                  name: msg.toolCallData.toolName,
+                  response: {
+                    content: msg.content,
+                  },
+                },
+              }],
+            })
+          }
+        }
       }
 
-      contents.push({
-        role: 'user',
-        parts: buildGeminiParts(userMessage, userFiles),
-      })
+      // 如果有当前用户消息（首次请求时）
+      if (userMessage) {
+        contents.push({
+          role: 'user',
+          parts: buildGeminiParts(userMessage, userFiles),
+        })
+      }
 
       return contents
     }
@@ -183,14 +232,15 @@ export const geminiProvider: ChatProvider = {
         modelName: string,
         systemPrompt: string | null,
         historyMessages: Message[],
-        userMessage: string,
+        userMessage?: string,
         userFiles?: MessageFile[],
         signal?: AbortSignal,
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
         enableThinking?: boolean,
-        _enableWebSearch?: boolean
+        enableWebSearch?: boolean,
+        tools?: ChatTool[]
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
         const contents = buildContents(historyMessages, userMessage, userFiles)
@@ -212,9 +262,27 @@ export const geminiProvider: ChatProvider = {
           }
         }
 
+        // 工具定义
+        const toolsList: unknown[] = []
+
         // Gemini Web Search 工具
-        if (_enableWebSearch) {
-          body.tools = [{ googleSearch: {} }]
+        if (enableWebSearch) {
+          toolsList.push({ googleSearch: {} })
+        }
+
+        // MCP 工具
+        if (tools && tools.length > 0) {
+          toolsList.push({
+            functionDeclarations: tools.map(t => ({
+              name: t.name,
+              description: t.description,
+              parameters: t.inputSchema,
+            })),
+          })
+        }
+
+        if (toolsList.length > 0) {
+          body.tools = toolsList
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -230,12 +298,12 @@ export const geminiProvider: ChatProvider = {
           const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
-          const currentSize = calcSize(userMessage)
+          const currentSize = userMessage ? calcSize(userMessage) : 0
 
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
           } else {
-            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, enableThinking, enableWebSearch: _enableWebSearch, apiFormat: 'gemini' })
+            logRequest(ctx, { systemPromptSize, historyCount: historyMessages.length, historySize, currentSize, enableThinking, enableWebSearch, apiFormat: 'gemini' })
           }
         }
 
@@ -305,8 +373,13 @@ export const geminiProvider: ChatProvider = {
                 const parsed = JSON.parse(data) as {
                   candidates?: Array<{
                     content?: {
-                      parts?: Array<{ text?: string; thought?: boolean }>
+                      parts?: Array<{
+                        text?: string
+                        thought?: boolean
+                        functionCall?: { name: string; args: Record<string, unknown> }
+                      }>
                     }
+                    finishReason?: string
                     groundingMetadata?: {
                       groundingChunks?: Array<{
                         web?: { uri: string; title: string }
@@ -331,6 +404,16 @@ export const geminiProvider: ChatProvider = {
 
                 const parts = candidate?.content?.parts || []
                 for (const part of parts) {
+                  // 处理 functionCall
+                  if (part.functionCall) {
+                    const toolUse: ToolUseRequest = {
+                      id: `gemini-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                      name: part.functionCall.name,
+                      input: part.functionCall.args || {},
+                    }
+                    yield { content: '', done: false, toolUse }
+                  }
+
                   if (!part.text) continue
 
                   // Gemini 原生思考格式：通过 thought 布尔字段判断
@@ -340,6 +423,14 @@ export const geminiProvider: ChatProvider = {
                     totalContent += part.text
                     yield { content: part.text, done: false }
                   }
+                }
+
+                // 处理 finishReason
+                const finishReason = candidate?.finishReason
+                if (finishReason === 'TOOL_CALL' || finishReason === 'TOOL_USE') {
+                  yield { content: '', done: false, stopReason: 'tool_use' }
+                } else if (finishReason === 'STOP') {
+                  yield { content: '', done: false, stopReason: 'end_turn' }
                 }
               } catch {
                 // 忽略解析错误

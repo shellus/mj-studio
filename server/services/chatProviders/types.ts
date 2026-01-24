@@ -17,6 +17,20 @@ export interface WebSearchResultItem {
   pageAge?: string
 }
 
+/** 工具调用请求（AI 请求调用工具时返回） */
+export interface ToolUseRequest {
+  id: string           // tool_use ID（用于回传结果）
+  name: string         // 工具名称（mcp__serverName__toolName 格式）
+  input: Record<string, unknown>  // 工具参数
+}
+
+/** 传给 AI 的工具定义 */
+export interface ChatTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
 /** 流式响应块 */
 export interface ChatStreamChunk {
   content: string
@@ -27,6 +41,10 @@ export interface ChatStreamChunk {
     status: 'searching' | 'completed'
     results?: WebSearchResultItem[]
   }
+  /** AI 请求调用的工具（需要处理后回传结果） */
+  toolUse?: ToolUseRequest
+  /** 本轮响应结束原因 */
+  stopReason?: 'end_turn' | 'tool_use'
 }
 
 /** 非流式响应结果 */
@@ -54,14 +72,15 @@ export interface ChatService {
     modelName: string,
     systemPrompt: string | null,
     historyMessages: Message[],
-    userMessage: string,
+    userMessage?: string,
     userFiles?: MessageFile[],
     signal?: AbortSignal,
     logContext?: LogContext,
     conversationId?: number,
     messageId?: number,
     enableThinking?: boolean,
-    enableWebSearch?: boolean
+    enableWebSearch?: boolean,
+    tools?: ChatTool[]
   ): AsyncGenerator<ChatStreamChunk>
 }
 

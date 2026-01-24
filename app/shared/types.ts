@@ -137,7 +137,28 @@ export type TaskStatus =
  * - 用于标识对话消息的发送者
  * - 使用场景：对话历史显示、消息列表渲染
  */
-export type MessageRole = 'user' | 'assistant'
+export type MessageRole = 'user' | 'assistant' | 'tool'
+
+/**
+ * 工具调用数据
+ * - assistant 消息可包含 tool_use 类型，表示 AI 请求调用工具
+ * - tool 消息包含 tool_result 类型，表示工具执行结果
+ */
+export type ToolCallData =
+  | {
+      type: 'tool_use'
+      calls: Array<{
+        id: string           // tool_use_id，用于关联结果
+        name: string         // 工具名称（mcp__server__tool 格式）
+        input: Record<string, unknown>  // 工具参数
+      }>
+    }
+  | {
+      type: 'tool_result'
+      toolUseId: string      // 关联的 tool_use id
+      toolName: string       // 工具名称
+      isError: boolean       // 是否执行出错
+    }
 
 /**
  * 消息标记
@@ -471,4 +492,64 @@ export async function getResponseErrorMessage(response: Response): Promise<strin
     // JSON 解析失败，使用 statusText
   }
   return response.statusText || `HTTP ${response.status}`
+}
+
+// ==================== MCP 客户端类型 ====================
+
+/** MCP 服务传输类型 */
+export type McpServerType = 'sse' | 'streamableHttp' | 'stdio'
+
+/** MCP 服务连接状态 */
+export type McpConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+/** MCP 工具定义 */
+export interface McpTool {
+  serverId: number
+  serverName: string
+  name: string
+  displayName: string
+  description: string
+  inputSchema: Record<string, unknown>
+  isEnabled: boolean
+  isAutoApprove: boolean
+}
+
+/** 工具调用状态 */
+export type ToolCallStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'error'
+
+/** 工具调用记录 */
+export interface ToolCall {
+  id: string
+  serverId: number
+  serverName: string
+  toolName: string
+  arguments: Record<string, unknown>
+  status: ToolCallStatus
+  result: unknown | null
+  error: string | null
+  startedAt: string | null
+  completedAt: string | null
+}
+
+/** 消息中的工具调用内容结构 */
+export interface MessageToolContent {
+  text: string
+  toolCalls: ToolCall[]
+}
+
+/** MCP 服务前端展示数据 */
+export interface McpServerDisplay {
+  id: number
+  name: string
+  description: string | null
+  type: McpServerType
+  isActive: boolean
+  baseUrl: string | null
+  timeout: number
+  disabledTools: string[]
+  autoApproveTools: string[]
+  logoUrl: string | null
+  connectionStatus?: McpConnectionStatus
+  tools?: McpTool[]
+  toolCount?: number
 }

@@ -593,15 +593,18 @@ function isEditing(messageId: number): boolean {
         class="hidden md:flex w-8 h-8 rounded-full items-center justify-center flex-shrink-0"
         :class="[
           message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'bg-blue-500' :
+          message.role === 'tool' ? 'bg-emerald-500' :
           message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'
         ]"
       >
         <UIcon
           :name="message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'i-heroicons-archive-box-arrow-down' :
+                 message.role === 'tool' ? 'i-heroicons-cog-6-tooth' :
                  message.role === 'user' ? 'i-heroicons-user' : 'i-heroicons-sparkles'"
           class="w-4 h-4"
           :class="[
             message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'text-white' :
+            message.role === 'tool' ? 'text-white' :
             message.role === 'user' ? 'text-white' : 'text-(--ui-primary)'
           ]"
         />
@@ -617,17 +620,20 @@ function isEditing(messageId: number): boolean {
       >
         <div
           :class="[
-            'px-4 py-2 rounded-2xl max-w-full overflow-hidden cursor-pointer md:cursor-auto',
+            'max-w-full overflow-hidden',
+            message.role === 'tool' ? '' : 'px-4 py-2 rounded-2xl cursor-pointer md:cursor-auto',
             isEditing(message.id) ? 'block' : 'inline-block',
             message.role === 'user' && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
-              : message.mark === MESSAGE_MARK.ERROR
-                ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
-                : message.mark === MESSAGE_MARK.COMPRESS_REQUEST
-                  ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
-                  : message.mark === MESSAGE_MARK.COMPRESS_RESPONSE
-                    ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
-                    : 'bg-(--ui-bg-elevated) rounded-tl-sm'
+              : message.role === 'tool'
+                ? ''
+                : message.mark === MESSAGE_MARK.ERROR
+                  ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
+                  : message.mark === MESSAGE_MARK.COMPRESS_REQUEST
+                    ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
+                    : message.mark === MESSAGE_MARK.COMPRESS_RESPONSE
+                      ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
+                      : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
           @click="toggleMessageActions(message.id)"
         >
@@ -722,6 +728,10 @@ function isEditing(messageId: number): boolean {
               <ChatStreamMarkdown :content="message.content" />
             </template>
           </div>
+          <!-- tool 消息：工具执行结果 -->
+          <div v-else-if="message.role === 'tool'" class="text-sm">
+            <ChatToolResultMessage :message="message" />
+          </div>
           <!-- 错误消息 -->
           <div v-else-if="message.mark === MESSAGE_MARK.ERROR" class="text-sm flex items-start gap-2">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -767,6 +777,7 @@ function isEditing(messageId: number): boolean {
               <ChatStreamMarkdown
                 :content="message.content"
                 :is-streaming="isMessageStreaming(message)"
+                :message-id="message.id"
               />
             </template>
             <!-- 被中断的标记 -->

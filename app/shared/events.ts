@@ -5,7 +5,7 @@
  * 服务端发送事件，前端订阅并处理。
  */
 
-import type { MessageStatus, MessageMark, MessageFile, TaskType } from './types'
+import type { MessageStatus, MessageMark, MessageFile, TaskType, MessageRole, ToolCallData } from './types'
 
 // ==================== 事件包络 ====================
 
@@ -32,13 +32,14 @@ export interface ChatMessageCreated {
   message: {
     id: number
     conversationId: number
-    role: 'user' | 'assistant'
+    role: MessageRole
     content: string
     files: MessageFile[] | null
     modelDisplayName?: string | null
     status: MessageStatus | null
     mark: MessageMark | null
     sortId: number | null
+    toolCallData?: ToolCallData | null
     createdAt?: string
   }
 }
@@ -211,6 +212,27 @@ export interface TaskBlurUpdated {
 export interface TasksBlurUpdated {
   taskIds: number[]
   isBlurred: boolean
+}
+
+// ==================== 工具调用事件 ====================
+
+/**
+ * 工具调用状态
+ */
+export type ToolCallEventStatus = 'pending' | 'invoking' | 'done' | 'error' | 'cancelled'
+
+/**
+ * 工具调用状态更新事件
+ */
+export interface ToolCallStatusUpdated {
+  messageId: number
+  toolCallId: string
+  status: ToolCallEventStatus
+  serverName?: string
+  toolName?: string
+  arguments?: Record<string, unknown>
+  response?: unknown
+  isError?: boolean
 }
 
 // ==================== 事件处理器类型 ====================

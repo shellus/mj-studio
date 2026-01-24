@@ -11,7 +11,7 @@
  */
 
 import type { Upstream, Message, MessageFile } from '../../database/schema'
-import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem } from './types'
+import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
@@ -25,9 +25,24 @@ type ResponseMessageContent =
   | { type: 'input_text'; text: string }
   | { type: 'input_image'; image_url: string; detail?: 'auto' | 'low' | 'high' }
 
+// 工具结果类型
+interface FunctionCallOutput {
+  type: 'function_call_output'
+  call_id: string
+  output: string
+}
+
 interface ResponseMessage {
   role: 'user' | 'assistant'
   content: string | ResponseMessageContent[]
+}
+
+// 带工具调用的 assistant 消息
+interface AssistantMessageWithToolCalls {
+  type: 'function_call'
+  call_id: string
+  name: string
+  arguments: string
 }
 
 // 将文件转换为多模态消息内容
@@ -88,22 +103,61 @@ export const openaiResponseProvider: ChatProvider = {
 
     function buildInput(
       historyMessages: Message[],
-      userMessage: string,
+      userMessage?: string,
       userFiles?: MessageFile[]
-    ): ResponseMessage[] {
-      const messages: ResponseMessage[] = []
+    ): (ResponseMessage | AssistantMessageWithToolCalls | FunctionCallOutput)[] {
+      const messages: (ResponseMessage | AssistantMessageWithToolCalls | FunctionCallOutput)[] = []
 
       for (const msg of historyMessages) {
-        messages.push({
-          role: msg.role,
-          content: buildMessageContent(msg.content, msg.files),
-        })
+        if (msg.role === 'user') {
+          messages.push({
+            role: 'user',
+            content: buildMessageContent(msg.content, msg.files),
+          })
+        } else if (msg.role === 'assistant') {
+          // 检查是否有工具调用
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
+            // 先添加文本内容（如果有）
+            if (msg.content) {
+              messages.push({
+                role: 'assistant',
+                content: msg.content,
+              })
+            }
+            // 添加 function_call
+            for (const call of msg.toolCallData.calls) {
+              messages.push({
+                type: 'function_call',
+                call_id: call.id,
+                name: call.name,
+                arguments: JSON.stringify(call.input),
+              })
+            }
+          } else {
+            messages.push({
+              role: 'assistant',
+              content: buildMessageContent(msg.content, msg.files),
+            })
+          }
+        } else if (msg.role === 'tool') {
+          // tool 消息转换为 function_call_output
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
+            messages.push({
+              type: 'function_call_output',
+              call_id: msg.toolCallData.toolUseId,
+              output: msg.content,
+            })
+          }
+        }
       }
 
-      messages.push({
-        role: 'user',
-        content: buildMessageContent(userMessage, userFiles),
-      })
+      // 如果有当前用户消息（首次请求时）
+      if (userMessage) {
+        messages.push({
+          role: 'user',
+          content: buildMessageContent(userMessage, userFiles),
+        })
+      }
 
       return messages
     }
@@ -195,14 +249,15 @@ export const openaiResponseProvider: ChatProvider = {
         modelName: string,
         systemPrompt: string | null,
         historyMessages: Message[],
-        userMessage: string,
+        userMessage?: string,
         userFiles?: MessageFile[],
         signal?: AbortSignal,
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
         enableThinking?: boolean,
-        enableWebSearch?: boolean
+        enableWebSearch?: boolean,
+        tools?: ChatTool[]
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/responses`
         const input = buildInput(historyMessages, userMessage, userFiles)
@@ -222,9 +277,28 @@ export const openaiResponseProvider: ChatProvider = {
           body.reasoning = { effort: OPENAI_REASONING_EFFORT }
         }
 
+        // 工具定义
+        const toolsList: unknown[] = []
+
         // Response API Web Search 使用 tools
         if (enableWebSearch) {
-          body.tools = [{ type: 'web_search_preview' }]
+          toolsList.push({ type: 'web_search_preview' })
+        }
+
+        // MCP 工具
+        if (tools && tools.length > 0) {
+          for (const t of tools) {
+            toolsList.push({
+              type: 'function',
+              name: t.name,
+              description: t.description,
+              parameters: t.inputSchema,
+            })
+          }
+        }
+
+        if (toolsList.length > 0) {
+          body.tools = toolsList
         }
 
         if (conversationId !== undefined && messageId !== undefined) {
@@ -240,7 +314,7 @@ export const openaiResponseProvider: ChatProvider = {
           const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
-          const currentSize = calcSize(userMessage)
+          const currentSize = userMessage ? calcSize(userMessage) : 0
 
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
@@ -422,6 +496,25 @@ function processResponseEvent(
       break
     }
 
+    // Function call 完成
+    case 'response.function_call_arguments.done': {
+      const callId = event.call_id as string
+      const name = event.name as string
+      const argumentsStr = event.arguments as string
+      let input: Record<string, unknown> = {}
+      try {
+        input = JSON.parse(argumentsStr || '{}')
+      } catch {
+        // 忽略解析错误
+      }
+      const toolUse: ToolUseRequest = {
+        id: callId,
+        name,
+        input,
+      }
+      return { content: '', done: false, toolUse }
+    }
+
     // Web Search 开始搜索
     case 'response.web_search_call.in_progress': {
       console.log('[OpenAI Response] Web Search 开始搜索')
@@ -452,10 +545,13 @@ function processResponseEvent(
       break
     }
 
-    // 输出项完成（可能包含完整的 annotations）
+    // 输出项完成（可能包含完整的 annotations 或 function_call）
     case 'response.output_item.done': {
       const item = event.item as {
         type: string
+        call_id?: string
+        name?: string
+        arguments?: string
         content?: Array<{
           type: string
           annotations?: Array<{
@@ -465,6 +561,22 @@ function processResponseEvent(
           }>
         }>
       } | undefined
+
+      // 处理 function_call 类型
+      if (item?.type === 'function_call' && item.call_id && item.name) {
+        let input: Record<string, unknown> = {}
+        try {
+          input = JSON.parse(item.arguments || '{}')
+        } catch {
+          // 忽略解析错误
+        }
+        const toolUse: ToolUseRequest = {
+          id: item.call_id,
+          name: item.name,
+          input,
+        }
+        return { content: '', done: false, toolUse }
+      }
 
       if (item?.type === 'message' && item.content) {
         for (const content of item.content) {
@@ -494,6 +606,14 @@ function processResponseEvent(
     // 响应完成
     case 'response.completed':
     case 'response.done': {
+      // 检查响应状态，如果是因为工具调用而停止
+      const response = event.response as {
+        status?: string
+        output?: Array<{ type: string }>
+      } | undefined
+      if (response?.output?.some(o => o.type === 'function_call')) {
+        return { content: '', done: false, stopReason: 'tool_use' }
+      }
       // 最终检查是否有搜索结果需要发送
       if (webSearchResults.length > 0) {
         return { content: '', done: false, webSearch: { status: 'completed', results: [...webSearchResults] } }

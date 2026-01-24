@@ -96,6 +96,7 @@ export default defineNuxtPlugin(() => {
       existing.createdAt = message.createdAt || existing.createdAt
       existing.mark = message.mark as any
       existing.status = message.status as any
+      existing.toolCallData = message.toolCallData
     } else {
       messages.value.push({
         id: message.id,
@@ -107,6 +108,7 @@ export default defineNuxtPlugin(() => {
         createdAt: message.createdAt || new Date().toISOString(),
         mark: message.mark as any,
         status: message.status as any,
+        toolCallData: message.toolCallData,
       })
     }
 

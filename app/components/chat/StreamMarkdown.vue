@@ -16,6 +16,7 @@ import type { Token, Tokens } from 'marked'
 import { codeToHtml, type BundledLanguage } from 'shiki'
 import type { MjDrawingParams } from '~/composables/useMarkdown'
 import type { WebSearchResult } from './WebSearchResults.vue'
+import type { ToolCallBlockData } from './ToolCallBlock.vue'
 
 // Web Search 解析结果
 interface WebSearchParams {
@@ -23,9 +24,15 @@ interface WebSearchParams {
   results?: WebSearchResult[]
 }
 
+// Tool Call 解析结果
+interface ToolCallParams {
+  data: ToolCallBlockData
+}
+
 const props = defineProps<{
   content: string
   isStreaming?: boolean
+  messageId?: number
 }>()
 
 // 语言映射
@@ -188,6 +195,20 @@ function parseWebSearchParams(text: string): WebSearchParams {
   return params
 }
 
+// 解析 tool-call 参数
+function parseToolCallParams(text: string): ToolCallParams | null {
+  try {
+    const data = JSON.parse(text.trim()) as ToolCallBlockData
+    // 验证必要字段
+    if (data.id && data.toolName && data.serverName && data.status) {
+      return { data }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // 渲染行内元素（加粗、斜体、链接等）
 function renderInline(text: string): string {
   let result = escapeHtml(text)
@@ -216,7 +237,7 @@ function renderInline(text: string): string {
 }
 
 // 渲染单个 token 为 HTML
-async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search', content: string }> {
+async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search' | 'tool-call', content: string }> {
   switch (token.type) {
     case 'heading': {
       const sizes: Record<number, string> = {
@@ -255,6 +276,11 @@ async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | '
       // web-search 搜索结果组件
       if (lang === 'web-search') {
         return { type: 'web-search', content: code }
+      }
+
+      // tool-call 工具调用组件
+      if (lang === 'tool-call') {
+        return { type: 'tool-call', content: code }
       }
 
       // 普通代码块
@@ -352,10 +378,11 @@ function escapeHtml(text: string): string {
 // 每个块的渲染状态
 interface BlockState {
   index: number
-  type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search'
+  type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search' | 'tool-call'
   content: string
   drawingParams?: MjDrawingParams
   webSearchParams?: WebSearchParams
+  toolCallParams?: ToolCallParams
   isComplete: boolean
 }
 
@@ -402,6 +429,11 @@ watch(
         // 解析 web-search 参数
         if (result.type === 'web-search') {
           block.webSearchParams = parseWebSearchParams(result.content)
+        }
+
+        // 解析 tool-call 参数
+        if (result.type === 'tool-call') {
+          block.toolCallParams = parseToolCallParams(result.content) ?? undefined
         }
 
         if (isComplete) {
@@ -480,6 +512,13 @@ function toggleThink(index: number) {
         v-else-if="block.type === 'web-search' && block.webSearchParams"
         :status="block.webSearchParams.status"
         :results="block.webSearchParams.results"
+      />
+
+      <!-- Tool Call 工具调用块 -->
+      <ChatToolCallBlock
+        v-else-if="block.type === 'tool-call' && block.toolCallParams"
+        :data="block.toolCallParams.data"
+        :message-id="messageId"
       />
     </template>
 

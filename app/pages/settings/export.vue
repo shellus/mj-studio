@@ -217,7 +217,7 @@ async function handleExport() {
 
     // 处理对话导出
     interface ExportedMessage {
-      role: 'user' | 'assistant'
+      role: 'user' | 'assistant' | 'tool'
       content: string
       modelDisplayName: string | null
       mark: MessageMark | null

@@ -1,18 +1,19 @@
 // 对话状态管理
 // 适配独立流式订阅系统：消息 CRUD 通过全局 SSE，流式内容通过独立端点订阅
-import type { MessageMark, MessageStatus, MessageFile } from '~/shared/types'
+import type { MessageMark, MessageStatus, MessageFile, MessageRole, ToolCallData } from '~/shared/types'
 import { useAuth } from './useAuth'
 
 export interface Message {
   id: number
   conversationId: number
-  role: 'user' | 'assistant'
+  role: MessageRole
   content: string
   files?: MessageFile[] | null
   modelDisplayName: string | null
   createdAt: string
   mark?: MessageMark | null
   status?: MessageStatus | null  // AI 消息状态
+  toolCallData?: ToolCallData | null  // 工具调用元数据
 }
 
 export interface Conversation {

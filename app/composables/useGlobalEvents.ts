@@ -20,6 +20,8 @@ export type {
   TaskBlurUpdated,
   TasksBlurUpdated,
   MJButton,
+  ToolCallStatusUpdated,
+  ToolCallEventStatus,
 } from '../shared/events'
 
 import type { GlobalEventEnvelope, GlobalEventHandler } from '../shared/events'

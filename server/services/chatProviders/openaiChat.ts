@@ -6,7 +6,7 @@
  */
 
 import type { Upstream, Message, MessageFile } from '../../database/schema'
-import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk } from './types'
+import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
@@ -20,9 +20,21 @@ type ChatMessageContent =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
 
+// OpenAI tool_calls 格式
+interface OpenAIToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system'
-  content: string | ChatMessageContent[]
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  content: string | ChatMessageContent[] | null
+  tool_calls?: OpenAIToolCall[]
+  tool_call_id?: string
 }
 
 // 将文件转换为多模态消息内容
@@ -83,7 +95,7 @@ export const openaiChatProvider: ChatProvider = {
     function buildMessages(
       systemPrompt: string | null,
       historyMessages: Message[],
-      userMessage: string,
+      userMessage?: string,
       userFiles?: MessageFile[]
     ): ChatMessage[] {
       const messages: ChatMessage[] = []
@@ -93,16 +105,52 @@ export const openaiChatProvider: ChatProvider = {
       }
 
       for (const msg of historyMessages) {
-        messages.push({
-          role: msg.role,
-          content: buildMessageContent(msg.content, msg.files),
-        })
+        if (msg.role === 'user') {
+          messages.push({
+            role: 'user',
+            content: buildMessageContent(msg.content, msg.files),
+          })
+        } else if (msg.role === 'assistant') {
+          // 检查是否有工具调用
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
+            const toolCalls: OpenAIToolCall[] = msg.toolCallData.calls.map(call => ({
+              id: call.id,
+              type: 'function' as const,
+              function: {
+                name: call.name,
+                arguments: JSON.stringify(call.input),
+              },
+            }))
+            messages.push({
+              role: 'assistant',
+              content: msg.content || null,
+              tool_calls: toolCalls,
+            })
+          } else {
+            messages.push({
+              role: 'assistant',
+              content: buildMessageContent(msg.content, msg.files),
+            })
+          }
+        } else if (msg.role === 'tool') {
+          // tool 消息
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
+            messages.push({
+              role: 'tool',
+              content: msg.content,
+              tool_call_id: msg.toolCallData.toolUseId,
+            })
+          }
+        }
       }
 
-      messages.push({
-        role: 'user',
-        content: buildMessageContent(userMessage, userFiles),
-      })
+      // 如果有当前用户消息（首次请求时）
+      if (userMessage) {
+        messages.push({
+          role: 'user',
+          content: buildMessageContent(userMessage, userFiles),
+        })
+      }
 
       return messages
     }
@@ -189,14 +237,15 @@ export const openaiChatProvider: ChatProvider = {
         modelName: string,
         systemPrompt: string | null,
         historyMessages: Message[],
-        userMessage: string,
+        userMessage?: string,
         userFiles?: MessageFile[],
         signal?: AbortSignal,
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
         enableThinking?: boolean,
-        _enableWebSearch?: boolean
+        _enableWebSearch?: boolean,
+        tools?: ChatTool[]
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/chat/completions`
         const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
@@ -219,6 +268,18 @@ export const openaiChatProvider: ChatProvider = {
           }
         }
 
+        // MCP 工具
+        if (tools && tools.length > 0) {
+          body.tools = tools.map(t => ({
+            type: 'function',
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.inputSchema,
+            },
+          }))
+        }
+
         if (conversationId !== undefined && messageId !== undefined) {
           logConversationRequest(conversationId, messageId, {
             url,
@@ -232,7 +293,7 @@ export const openaiChatProvider: ChatProvider = {
           const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
-          const currentSize = calcSize(userMessage)
+          const currentSize = userMessage ? calcSize(userMessage) : 0
 
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
@@ -250,6 +311,8 @@ export const openaiChatProvider: ChatProvider = {
         }
 
         let totalContent = ''
+        // 用于累积流式 tool_calls
+        const pendingToolCalls: Map<number, { id: string; name: string; arguments: string }> = new Map()
 
         try {
           const response = await fetch(url, {
@@ -329,11 +392,36 @@ export const openaiChatProvider: ChatProvider = {
 
               try {
                 const parsed = JSON.parse(data)
-                const delta = parsed.choices?.[0]?.delta
+                const choice = parsed.choices?.[0]
+                const delta = choice?.delta
+                const finishReason = choice?.finish_reason
 
                 const reasoningContent = delta?.reasoning_content || ''
                 if (reasoningContent) {
                   yield { content: '', thinking: reasoningContent, done: false }
+                }
+
+                // 处理 tool_calls 增量
+                const toolCallsDeltas = delta?.tool_calls as Array<{
+                  index: number
+                  id?: string
+                  function?: { name?: string; arguments?: string }
+                }> | undefined
+                if (toolCallsDeltas) {
+                  for (const tc of toolCallsDeltas) {
+                    const existing = pendingToolCalls.get(tc.index)
+                    if (existing) {
+                      if (tc.function?.arguments) {
+                        existing.arguments += tc.function.arguments
+                      }
+                    } else {
+                      pendingToolCalls.set(tc.index, {
+                        id: tc.id || '',
+                        name: tc.function?.name || '',
+                        arguments: tc.function?.arguments || '',
+                      })
+                    }
+                  }
                 }
 
                 // 处理 Web Search annotations（OpenAI 搜索引用）
@@ -355,6 +443,28 @@ export const openaiChatProvider: ChatProvider = {
                 if (content) {
                   totalContent += content
                   yield { content, done: false }
+                }
+
+                // 处理 finish_reason
+                if (finishReason === 'tool_calls') {
+                  // 输出所有收集到的 tool_calls
+                  for (const [, tc] of pendingToolCalls) {
+                    let input: Record<string, unknown> = {}
+                    try {
+                      input = JSON.parse(tc.arguments || '{}')
+                    } catch {
+                      // 忽略解析错误
+                    }
+                    const toolUse: ToolUseRequest = {
+                      id: tc.id,
+                      name: tc.name,
+                      input,
+                    }
+                    yield { content: '', done: false, toolUse }
+                  }
+                  yield { content: '', done: false, stopReason: 'tool_use' }
+                } else if (finishReason === 'stop') {
+                  yield { content: '', done: false, stopReason: 'end_turn' }
                 }
               } catch {
                 // 忽略解析错误

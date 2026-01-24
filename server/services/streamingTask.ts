@@ -7,7 +7,7 @@ import { useAssistantService } from './assistant'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { getChatProvider } from './chatProviders'
-import type { ChatApiFormat } from './chatProviders'
+import type { ChatApiFormat, ChatTool } from './chatProviders'
 import {
   startStreamingSession,
   updateSessionStatus,
@@ -26,6 +26,10 @@ import type { MessageMark, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
 import { getErrorMessage } from '../../app/shared/types'
 import { MESSAGE_MARK } from '../../app/shared/constants'
+import { useMcpServerService } from './mcpServer'
+import { useMcpClientManager, mcpToolsToChatTools, findMcpToolByDisplayName, MCP_CLIENT_CONFIG } from './mcpClient'
+import type { McpToolWithServer } from './mcpClient'
+import { waitForToolConfirmation, cancelPendingToolCalls, registerToolCallState, updateToolCallStatus } from './toolCallState'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
@@ -98,6 +102,20 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     // 从模型能力读取 Web Search 开关
     const enableWebSearch = aimodel.capabilities?.includes('web_search') || false
 
+    // 获取助手关联的 MCP 服务和工具
+    const mcpServerService = useMcpServerService()
+    const mcpClientManager = useMcpClientManager()
+
+    let mcpTools: McpToolWithServer[] = []
+    let chatTools: ChatTool[] = []
+    if (!isCompressRequest) {
+      const mcpServers = await mcpServerService.getByAssistantId(assistant.id, userId)
+      if (mcpServers.length > 0) {
+        mcpTools = await mcpClientManager.getToolsForServers(userId, mcpServers)
+        chatTools = mcpToolsToChatTools(mcpTools)
+      }
+    }
+
     // 构建历史消息上下文
     let historyMessages = result.messages
 
@@ -168,7 +186,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       conversationId,
       messageId,
       enableThinking,
-      enableWebSearch
+      enableWebSearch,
+      chatTools
     )
 
     let fullContent = ''
@@ -179,31 +198,123 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     const requestStartTime = Date.now() // 记录请求开始时间
     let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
 
-    for await (const chunk of generator) {
+    // 工具调用相关变量
+    let pendingToolCalls: Array<{
+      id: string
+      toolUseId: string
+      tool: McpToolWithServer
+      args: Record<string, unknown>
+    }> = []
+    let toolRounds = 0  // 工具调用轮次计数
+    let hasToolCallsOccurred = false  // 是否发生过工具调用（用于决定是否删除原消息）
+    let currentMessageId = messageId  // 当前正在流式输出的消息 ID（工具调用后会创建新消息）
+
+    // 生成工具调用标记块
+    function formatToolCallBlock(
+      id: string,
+      toolUseId: string,
+      serverName: string,
+      toolName: string,
+      status: 'pending' | 'invoking' | 'done' | 'error' | 'cancelled',
+      args: Record<string, unknown>,
+      response?: unknown,
+      isError?: boolean
+    ): string {
+      const data = {
+        id,
+        toolUseId,
+        serverName,
+        toolName,
+        status,
+        arguments: args,
+        ...(response !== undefined ? { response } : {}),
+        ...(isError !== undefined ? { isError } : {}),
+      }
+      return '\n```tool-call\n' + JSON.stringify(data) + '\n```\n'
+    }
+
+    // 执行工具调用
+    async function executeToolCall(
+      tool: McpToolWithServer,
+      args: Record<string, unknown>
+    ): Promise<{ success: boolean; content?: unknown; error?: string }> {
+      const server = await mcpServerService.getById(tool.serverId, userId)
+      if (!server) {
+        return { success: false, error: '服务不存在' }
+      }
+      return mcpClientManager.callTool(userId, server, tool.name, args)
+    }
+
+    // 处理单个流式响应的 chunk
+    async function processChunk(chunk: Awaited<ReturnType<typeof generator.next>>['value']): Promise<'continue' | 'tool_use' | 'done' | 'aborted'> {
+      if (!chunk) return 'done'
+
       // 检查是否被中止
       if (abortController.signal.aborted) {
-        break
+        return 'aborted'
       }
 
       // 处理思考内容
       if (chunk.thinking) {
         fullThinking += chunk.thinking
-        // 首次收到思考内容时，输出开标签
         if (!thinkingStarted) {
           thinkingStarted = true
-          updateThinkingState(messageId, true, false)  // 同步到缓存
-          appendStreamingContent(messageId, '<thinking>\n')
+          updateThinkingState(currentMessageId, true, false)
+          appendStreamingContent(currentMessageId, '<thinking>\n')
         }
-        appendStreamingContent(messageId, chunk.thinking)
+        appendStreamingContent(currentMessageId, chunk.thinking)
       }
 
       // 处理 Web Search 状态
       if (chunk.webSearch) {
         if (chunk.webSearch.status === 'searching') {
-          appendStreamingContent(messageId, '\n```web-search\nstatus: searching\n```\n\n')
+          appendStreamingContent(currentMessageId, '\n```web-search\nstatus: searching\n```\n\n')
         } else if (chunk.webSearch.status === 'completed' && chunk.webSearch.results) {
           const json = JSON.stringify(chunk.webSearch.results)
-          appendStreamingContent(messageId, `\n\`\`\`web-search\nstatus: completed\nresults: ${json}\n\`\`\`\n\n`)
+          appendStreamingContent(currentMessageId, `\n\`\`\`web-search\nstatus: completed\nresults: ${json}\n\`\`\`\n\n`)
+        }
+      }
+
+      // 处理工具调用
+      if (chunk.toolUse) {
+        const { id: toolUseId, name, input } = chunk.toolUse
+        console.log(`[MCP Tool] 收到工具调用请求: name=${name}, mcpTools count=${mcpTools.length}`)
+        console.log(`[MCP Tool] 可用工具 displayNames:`, mcpTools.map(t => t.displayName))
+        const tool = findMcpToolByDisplayName(mcpTools, name)
+
+        if (tool) {
+          console.log(`[MCP Tool] 找到工具: ${tool.displayName}`)
+          const callId = `${currentMessageId}_${toolUseId}`
+          pendingToolCalls.push({
+            id: callId,
+            toolUseId,
+            tool,
+            args: input,
+          })
+
+          // 注册工具调用状态并广播 pending 事件
+          registerToolCallState(
+            userId,
+            currentMessageId,
+            callId,
+            tool.serverName,
+            tool.name,
+            input,
+            'pending'
+          )
+
+          // 输出 pending 状态
+          const block = formatToolCallBlock(
+            callId,
+            toolUseId,
+            tool.serverName,
+            tool.name,
+            'pending',
+            input
+          )
+          appendStreamingContent(currentMessageId, block)
+        } else {
+          console.log(`[MCP Tool] 未找到工具: ${name}`)
         }
       }
 
@@ -211,8 +322,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 如果有思考内容且尚未闭合，先输出闭标签
         if (thinkingStarted && !thinkingEnded) {
           thinkingEnded = true
-          updateThinkingState(messageId, true, true)  // 同步到缓存
-          appendStreamingContent(messageId, '\n</thinking>\n\n')
+          updateThinkingState(currentMessageId, true, true)
+          appendStreamingContent(currentMessageId, '\n</thinking>\n\n')
         }
 
         fullContent += chunk.content
@@ -220,14 +331,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 首个内容块：更新状态为 streaming，并更新预计首字时长
         if (!firstChunkReceived) {
           firstChunkReceived = true
-          await conversationService.updateMessageStatus(messageId, 'streaming')
-          updateSessionStatus(messageId, 'streaming')
+          await conversationService.updateMessageStatus(currentMessageId, 'streaming')
+          updateSessionStatus(currentMessageId, 'streaming')
 
           // 计算首字耗时并更新模型配置的预计时间
           const firstChunkTime = (Date.now() - requestStartTime) / 1000
           try {
             updatedEstimatedTime = await aimodelService.updateEstimatedTime(
-              aimodel.id,
+              aimodel!.id,
               firstChunkTime
             )
           } catch (err) {
@@ -235,36 +346,253 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           }
         }
 
-        // 追加到缓存并立即广播给订阅者（无聚合策略）
-        appendStreamingContent(messageId, chunk.content)
+        // 追加到缓存并立即广播给订阅者
+        appendStreamingContent(currentMessageId, chunk.content)
+      }
+
+      // 检查 AI 是否因为工具调用而停止
+      if (chunk.stopReason === 'tool_use') {
+        console.log(`[MCP Tool] 收到 stopReason=tool_use, pendingToolCalls.length=${pendingToolCalls.length}`)
+        if (pendingToolCalls.length > 0) {
+          return 'tool_use'
+        }
       }
 
       if (chunk.done) {
+        console.log(`[MCP Tool] 流结束, pendingToolCalls.length=${pendingToolCalls.length}`)
+        // 即使没有收到 stopReason，如果有待处理的工具调用，也返回 tool_use
+        if (pendingToolCalls.length > 0) {
+          console.log(`[MCP Tool] 检测到待处理工具调用，切换到工具处理模式`)
+          return 'tool_use'
+        }
+        return 'done'
+      }
+
+      return 'continue'
+    }
+
+    // 多轮工具调用循环
+    let currentGenerator = generator
+    let streamResult: 'continue' | 'tool_use' | 'done' | 'aborted' = 'continue'
+
+    while (toolRounds < MCP_CLIENT_CONFIG.maxToolRounds && !abortController.signal.aborted) {
+      // 处理当前生成器的所有 chunk
+      for await (const chunk of currentGenerator) {
+        streamResult = await processChunk(chunk)
+        if (streamResult !== 'continue') break
+      }
+
+      // 检查结果
+      if (streamResult === 'aborted' || streamResult === 'done') {
         break
       }
+
+      // 处理工具调用
+      if (streamResult === 'tool_use' && pendingToolCalls.length > 0) {
+        toolRounds++
+        hasToolCallsOccurred = true
+
+        // 1. 保存当前 assistant 消息（带 tool_use toolCallData）并结束流式会话
+        const toolUseCalls = pendingToolCalls.map(call => ({
+          id: call.toolUseId,
+          name: call.tool.displayName,
+          input: call.args,
+        }))
+
+        // 获取当前流式内容用于保存
+        const currentContent = getStreamingContent(currentMessageId) || fullContent
+
+        if (toolRounds === 1) {
+          // 第一轮：更新原消息
+          await conversationService.updateMessageWithToolCallData(currentMessageId, currentContent, {
+            type: 'tool_use',
+            calls: toolUseCalls,
+          })
+        } else {
+          // 后续轮次：更新当前轮次的消息
+          await conversationService.updateMessageWithToolCallData(currentMessageId, currentContent, {
+            type: 'tool_use',
+            calls: toolUseCalls,
+          })
+        }
+
+        // 【关键】结束当前流式会话，广播 chat.message.done
+        await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
+          conversationId,
+          messageId: currentMessageId,
+          status: 'completed',
+          ...(updatedEstimatedTime !== null ? {
+            estimatedTime: updatedEstimatedTime,
+            upstreamId: aimodel.upstreamId,
+            aimodelId: aimodel.id,
+          } : {}),
+        })
+        endStreamingSession(currentMessageId)
+
+        // 重置状态
+        fullContent = ''
+        fullThinking = ''
+        thinkingStarted = false
+        thinkingEnded = false
+        firstChunkReceived = false
+
+        // 2. 并行等待所有工具确认，然后执行并创建 tool 消息
+        // 【关键】所有工具并行等待确认，全部处理完成后才继续调用 AI
+        const toolResults: Array<{
+          toolUseId: string
+          toolName: string
+          content: string
+          isError: boolean
+        }> = []
+
+        // 并行处理所有工具调用
+        await Promise.all(pendingToolCalls.map(async (call) => {
+          const { id, toolUseId, tool, args } = call
+
+          // 检查是否需要用户确认
+          let approved = tool.isAutoApprove
+          if (!approved) {
+            approved = await waitForToolConfirmation(currentMessageId, id)
+          }
+
+          // 检查是否被中止
+          if (abortController.signal.aborted) return
+
+          let toolContent: string
+          let isError = false
+
+          if (!approved) {
+            // 用户拒绝 - 广播 cancelled 状态
+            toolContent = 'User declined this tool call.'
+            updateToolCallStatus(userId, currentMessageId, id, 'cancelled')
+          } else {
+            // 用户批准 - 广播 invoking 状态
+            updateToolCallStatus(userId, currentMessageId, id, 'invoking')
+
+            // 执行工具
+            const result = await executeToolCall(tool, args)
+
+            // 检查是否被中止
+            if (abortController.signal.aborted) return
+
+            if (result.success) {
+              toolContent = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
+              // 广播 done 状态
+              updateToolCallStatus(userId, currentMessageId, id, 'done', result.content, false)
+            } else {
+              toolContent = result.error || 'Tool execution failed'
+              isError = true
+              // 广播 error 状态
+              updateToolCallStatus(userId, currentMessageId, id, 'error', toolContent, true)
+            }
+          }
+
+          toolResults.push({
+            toolUseId,
+            toolName: tool.displayName,
+            content: toolContent,
+            isError,
+          })
+        }))
+
+        // 检查是否被中止
+        if (abortController.signal.aborted) break
+
+        // 按原始顺序创建所有 tool 消息
+        for (const result of toolResults) {
+          await conversationService.addMessage(userId, {
+            conversationId,
+            role: 'tool',
+            content: result.content,
+            toolCallData: {
+              type: 'tool_result',
+              toolUseId: result.toolUseId,
+              toolName: result.toolName,
+              isError: result.isError,
+            },
+          })
+        }
+
+        const hasToolResults = toolResults.length > 0
+
+        // 清空待处理列表
+        pendingToolCalls = []
+
+        // 检查是否被中止
+        if (abortController.signal.aborted) break
+
+        // 如果有工具结果，创建新的 assistant 消息并继续调用 AI
+        if (hasToolResults) {
+          // 3. 创建新的 assistant 消息用于后续回复
+          const newMessage = await conversationService.addMessage(userId, {
+            conversationId,
+            role: 'assistant',
+            content: '',
+            modelDisplayName: `${upstream.name} / ${aimodel.name}`,
+            status: 'created',
+          })
+          currentMessageId = newMessage.id
+
+          // 4. 为新消息创建流式会话
+          startStreamingSession(currentMessageId, conversationId, userId, abortController)
+          await conversationService.updateMessageStatus(currentMessageId, 'pending')
+          updateSessionStatus(currentMessageId, 'pending')
+
+          // 5. 重新获取历史消息（包含刚添加的 assistant 和 tool 消息）
+          const updatedResult = await conversationService.getWithMessages(conversationId)
+          if (updatedResult) {
+            historyMessages = updatedResult.messages.filter(m =>
+              m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
+              && m.id !== currentMessageId  // 排除当前新 AI 消息
+            )
+          }
+
+          // 6. 继续调用 AI（不传 userMessage，因为上下文已在历史消息中）
+          currentGenerator = chatService.chatStream(
+            aimodel.modelName,
+            assistant.systemPrompt,
+            historyMessages,
+            undefined,  // 不再传 userMessage
+            undefined,  // 不再传 userFiles
+            abortController.signal,
+            logContext,
+            conversationId,
+            currentMessageId,
+            enableThinking,
+            enableWebSearch,
+            chatTools
+          )
+          // 继续循环处理新的生成器
+          streamResult = 'continue'
+        } else {
+          break
+        }
+      } else {
+        break
+      }
+    }
+
+    // 如果达到最大轮次限制，输出提示
+    if (toolRounds >= MCP_CLIENT_CONFIG.maxToolRounds && !abortController.signal.aborted) {
+      appendStreamingContent(currentMessageId, '\n\n*[已达到最大工具调用轮次限制]*\n')
     }
 
     // 检查是否被中止
     if (abortController.signal.aborted) {
       // 如果有未闭合的思考标签，需要闭合
       if (thinkingStarted && !thinkingEnded) {
-        appendStreamingContent(messageId, '\n</thinking>\n\n')
+        appendStreamingContent(currentMessageId, '\n</thinking>\n\n')
       }
 
       // 【竞态条件处理】尝试完成会话（原子操作）
-      // 这里和 stopStreamingTask() 可能同时尝试保存内容
-      // 通过 tryFinalizeSession 确保只有一方成功保存，避免重复写入数据库
-      // 详见 streamingCache.ts 中 tryFinalizeSession 的注释
-      const finalizeResult = tryFinalizeSession(messageId)
+      const finalizeResult = tryFinalizeSession(currentMessageId)
       if (finalizeResult) {
-        // 被中止的情况：保存已生成的内容，状态设为 stopped
         const contentToSave = finalizeResult.content || fullContent
-        await conversationService.updateMessageContentAndStatus(messageId, contentToSave, 'stopped', responseMark)
+        await conversationService.updateMessageContentAndStatus(currentMessageId, contentToSave, 'stopped', responseMark)
 
-        // 广播 done 事件（在清理缓存之前）
         await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
           conversationId,
-          messageId,
+          messageId: currentMessageId,
           status: 'stopped',
           ...(updatedEstimatedTime !== null ? {
             estimatedTime: updatedEstimatedTime,
@@ -273,12 +601,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           } : {}),
         })
 
-        // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
         setTimeout(() => {
-          endStreamingSession(messageId)
+          endStreamingSession(currentMessageId)
         }, 2000)
       }
-      // 如果 finalizeResult 为 null，说明已被 stopStreamingTask 处理，不需要再保存
       return
     }
 
@@ -286,22 +612,22 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 如果有未闭合的思考标签，需要闭合
     if (thinkingStarted && !thinkingEnded) {
-      appendStreamingContent(messageId, '\n</thinking>\n\n')
+      appendStreamingContent(currentMessageId, '\n</thinking>\n\n')
     }
 
     // 使用缓存的完整内容（包含标签），保持与流式输出一致
-    const cachedContent = getStreamingContent(messageId)
+    const cachedContent = getStreamingContent(currentMessageId)
     const finalContent = cachedContent || (fullThinking
       ? `<thinking>\n${fullThinking}\n</thinking>\n\n${fullContent}`
       : fullContent)
 
-    // 保存内容并更新状态
-    await conversationService.updateMessageContentAndStatus(messageId, finalContent, 'completed', responseMark)
+    // 更新当前消息内容和状态
+    await conversationService.updateMessageContentAndStatus(currentMessageId, finalContent, 'completed', responseMark)
 
-    // 广播 done 事件（在清理缓存之前）
+    // 广播 done 事件
     await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
       conversationId,
-      messageId,
+      messageId: currentMessageId,
       status: 'completed',
       ...(updatedEstimatedTime !== null ? {
         estimatedTime: updatedEstimatedTime,
@@ -310,10 +636,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       } : {}),
     })
 
-    // 延迟清理缓存，给 /stream 订阅者时间接收完所有内容
+    // 延迟清理缓存
     setTimeout(() => {
-      endStreamingSession(messageId)
-    }, 2000)  // 延迟 2 秒
+      endStreamingSession(currentMessageId)
+    }, 2000)
 
   } catch (error: unknown) {
     // 错误处理：保存错误信息
@@ -378,6 +704,9 @@ export async function stopStreamingTask(messageId: number): Promise<boolean> {
   if (abortController) {
     abortController.abort()
   }
+
+  // 取消所有待确认的工具调用
+  cancelPendingToolCalls(messageId)
 
   // 【关键】等待 100ms，给流式循环优先处理的机会
   // 流式循环有更完整的上下文（如 responseMark、updatedEstimatedTime 等）

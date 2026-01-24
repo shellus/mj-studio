@@ -18,9 +18,11 @@ export type {
   ApiKeyConfig,
   UpstreamPlatform,
   UpstreamInfo,
+  McpServerType,
+  ToolCallData,
 } from '../../app/shared/types'
 
-import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams, ModelCapability } from '../../app/shared/types'
+import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams, ModelCapability, McpServerType, ToolCallData } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -132,6 +134,7 @@ export const assistants = sqliteTable('assistants', {
   enableThinking: integer('enable_thinking', { mode: 'boolean' }).notNull().default(false), // 是否启用思考功能
   pinnedAt: integer('pinned_at', { mode: 'timestamp' }), // 收藏时间（null=未收藏，有值=已收藏，按此字段降序排列收藏助手）
   lastActiveAt: integer('last_active_at', { mode: 'timestamp' }), // 最后活跃时间（对话/消息变动时更新）
+  maxToolSteps: integer('max_tool_steps').notNull().default(20), // MCP 工具调用最大轮次
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
@@ -162,6 +165,7 @@ export const messages = sqliteTable('messages', {
   mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应
   status: text('status').$type<MessageStatus>(), // AI 消息状态：created/pending/streaming/completed/stopped/failed
   sortId: integer('sort_id'), // 排序ID，用于压缩后消息重排序
+  toolCallData: text('tool_call_data', { mode: 'json' }).$type<ToolCallData>(), // 工具调用元数据
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
@@ -184,3 +188,42 @@ export const userSettings = sqliteTable('user_settings', {
 
 export type UserSetting = typeof userSettings.$inferSelect
 export type NewUserSetting = typeof userSettings.$inferInsert
+
+// ==================== MCP 客户端相关表 ====================
+
+// MCP 服务配置表（用户级）
+export const mcpServers = sqliteTable('mcp_servers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  type: text('type').$type<McpServerType>().notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  baseUrl: text('base_url'),
+  headers: text('headers', { mode: 'json' }).$type<Record<string, string>>(),
+  command: text('command'),
+  args: text('args', { mode: 'json' }).$type<string[]>(),
+  env: text('env', { mode: 'json' }).$type<Record<string, string>>(),
+  timeout: integer('timeout').notNull().default(60),
+  disabledTools: text('disabled_tools', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  autoApproveTools: text('auto_approve_tools', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  logoUrl: text('logo_url'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type McpServer = typeof mcpServers.$inferSelect
+export type NewMcpServer = typeof mcpServers.$inferInsert
+
+// 助手与 MCP 服务关联表
+export const assistantMcpServers = sqliteTable('assistant_mcp_servers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  assistantId: integer('assistant_id').notNull(),
+  mcpServerId: integer('mcp_server_id').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => [
+  unique().on(table.assistantId, table.mcpServerId),
+])
+
+export type AssistantMcpServer = typeof assistantMcpServers.$inferSelect
+export type NewAssistantMcpServer = typeof assistantMcpServers.$inferInsert

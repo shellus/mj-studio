@@ -6,7 +6,7 @@
  */
 
 import type { Upstream, Message, MessageFile } from '../../database/schema'
-import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem } from './types'
+import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, isImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
@@ -19,6 +19,8 @@ import { getErrorMessage, isAbortError } from '../../../app/shared/types'
 type ClaudeContentBlock =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
+  | { type: 'tool_result'; tool_use_id: string; content: string; is_error: boolean }
 
 interface ClaudeMessage {
   role: 'user' | 'assistant'
@@ -103,22 +105,70 @@ export const claudeProvider: ChatProvider = {
 
     function buildMessages(
       historyMessages: Message[],
-      userMessage: string,
+      userMessage?: string,
       userFiles?: MessageFile[]
     ): ClaudeMessage[] {
       const messages: ClaudeMessage[] = []
 
       for (const msg of historyMessages) {
-        messages.push({
-          role: msg.role,
-          content: buildClaudeMessageContent(msg.content, msg.files),
-        })
+        if (msg.role === 'user') {
+          messages.push({
+            role: 'user',
+            content: buildClaudeMessageContent(msg.content, msg.files),
+          })
+        } else if (msg.role === 'assistant') {
+          // 检查是否有工具调用
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
+            const toolUseBlocks: ClaudeContentBlock[] = msg.toolCallData.calls.map(call => ({
+              type: 'tool_use' as const,
+              id: call.id,
+              name: call.name,
+              input: call.input,
+            }))
+            // 如果有文本内容，添加到块前面
+            if (msg.content) {
+              messages.push({
+                role: 'assistant',
+                content: [
+                  { type: 'text', text: msg.content },
+                  ...toolUseBlocks,
+                ],
+              })
+            } else {
+              messages.push({
+                role: 'assistant',
+                content: toolUseBlocks,
+              })
+            }
+          } else {
+            messages.push({
+              role: 'assistant',
+              content: buildClaudeMessageContent(msg.content, msg.files),
+            })
+          }
+        } else if (msg.role === 'tool') {
+          // tool 消息转换为 user 消息带 tool_result 块
+          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
+            messages.push({
+              role: 'user',
+              content: [{
+                type: 'tool_result' as const,
+                tool_use_id: msg.toolCallData.toolUseId,
+                content: msg.content,
+                is_error: msg.toolCallData.isError,
+              }],
+            })
+          }
+        }
       }
 
-      messages.push({
-        role: 'user',
-        content: buildClaudeMessageContent(userMessage, userFiles),
-      })
+      // 如果有当前用户消息（首次请求时）
+      if (userMessage) {
+        messages.push({
+          role: 'user',
+          content: buildClaudeMessageContent(userMessage, userFiles),
+        })
+      }
 
       return messages
     }
@@ -141,7 +191,7 @@ export const claudeProvider: ChatProvider = {
           const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
-          const currentSize = calcSize(userMessage)
+          const currentSize = userMessage ? calcSize(userMessage) : 0
 
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
@@ -211,14 +261,15 @@ export const claudeProvider: ChatProvider = {
         modelName: string,
         systemPrompt: string | null,
         historyMessages: Message[],
-        userMessage: string,
+        userMessage?: string,
         userFiles?: MessageFile[],
         signal?: AbortSignal,
         logContext?: LogContext,
         conversationId?: number,
         messageId?: number,
         enableThinking?: boolean,
-        enableWebSearch?: boolean
+        enableWebSearch?: boolean,
+        tools?: ChatTool[]
       ): AsyncGenerator<ChatStreamChunk> {
         const url = `${upstream.baseUrl}/v1/messages`
         const messages = buildMessages(historyMessages, userMessage, userFiles)
@@ -254,6 +305,19 @@ export const claudeProvider: ChatProvider = {
           ]
         }
 
+        // MCP 工具
+        if (tools && tools.length > 0) {
+          const existingTools = (body.tools as unknown[]) || []
+          body.tools = [
+            ...existingTools,
+            ...tools.map(t => ({
+              name: t.name,
+              description: t.description,
+              input_schema: t.inputSchema,
+            })),
+          ]
+        }
+
         if (conversationId !== undefined && messageId !== undefined) {
           logConversationRequest(conversationId, messageId, {
             url,
@@ -267,7 +331,7 @@ export const claudeProvider: ChatProvider = {
           const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
-          const currentSize = calcSize(userMessage)
+          const currentSize = userMessage ? calcSize(userMessage) : 0
 
           if (logContext.type === '压缩') {
             logCompressRequest(ctx, historyMessages.length, historySize, systemPromptSize)
@@ -285,6 +349,8 @@ export const claudeProvider: ChatProvider = {
         }
 
         let totalContent = ''
+        let currentToolUse: ToolUseRequest | null = null
+        let currentToolUseInputJson = ''
 
         try {
           const response = await fetch(url, {
@@ -352,6 +418,7 @@ export const claudeProvider: ChatProvider = {
                 // 处理 Web Search 事件
                 if (parsed.type === 'content_block_start') {
                   const block = parsed.content_block
+                  console.log(`[Claude] content_block_start: type=${block?.type}, name=${block?.name}`)
                   // 搜索开始
                   if (block?.type === 'server_tool_use' && block?.name === 'web_search') {
                     yield { content: '', done: false, webSearch: { status: 'searching' } }
@@ -368,6 +435,16 @@ export const claudeProvider: ChatProvider = {
                     console.log(`[Claude] 收到搜索结果: ${results.length} 条`, results.map((r: WebSearchResultItem) => r.title))
                     yield { content: '', done: false, webSearch: { status: 'completed', results } }
                   }
+                  // MCP 工具调用开始
+                  if (block?.type === 'tool_use') {
+                    console.log(`[Claude] 工具调用开始: id=${block.id}, name=${block.name}`)
+                    currentToolUse = {
+                      id: block.id,
+                      name: block.name,
+                      input: {},
+                    }
+                    currentToolUseInputJson = ''
+                  }
                 }
 
                 if (parsed.type === 'content_block_delta') {
@@ -375,6 +452,11 @@ export const claudeProvider: ChatProvider = {
                   // 处理思考内容（Claude 原生 thinking_delta）
                   if (delta?.type === 'thinking_delta' && delta.thinking) {
                     yield { content: '', thinking: delta.thinking, done: false }
+                  }
+
+                  // 处理工具调用参数增量
+                  if (delta?.type === 'input_json_delta' && currentToolUse) {
+                    currentToolUseInputJson += delta.partial_json || ''
                   }
 
                   // 处理文本内容（Claude 原生 text_delta）
@@ -388,7 +470,34 @@ export const claudeProvider: ChatProvider = {
                     totalContent += delta.text
                     yield { content: delta.text, done: false }
                   }
-                } else if (parsed.type === 'message_stop') {
+                }
+
+                // 工具调用 block 结束
+                if (parsed.type === 'content_block_stop') {
+                  console.log(`[Claude] content_block_stop: currentToolUse=${currentToolUse ? currentToolUse.name : 'null'}`)
+                  if (currentToolUse) {
+                    try {
+                      currentToolUse.input = JSON.parse(currentToolUseInputJson || '{}')
+                    } catch {
+                      currentToolUse.input = {}
+                    }
+                    console.log(`[Claude] yield toolUse: ${currentToolUse.name}`)
+                    yield { content: '', done: false, toolUse: currentToolUse }
+                    currentToolUse = null
+                    currentToolUseInputJson = ''
+                  }
+                }
+
+                // 处理 message_delta 的 stop_reason
+                if (parsed.type === 'message_delta') {
+                  const delta = parsed.delta
+                  console.log(`[Claude] message_delta: stop_reason=${delta?.stop_reason}, delta=${JSON.stringify(delta)}`)
+                  if (delta?.stop_reason === 'tool_use' || delta?.stop_reason === 'end_turn') {
+                    yield { content: '', done: false, stopReason: delta.stop_reason }
+                  }
+                }
+
+                if (parsed.type === 'message_stop') {
                   const durationMs = Date.now() - startTime
 
                   if (conversationId !== undefined && messageId !== undefined) {

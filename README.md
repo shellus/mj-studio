@@ -168,6 +168,7 @@ pnpm install && pnpm dev
 - [数据导入导出功能介绍](docs/features/数据导入导出功能介绍.md)
 - [上游和模型配置](docs/features/上游和模型配置.md)
 - [MCP接口功能介绍](docs/features/MCP接口功能介绍.md)
+- [MCP客户端功能介绍](docs/features/MCP客户端功能介绍.md)
 
 ### 开发规范
 
