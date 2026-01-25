@@ -40,5 +40,8 @@ node-compile-cache/
 todo.md
 image.png
 
+# git worktrees
+.worktrees/
+
 # docker 文件
 docker-compose.override.yml

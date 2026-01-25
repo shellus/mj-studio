@@ -76,3 +76,23 @@ Nuxt UI 4 + Fluent 2 风格。详见 [docs/dev-spec/设计系统.md](docs/dev-sp
 ```bash
 npx vue-tsc --noEmit
 ```
+
+### Git Worktree 规则
+
+**Worktree 目录**：`.worktrees/`（已在 .gitignore 中）
+
+**创建 worktree 后的设置**：
+1. 复制 `.env` 文件
+2. 软链接 `node_modules/` 和 `data/`（避免重复安装依赖和复制数据）
+3. 复制相关设计文档到 worktree
+
+**命令示例**：
+```bash
+# 创建 worktree
+git worktree add .worktrees/<branch-name> -b feature/<branch-name>
+
+# 设置环境
+cp .env .worktrees/<branch-name>/.env
+ln -s $(pwd)/node_modules .worktrees/<branch-name>/node_modules
+ln -s $(pwd)/data .worktrees/<branch-name>/data
+```
