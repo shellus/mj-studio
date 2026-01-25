@@ -148,6 +148,20 @@
       "when": 1769243942397,
       "tag": "0020_add-tool-call-data",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1769341248291,
+      "tag": "0021_remove-tool-call-data",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1769341304066,
+      "tag": "0022_add-tool-calls-to-message",
+      "breakpoints": true
     }
   ]
 }

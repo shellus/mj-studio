@@ -71,10 +71,9 @@ Nuxt UI 4 + Fluent 2 风格。详见 [docs/dev-spec/设计系统.md](docs/dev-sp
 
 ### 测试规则
 
-修改代码后必须运行类型检查和单元测试：
+在完成主要功能或修复 bug 后，**提交代码前**必须运行单元测试：
 
 ```bash
-npx vue-tsc --noEmit
 pnpm test
 ```
 

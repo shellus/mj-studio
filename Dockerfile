@@ -28,8 +28,9 @@ RUN --mount=type=cache,target=/app/node_modules/.cache \
 # Production stage
 FROM node:20-alpine AS runner
 
-# Install runtime dependencies for better-sqlite3
-RUN apk add --no-cache libstdc++
+# Install runtime dependencies for better-sqlite3, python3, pip, and npx
+RUN apk add --no-cache libstdc++ python3 py3-pip npm && \
+    pip3 install uv --break-system-packages
 
 WORKDIR /app
 
