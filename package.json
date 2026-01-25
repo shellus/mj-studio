@@ -13,7 +13,8 @@
     "docs:dev": "vitepress dev docs --port 4173 --host 0.0.0.0",
     "docs:build": "vitepress build docs",
     "build:docs": "vitepress build docs",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/api-integration.test.ts --exclude tests/mcp-integration.test.ts",
+    "test:all": "vitest run",
     "test:watch": "vitest",
     "test:shared": "vitest run tests/shared.test.ts",
     "test:api": "vitest run tests/api-integration.test.ts"
