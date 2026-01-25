@@ -18,7 +18,7 @@ import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
-import { getErrorMessage, isAbortError } from '../../../app/shared/types'
+import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
 
 // OpenAI 多模态消息内容类型
 type ResponseMessageContent =
@@ -108,15 +108,20 @@ export const openaiResponseProvider: ChatProvider = {
     ): (ResponseMessage | AssistantMessageWithToolCalls | FunctionCallOutput)[] {
       const messages: (ResponseMessage | AssistantMessageWithToolCalls | FunctionCallOutput)[] = []
 
-      for (const msg of historyMessages) {
+      for (let i = 0; i < historyMessages.length; i++) {
+        const msg = historyMessages[i]
+        if (!msg) continue
+
         if (msg.role === 'user') {
           messages.push({
             role: 'user',
             content: buildMessageContent(msg.content, msg.files),
           })
         } else if (msg.role === 'assistant') {
-          // 检查是否有工具调用
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
+          // 检查是否有工具调用记录
+          const toolCallRecords = msg.toolCalls || []
+
+          if (toolCallRecords.length > 0) {
             // 先添加文本内容（如果有）
             if (msg.content) {
               messages.push({
@@ -125,27 +130,29 @@ export const openaiResponseProvider: ChatProvider = {
               })
             }
             // 添加 function_call
-            for (const call of msg.toolCallData.calls) {
+            for (const record of toolCallRecords) {
               messages.push({
                 type: 'function_call',
-                call_id: call.id,
-                name: call.name,
-                arguments: JSON.stringify(call.input),
+                call_id: record.id,
+                name: record.displayName || record.toolName,
+                arguments: JSON.stringify(record.arguments),
+              })
+            }
+            // 添加 function_call_output
+            for (const record of toolCallRecords) {
+              const output = typeof record.response === 'string'
+                ? record.response
+                : JSON.stringify(record.response)
+              messages.push({
+                type: 'function_call_output',
+                call_id: record.id,
+                output,
               })
             }
           } else {
             messages.push({
               role: 'assistant',
               content: buildMessageContent(msg.content, msg.files),
-            })
-          }
-        } else if (msg.role === 'tool') {
-          // tool 消息转换为 function_call_output
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
-            messages.push({
-              type: 'function_call_output',
-              call_id: msg.toolCallData.toolUseId,
-              output: msg.content,
             })
           }
         }

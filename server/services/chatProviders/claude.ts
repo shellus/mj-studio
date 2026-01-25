@@ -13,7 +13,7 @@ import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { CLAUDE_THINKING_BUDGET_TOKENS } from '../../../app/shared/constants'
-import { getErrorMessage, isAbortError } from '../../../app/shared/types'
+import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
 
 // Claude 多模态消息内容类型
 type ClaudeContentBlock =
@@ -110,21 +110,28 @@ export const claudeProvider: ChatProvider = {
     ): ClaudeMessage[] {
       const messages: ClaudeMessage[] = []
 
-      for (const msg of historyMessages) {
+      for (let i = 0; i < historyMessages.length; i++) {
+        const msg = historyMessages[i]
+        if (!msg) continue
+
         if (msg.role === 'user') {
           messages.push({
             role: 'user',
             content: buildClaudeMessageContent(msg.content, msg.files),
           })
         } else if (msg.role === 'assistant') {
-          // 检查是否有工具调用
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
-            const toolUseBlocks: ClaudeContentBlock[] = msg.toolCallData.calls.map(call => ({
+          // 检查是否有工具调用记录
+          const toolCallRecords = msg.toolCalls || []
+
+          if (toolCallRecords.length > 0) {
+            // 构建 tool_use 块
+            const toolUseBlocks: ClaudeContentBlock[] = toolCallRecords.map(record => ({
               type: 'tool_use' as const,
-              id: call.id,
-              name: call.name,
-              input: call.input,
+              id: record.id,
+              name: record.displayName || record.toolName,
+              input: record.arguments,
             }))
+
             // 如果有文本内容，添加到块前面
             if (msg.content) {
               messages.push({
@@ -140,23 +147,24 @@ export const claudeProvider: ChatProvider = {
                 content: toolUseBlocks,
               })
             }
+
+            // 为每个工具调用创建 tool_result 块（作为 user 消息）
+            const toolResultBlocks: ClaudeContentBlock[] = toolCallRecords.map(record => ({
+              type: 'tool_result' as const,
+              tool_use_id: record.id,
+              content: typeof record.response === 'string' ? record.response : JSON.stringify(record.response),
+              is_error: record.isError || false,
+            }))
+
+            messages.push({
+              role: 'user',
+              content: toolResultBlocks,
+            })
           } else {
+            // 没有工具调用记录，作为普通 assistant 消息处理
             messages.push({
               role: 'assistant',
               content: buildClaudeMessageContent(msg.content, msg.files),
-            })
-          }
-        } else if (msg.role === 'tool') {
-          // tool 消息转换为 user 消息带 tool_result 块
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
-            messages.push({
-              role: 'user',
-              content: [{
-                type: 'tool_result' as const,
-                tool_use_id: msg.toolCallData.toolUseId,
-                content: msg.content,
-                is_error: msg.toolCallData.isError,
-              }],
             })
           }
         }

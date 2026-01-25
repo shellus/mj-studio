@@ -13,7 +13,7 @@ import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
-import { getErrorMessage, isAbortError } from '../../../app/shared/types'
+import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
 
 // OpenAI 多模态消息内容类型
 type ChatMessageContent =
@@ -104,21 +104,26 @@ export const openaiChatProvider: ChatProvider = {
         messages.push({ role: 'system', content: systemPrompt })
       }
 
-      for (const msg of historyMessages) {
+      for (let i = 0; i < historyMessages.length; i++) {
+        const msg = historyMessages[i]
+        if (!msg) continue
+
         if (msg.role === 'user') {
           messages.push({
             role: 'user',
             content: buildMessageContent(msg.content, msg.files),
           })
         } else if (msg.role === 'assistant') {
-          // 检查是否有工具调用
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
-            const toolCalls: OpenAIToolCall[] = msg.toolCallData.calls.map(call => ({
-              id: call.id,
+          // 检查是否有工具调用记录
+          const toolCallRecords = msg.toolCalls || []
+
+          if (toolCallRecords.length > 0) {
+            const toolCalls: OpenAIToolCall[] = toolCallRecords.map(record => ({
+              id: record.id,
               type: 'function' as const,
               function: {
-                name: call.name,
-                arguments: JSON.stringify(call.input),
+                name: record.displayName || record.toolName,
+                arguments: JSON.stringify(record.arguments),
               },
             }))
             messages.push({
@@ -126,19 +131,22 @@ export const openaiChatProvider: ChatProvider = {
               content: msg.content || null,
               tool_calls: toolCalls,
             })
+
+            // 为每个工具调用创建 tool 消息
+            for (const record of toolCallRecords) {
+              const responseContent = typeof record.response === 'string'
+                ? record.response
+                : JSON.stringify(record.response)
+              messages.push({
+                role: 'tool',
+                content: responseContent,
+                tool_call_id: record.id,
+              })
+            }
           } else {
             messages.push({
               role: 'assistant',
               content: buildMessageContent(msg.content, msg.files),
-            })
-          }
-        } else if (msg.role === 'tool') {
-          // tool 消息
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
-            messages.push({
-              role: 'tool',
-              content: msg.content,
-              tool_call_id: msg.toolCallData.toolUseId,
             })
           }
         }

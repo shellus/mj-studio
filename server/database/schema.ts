@@ -19,10 +19,10 @@ export type {
   UpstreamPlatform,
   UpstreamInfo,
   McpServerType,
-  ToolCallData,
+  ToolCallRecord,
 } from '../../app/shared/types'
 
-import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams, ModelCapability, McpServerType, ToolCallData } from '../../app/shared/types'
+import type { ModelCategory, ModelType, ApiFormat, TaskType, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo, ModelParams, ModelCapability, McpServerType, ToolCallRecord } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -161,11 +161,11 @@ export const messages = sqliteTable('messages', {
   role: text('role').$type<MessageRole>().notNull(),
   content: text('content').notNull(),
   files: text('files', { mode: 'json' }).$type<MessageFile[]>(), // 附件文件列表
+  toolCalls: text('tool_calls', { mode: 'json' }).$type<ToolCallRecord[]>(), // 工具调用记录（仅 assistant 消息）
   modelDisplayName: text('model_display_name'), // 模型显示名称（格式："上游名称 / 模型显示名称"），仅 assistant 消息，历史快照用于显示
   mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应
   status: text('status').$type<MessageStatus>(), // AI 消息状态：created/pending/streaming/completed/stopped/failed
   sortId: integer('sort_id'), // 排序ID，用于压缩后消息重排序
-  toolCallData: text('tool_call_data', { mode: 'json' }).$type<ToolCallData>(), // 工具调用元数据
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

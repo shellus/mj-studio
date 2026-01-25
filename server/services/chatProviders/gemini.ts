@@ -14,7 +14,7 @@ import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { GEMINI_THINKING_BUDGET } from '../../../app/shared/constants'
-import { getErrorMessage, isAbortError } from '../../../app/shared/types'
+import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
 
 // Gemini 消息内容类型
 type GeminiPart =
@@ -89,19 +89,24 @@ export const geminiProvider: ChatProvider = {
     ): GeminiContent[] {
       const contents: GeminiContent[] = []
 
-      for (const msg of historyMessages) {
+      for (let i = 0; i < historyMessages.length; i++) {
+        const msg = historyMessages[i]
+        if (!msg) continue
+
         if (msg.role === 'user') {
           contents.push({
             role: 'user',
             parts: buildGeminiParts(msg.content, msg.files),
           })
         } else if (msg.role === 'assistant') {
-          // 检查是否有工具调用
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_use') {
-            const functionCallParts: GeminiPart[] = msg.toolCallData.calls.map(call => ({
+          // 检查是否有工具调用记录
+          const toolCallRecords = msg.toolCalls || []
+
+          if (toolCallRecords.length > 0) {
+            const functionCallParts: GeminiPart[] = toolCallRecords.map(record => ({
               functionCall: {
-                name: call.name,
-                args: call.input,
+                name: record.displayName || record.toolName,
+                args: record.arguments,
               },
             }))
             // 如果有文本内容，添加到 parts 前面
@@ -116,25 +121,27 @@ export const geminiProvider: ChatProvider = {
                 parts: functionCallParts,
               })
             }
+
+            // 为每个工具调用创建 functionResponse
+            const functionResponseParts: GeminiPart[] = toolCallRecords.map(record => ({
+              functionResponse: {
+                name: record.displayName || record.toolName,
+                response: {
+                  content: record.response,
+                },
+              },
+            }))
+
+            if (functionResponseParts.length > 0) {
+              contents.push({
+                role: 'user',
+                parts: functionResponseParts,
+              })
+            }
           } else {
             contents.push({
               role: 'model',
               parts: buildGeminiParts(msg.content, msg.files),
-            })
-          }
-        } else if (msg.role === 'tool') {
-          // tool 消息转换为 user 消息带 functionResponse
-          if (msg.toolCallData && msg.toolCallData.type === 'tool_result') {
-            contents.push({
-              role: 'user',
-              parts: [{
-                functionResponse: {
-                  name: msg.toolCallData.toolName,
-                  response: {
-                    content: msg.content,
-                  },
-                },
-              }],
             })
           }
         }
