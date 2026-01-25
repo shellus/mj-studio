@@ -137,28 +137,32 @@ export type TaskStatus =
  * - 用于标识对话消息的发送者
  * - 使用场景：对话历史显示、消息列表渲染
  */
-export type MessageRole = 'user' | 'assistant' | 'tool'
+export type MessageRole = 'user' | 'assistant'
 
 /**
- * 工具调用数据
- * - assistant 消息可包含 tool_use 类型，表示 AI 请求调用工具
- * - tool 消息包含 tool_result 类型，表示工具执行结果
+ * 工具调用记录（存储在 assistant 消息的 toolCalls 字段）
+ * - 每个记录对应一次工具调用及其结果
  */
-export type ToolCallData =
-  | {
-      type: 'tool_use'
-      calls: Array<{
-        id: string           // tool_use_id，用于关联结果
-        name: string         // 工具名称（mcp__server__tool 格式）
-        input: Record<string, unknown>  // 工具参数
-      }>
-    }
-  | {
-      type: 'tool_result'
-      toolUseId: string      // 关联的 tool_use id
-      toolName: string       // 工具名称
-      isError: boolean       // 是否执行出错
-    }
+export interface ToolCallRecord {
+  /** tool_use_id，用于关联请求和结果 */
+  id: string
+  /** MCP 服务 ID */
+  serverId: number
+  /** MCP 服务名称 */
+  serverName: string
+  /** 工具原始名称 */
+  toolName: string
+  /** 工具显示名称（mcp__{server}__{tool} 格式，用于 AI 模型识别） */
+  displayName: string
+  /** 工具调用参数 */
+  arguments: Record<string, unknown>
+  /** 调用状态 */
+  status: 'pending' | 'invoking' | 'done' | 'error' | 'cancelled'
+  /** 工具返回结果 */
+  response?: unknown
+  /** 是否为错误结果 */
+  isError?: boolean
+}
 
 /**
  * 消息标记
@@ -512,29 +516,6 @@ export interface McpTool {
   inputSchema: Record<string, unknown>
   isEnabled: boolean
   isAutoApprove: boolean
-}
-
-/** 工具调用状态 */
-export type ToolCallStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'error'
-
-/** 工具调用记录 */
-export interface ToolCall {
-  id: string
-  serverId: number
-  serverName: string
-  toolName: string
-  arguments: Record<string, unknown>
-  status: ToolCallStatus
-  result: unknown | null
-  error: string | null
-  startedAt: string | null
-  completedAt: string | null
-}
-
-/** 消息中的工具调用内容结构 */
-export interface MessageToolContent {
-  text: string
-  toolCalls: ToolCall[]
 }
 
 /** MCP 服务前端展示数据 */

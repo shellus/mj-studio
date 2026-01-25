@@ -401,6 +401,71 @@ function cancelDeleteUntil() {
   deleteUntilCount.value = 0
 }
 
+// 工具调用确认状态管理
+// key: messageId, value: { toolCallId: approved }
+const toolCallApprovals = ref<Record<number, Record<string, boolean>>>({})
+const confirmingMessageId = ref<number | null>(null)
+
+// 初始化消息的工具调用批准状态（默认全部批准）
+function initToolCallApprovals(messageId: number, toolCallIds: string[]) {
+  if (!toolCallApprovals.value[messageId]) {
+    toolCallApprovals.value[messageId] = {}
+  }
+  toolCallIds.forEach(id => {
+    if (toolCallApprovals.value[messageId]![id] === undefined) {
+      toolCallApprovals.value[messageId]![id] = true // 默认批准
+    }
+  })
+}
+
+// 更新单个工具调用的批准状态
+function updateToolCallApproval(messageId: number, toolCallId: string, approved: boolean) {
+  if (!toolCallApprovals.value[messageId]) {
+    toolCallApprovals.value[messageId] = {}
+  }
+  toolCallApprovals.value[messageId]![toolCallId] = approved
+}
+
+// 获取单个工具调用的批准状态
+function getToolCallApproval(messageId: number, toolCallId: string): boolean {
+  return toolCallApprovals.value[messageId]?.[toolCallId] ?? true
+}
+
+// 检查消息是否有 pending 状态的工具调用
+function hasPendingToolCalls(message: Message): boolean {
+  return message.toolCalls?.some(tc => tc.status === 'pending') ?? false
+}
+
+// 确认工具调用
+async function confirmToolCalls(messageId: number) {
+  const approvals = toolCallApprovals.value[messageId]
+  if (!approvals) return
+
+  confirmingMessageId.value = messageId
+
+  try {
+    // 批量发送确认请求
+    const promises = Object.entries(approvals).map(([toolCallId, approved]) =>
+      $fetch(`/api/messages/${messageId}/tool-confirm`, {
+        method: 'POST',
+        body: {
+          toolCallId,
+          action: approved ? 'approve' : 'reject',
+        },
+      })
+    )
+
+    await Promise.all(promises)
+
+    // 清理已确认的状态
+    delete toolCallApprovals.value[messageId]
+  } catch (err) {
+    console.error('工具调用确认失败:', err)
+  } finally {
+    confirmingMessageId.value = null
+  }
+}
+
 // 计算消息大小（参考 MessageInput.vue 的计算公式）
 function getMessageSize(message: Message): number {
   let size = new TextEncoder().encode(message.content).length
@@ -593,18 +658,15 @@ function isEditing(messageId: number): boolean {
         class="hidden md:flex w-8 h-8 rounded-full items-center justify-center flex-shrink-0"
         :class="[
           message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'bg-blue-500' :
-          message.role === 'tool' ? 'bg-emerald-500' :
           message.role === 'user' ? 'bg-(--ui-primary)' : 'bg-(--ui-bg-elevated)'
         ]"
       >
         <UIcon
           :name="message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'i-heroicons-archive-box-arrow-down' :
-                 message.role === 'tool' ? 'i-heroicons-cog-6-tooth' :
                  message.role === 'user' ? 'i-heroicons-user' : 'i-heroicons-sparkles'"
           class="w-4 h-4"
           :class="[
             message.mark === MESSAGE_MARK.COMPRESS_REQUEST ? 'text-white' :
-            message.role === 'tool' ? 'text-white' :
             message.role === 'user' ? 'text-white' : 'text-(--ui-primary)'
           ]"
         />
@@ -621,19 +683,17 @@ function isEditing(messageId: number): boolean {
         <div
           :class="[
             'max-w-full overflow-hidden',
-            message.role === 'tool' ? '' : 'px-4 py-2 rounded-2xl cursor-pointer md:cursor-auto',
+            'px-4 py-2 rounded-2xl cursor-pointer md:cursor-auto',
             isEditing(message.id) ? 'block' : 'inline-block',
             message.role === 'user' && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
-              : message.role === 'tool'
-                ? ''
-                : message.mark === MESSAGE_MARK.ERROR
-                  ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
-                  : message.mark === MESSAGE_MARK.COMPRESS_REQUEST
-                    ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
-                    : message.mark === MESSAGE_MARK.COMPRESS_RESPONSE
-                      ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
-                      : 'bg-(--ui-bg-elevated) rounded-tl-sm'
+              : message.mark === MESSAGE_MARK.ERROR
+                ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
+                : message.mark === MESSAGE_MARK.COMPRESS_REQUEST
+                  ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-tl-sm'
+                  : message.mark === MESSAGE_MARK.COMPRESS_RESPONSE
+                    ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
+                    : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
           @click="toggleMessageActions(message.id)"
         >
@@ -728,10 +788,6 @@ function isEditing(messageId: number): boolean {
               <ChatStreamMarkdown :content="message.content" />
             </template>
           </div>
-          <!-- tool 消息：工具执行结果 -->
-          <div v-else-if="message.role === 'tool'" class="text-sm">
-            <ChatToolResultMessage :message="message" />
-          </div>
           <!-- 错误消息 -->
           <div v-else-if="message.mark === MESSAGE_MARK.ERROR" class="text-sm flex items-start gap-2">
             <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -780,6 +836,34 @@ function isEditing(messageId: number): boolean {
                 :message-id="message.id"
               />
             </template>
+            <!-- 工具调用块（紧凑排列） -->
+            <div v-if="message.toolCalls?.length" class="mt-2 rounded-lg border border-(--ui-border) overflow-hidden">
+              <ChatToolCallBlock
+                v-for="toolCall in message.toolCalls"
+                :key="toolCall.id"
+                :tool-call="toolCall"
+                :message-id="message.id"
+                :approved="getToolCallApproval(message.id, toolCall.id)"
+                @update:approved="(val) => updateToolCallApproval(message.id, toolCall.id, val)"
+                @vue:mounted="initToolCallApprovals(message.id, message.toolCalls!.map(tc => tc.id))"
+              />
+              <!-- 统一确认按钮（仅在有 pending 状态时显示） -->
+              <div
+                v-if="hasPendingToolCalls(message)"
+                class="px-4 py-3 flex justify-end border-t border-(--ui-border)"
+              >
+                <UButton
+                  size="sm"
+                  color="primary"
+                  :loading="confirmingMessageId === message.id"
+                  :disabled="confirmingMessageId === message.id"
+                  @click="confirmToolCalls(message.id)"
+                >
+                  <UIcon name="i-heroicons-check" class="w-4 h-4 mr-1" />
+                  确定
+                </UButton>
+              </div>
+            </div>
             <!-- 被中断的标记 -->
             <div
               v-if="isMessageStopped(message) && !isEditing(message.id)"

@@ -24,12 +24,12 @@ import { emitToUser } from './globalEvents'
 import type { ChatMessageDone } from './globalEvents'
 import type { MessageMark, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
-import { getErrorMessage } from '../../app/shared/types'
+import { getErrorMessage, type ToolCallRecord } from '../../app/shared/types'
 import { MESSAGE_MARK } from '../../app/shared/constants'
 import { useMcpServerService } from './mcpServer'
 import { useMcpClientManager, mcpToolsToChatTools, findMcpToolByDisplayName, MCP_CLIENT_CONFIG } from './mcpClient'
 import type { McpToolWithServer } from './mcpClient'
-import { waitForToolConfirmation, cancelPendingToolCalls, registerToolCallState, updateToolCallStatus } from './toolCallState'
+import { waitForToolConfirmation, cancelPendingToolCalls, broadcastToolCallUpdated } from './toolCallState'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
@@ -207,31 +207,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     }> = []
     let toolRounds = 0  // 工具调用轮次计数
     let hasToolCallsOccurred = false  // 是否发生过工具调用（用于决定是否删除原消息）
-    let currentMessageId = messageId  // 当前正在流式输出的消息 ID（工具调用后会创建新消息）
-
-    // 生成工具调用标记块
-    function formatToolCallBlock(
-      id: string,
-      toolUseId: string,
-      serverName: string,
-      toolName: string,
-      status: 'pending' | 'invoking' | 'done' | 'error' | 'cancelled',
-      args: Record<string, unknown>,
-      response?: unknown,
-      isError?: boolean
-    ): string {
-      const data = {
-        id,
-        toolUseId,
-        serverName,
-        toolName,
-        status,
-        arguments: args,
-        ...(response !== undefined ? { response } : {}),
-        ...(isError !== undefined ? { isError } : {}),
-      }
-      return '\n```tool-call\n' + JSON.stringify(data) + '\n```\n'
-    }
+    let currentMessageId = messageId  // 当前正在流式输出的消息 ID
+    let currentToolCallRecords: ToolCallRecord[] = []  // 当前 assistant 消息中的工具调用记录
 
     // 执行工具调用
     async function executeToolCall(
@@ -284,35 +261,15 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
         if (tool) {
           console.log(`[MCP Tool] 找到工具: ${tool.displayName}`)
-          const callId = `${currentMessageId}_${toolUseId}`
           pendingToolCalls.push({
-            id: callId,
+            id: `${currentMessageId}_${toolUseId}`,
             toolUseId,
             tool,
             args: input,
           })
 
-          // 注册工具调用状态并广播 pending 事件
-          registerToolCallState(
-            userId,
-            currentMessageId,
-            callId,
-            tool.serverName,
-            tool.name,
-            input,
-            'pending'
-          )
-
-          // 输出 pending 状态
-          const block = formatToolCallBlock(
-            callId,
-            toolUseId,
-            tool.serverName,
-            tool.name,
-            'pending',
-            input
-          )
-          appendStreamingContent(currentMessageId, block)
+          // 不再在 assistant 消息中输出 tool-call 代码块
+          // 工具调用信息将存储在后续的 tool 消息中
         } else {
           console.log(`[MCP Tool] 未找到工具: ${name}`)
         }
@@ -392,82 +349,67 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         toolRounds++
         hasToolCallsOccurred = true
 
-        // 1. 保存当前 assistant 消息（带 tool_use toolCallData）并结束流式会话
-        const toolUseCalls = pendingToolCalls.map(call => ({
-          id: call.toolUseId,
-          name: call.tool.displayName,
-          input: call.args,
-        }))
-
-        // 获取当前流式内容用于保存
+        // 1. 获取当前 assistant 消息内容（保持 streaming 状态）
         const currentContent = getStreamingContent(currentMessageId) || fullContent
 
-        if (toolRounds === 1) {
-          // 第一轮：更新原消息
-          await conversationService.updateMessageWithToolCallData(currentMessageId, currentContent, {
-            type: 'tool_use',
-            calls: toolUseCalls,
-          })
-        } else {
-          // 后续轮次：更新当前轮次的消息
-          await conversationService.updateMessageWithToolCallData(currentMessageId, currentContent, {
-            type: 'tool_use',
-            calls: toolUseCalls,
-          })
+        // 2. 初始化工具调用记录数组，追加到现有记录
+        const newToolCallRecords: ToolCallRecord[] = pendingToolCalls.map(call => ({
+          id: call.toolUseId,
+          serverId: call.tool.serverId,
+          serverName: call.tool.serverName,
+          toolName: call.tool.name,
+          displayName: call.tool.displayName,
+          arguments: call.args,
+          status: 'pending' as const,
+        }))
+        currentToolCallRecords = [...currentToolCallRecords, ...newToolCallRecords]
+
+        // 3. 更新 assistant 消息的 content 和 toolCalls（状态保持 streaming）
+        await conversationService.updateMessageContentAndStatus(currentMessageId, currentContent, 'streaming')
+        await conversationService.updateMessageToolCalls(currentMessageId, currentToolCallRecords)
+
+        // 4. 广播每个新工具调用的状态
+        for (const record of newToolCallRecords) {
+          broadcastToolCallUpdated(userId, conversationId, currentMessageId, record.id, record)
         }
 
-        // 【关键】结束当前流式会话，广播 chat.message.done
-        await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
-          conversationId,
-          messageId: currentMessageId,
-          status: 'completed',
-          ...(updatedEstimatedTime !== null ? {
-            estimatedTime: updatedEstimatedTime,
-            upstreamId: aimodel.upstreamId,
-            aimodelId: aimodel.id,
-          } : {}),
-        })
-        endStreamingSession(currentMessageId)
+        // 5. 并行等待所有工具确认，然后执行
+        // 注意：使用 assistant 消息 ID 作为确认的 key
+        const assistantMessageIdForConfirm = currentMessageId
 
-        // 重置状态
-        fullContent = ''
-        fullThinking = ''
-        thinkingStarted = false
-        thinkingEnded = false
-        firstChunkReceived = false
-
-        // 2. 并行等待所有工具确认，然后执行并创建 tool 消息
-        // 【关键】所有工具并行等待确认，全部处理完成后才继续调用 AI
-        const toolResults: Array<{
-          toolUseId: string
-          toolName: string
-          content: string
-          isError: boolean
-        }> = []
-
-        // 并行处理所有工具调用
-        await Promise.all(pendingToolCalls.map(async (call) => {
-          const { id, toolUseId, tool, args } = call
+        // 6. 并行处理所有工具调用
+        const startIndex = currentToolCallRecords.length - pendingToolCalls.length
+        await Promise.all(pendingToolCalls.map(async (call, i) => {
+          const index = startIndex + i
+          const { toolUseId, tool, args } = call
 
           // 检查是否需要用户确认
           let approved = tool.isAutoApprove
-          if (!approved) {
-            approved = await waitForToolConfirmation(currentMessageId, id)
+          if (!approved && assistantMessageIdForConfirm) {
+            approved = await waitForToolConfirmation(assistantMessageIdForConfirm, toolUseId)
           }
 
           // 检查是否被中止
           if (abortController.signal.aborted) return
 
-          let toolContent: string
+          let toolContent: unknown
           let isError = false
+          let newStatus: ToolCallRecord['status']
 
           if (!approved) {
-            // 用户拒绝 - 广播 cancelled 状态
+            // 用户拒绝
             toolContent = 'User declined this tool call.'
-            updateToolCallStatus(userId, currentMessageId, id, 'cancelled')
+            newStatus = 'cancelled'
           } else {
-            // 用户批准 - 广播 invoking 状态
-            updateToolCallStatus(userId, currentMessageId, id, 'invoking')
+            // 用户批准 - 更新状态为 invoking
+            newStatus = 'invoking'
+            const record = currentToolCallRecords[index]
+            if (record) {
+              record.status = 'invoking'
+              // 更新数据库并广播单个工具状态
+              await conversationService.updateMessageToolCalls(currentMessageId, currentToolCallRecords)
+              broadcastToolCallUpdated(userId, conversationId, currentMessageId, record.id, record)
+            }
 
             // 执行工具
             const result = await executeToolCall(tool, args)
@@ -476,44 +418,44 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
             if (abortController.signal.aborted) return
 
             if (result.success) {
-              toolContent = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
-              // 广播 done 状态
-              updateToolCallStatus(userId, currentMessageId, id, 'done', result.content, false)
+              toolContent = result.content
+              newStatus = 'done'
             } else {
               toolContent = result.error || 'Tool execution failed'
               isError = true
-              // 广播 error 状态
-              updateToolCallStatus(userId, currentMessageId, id, 'error', toolContent, true)
+              newStatus = 'error'
             }
           }
 
-          toolResults.push({
-            toolUseId,
-            toolName: tool.displayName,
-            content: toolContent,
-            isError,
-          })
+          // 更新当前工具调用记录
+          const record = currentToolCallRecords[index]
+          if (record) {
+            record.status = newStatus
+            record.response = toolContent
+            record.isError = isError
+            // 更新数据库并广播单个工具状态
+            await conversationService.updateMessageToolCalls(currentMessageId, currentToolCallRecords)
+            broadcastToolCallUpdated(userId, conversationId, currentMessageId, record.id, record)
+          }
         }))
 
-        // 检查是否被中止
-        if (abortController.signal.aborted) break
-
-        // 按原始顺序创建所有 tool 消息
-        for (const result of toolResults) {
-          await conversationService.addMessage(userId, {
-            conversationId,
-            role: 'tool',
-            content: result.content,
-            toolCallData: {
-              type: 'tool_result',
-              toolUseId: result.toolUseId,
-              toolName: result.toolName,
-              isError: result.isError,
-            },
-          })
+        // 中止时将所有 invoking 状态的工具调用标记为 cancelled
+        if (abortController.signal.aborted) {
+          let hasChanges = false
+          for (const record of currentToolCallRecords) {
+            if (record.status === 'invoking') {
+              record.status = 'cancelled'
+              hasChanges = true
+              broadcastToolCallUpdated(userId, conversationId, currentMessageId, record.id, record)
+            }
+          }
+          if (hasChanges) {
+            await conversationService.updateMessageToolCalls(currentMessageId, currentToolCallRecords)
+          }
+          break
         }
 
-        const hasToolResults = toolResults.length > 0
+        const hasToolResults = currentToolCallRecords.length > 0
 
         // 清空待处理列表
         pendingToolCalls = []
@@ -521,33 +463,17 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 检查是否被中止
         if (abortController.signal.aborted) break
 
-        // 如果有工具结果，创建新的 assistant 消息并继续调用 AI
+        // 如果有工具结果，继续调用 AI（使用同一个 assistant 消息）
         if (hasToolResults) {
-          // 3. 创建新的 assistant 消息用于后续回复
-          const newMessage = await conversationService.addMessage(userId, {
-            conversationId,
-            role: 'assistant',
-            content: '',
-            modelDisplayName: `${upstream.name} / ${aimodel.name}`,
-            status: 'created',
-          })
-          currentMessageId = newMessage.id
-
-          // 4. 为新消息创建流式会话
-          startStreamingSession(currentMessageId, conversationId, userId, abortController)
-          await conversationService.updateMessageStatus(currentMessageId, 'pending')
-          updateSessionStatus(currentMessageId, 'pending')
-
-          // 5. 重新获取历史消息（包含刚添加的 assistant 和 tool 消息）
+          // 重新获取历史消息（包含当前 assistant 消息及其 toolCalls）
           const updatedResult = await conversationService.getWithMessages(conversationId)
           if (updatedResult) {
             historyMessages = updatedResult.messages.filter(m =>
               m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
-              && m.id !== currentMessageId  // 排除当前新 AI 消息
             )
           }
 
-          // 6. 继续调用 AI（不传 userMessage，因为上下文已在历史消息中）
+          // 继续调用 AI（不传 userMessage，因为上下文已在历史消息中）
           currentGenerator = chatService.chatStream(
             aimodel.modelName,
             assistant.systemPrompt,

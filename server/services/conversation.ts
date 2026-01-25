@@ -1,6 +1,6 @@
 // 对话服务层
 import { db } from '../database'
-import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile, type ToolCallData } from '../database/schema'
+import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile, type ToolCallRecord } from '../database/schema'
 import { eq, and, desc, inArray } from 'drizzle-orm'
 import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated, type ChatConversationDeleted, type ChatMessageCreated, type ChatMessageUpdated, type ChatMessageDeleted, type ChatMessagesDeleted } from './globalEvents'
 import { useAssistantService } from './assistant'
@@ -145,25 +145,25 @@ export function useConversationService() {
   // userId 参数用于广播事件，支持未来多用户协同场景
   async function addMessage(userId: number, data: {
     conversationId: number
-    role: 'user' | 'assistant' | 'tool'
+    role: 'user' | 'assistant'
     content: string
     files?: MessageFile[]
+    toolCalls?: ToolCallRecord[]
     modelDisplayName?: string // 模型显示名称（格式："上游名称 / 模型显示名称"）
     mark?: MessageMark
     status?: MessageStatus
     sortId?: number
-    toolCallData?: ToolCallData
   }): Promise<Message> {
     const [message] = await db.insert(messages).values({
       conversationId: data.conversationId,
       role: data.role,
       content: data.content,
       files: data.files ?? null,
+      toolCalls: data.toolCalls ?? null,
       modelDisplayName: data.modelDisplayName ?? null,
       mark: data.mark ?? null,
       status: data.status ?? null,
       sortId: data.sortId ?? null,
-      toolCallData: data.toolCallData ?? null,
     }).returning()
 
     if (!message) {
@@ -196,7 +196,6 @@ export function useConversationService() {
         mark: message.mark,
         status: message.status,
         sortId: message.sortId,
-        toolCallData: message.toolCallData,
         createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
       },
     })
@@ -229,10 +228,10 @@ export function useConversationService() {
       .where(eq(messages.id, messageId))
   }
 
-  // 更新消息内容和工具调用数据
-  async function updateMessageWithToolCallData(messageId: number, content: string, toolCallData: ToolCallData): Promise<void> {
+  // 更新 assistant 消息的 toolCalls 字段
+  async function updateMessageToolCalls(messageId: number, toolCalls: ToolCallRecord[]): Promise<void> {
     await db.update(messages)
-      .set({ content, status: 'completed', toolCallData })
+      .set({ toolCalls })
       .where(eq(messages.id, messageId))
   }
 
@@ -394,7 +393,7 @@ export function useConversationService() {
         modelDisplayName: msg.modelDisplayName ?? undefined,
         mark: msg.mark ?? undefined,
         status: msg.status ?? undefined,
-        toolCallData: msg.toolCallData ?? undefined,
+        toolCalls: msg.toolCalls ?? undefined,
       })
       newMessages.push(newMsg)
     }
@@ -414,7 +413,7 @@ export function useConversationService() {
     updateMessageSortId,
     updateMessageStatus,
     updateMessageContentAndStatus,
-    updateMessageWithToolCallData,
+    updateMessageToolCalls,
     getMessageById,
     updateMessageContent,
     removeMessage,

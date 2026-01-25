@@ -18,6 +18,7 @@ import type {
   TaskRestored,
   TaskBlurUpdated,
   TasksBlurUpdated,
+  AssistantToolCallUpdated,
 } from '~/shared/events'
 
 export default defineNuxtPlugin(() => {
@@ -96,7 +97,10 @@ export default defineNuxtPlugin(() => {
       existing.createdAt = message.createdAt || existing.createdAt
       existing.mark = message.mark as any
       existing.status = message.status as any
-      existing.toolCallData = message.toolCallData
+      // 更新 toolCalls（仅当非流式状态时）
+      if (existing.status !== 'streaming' && message.toolCalls) {
+        existing.toolCalls = message.toolCalls
+      }
     } else {
       messages.value.push({
         id: message.id,
@@ -108,7 +112,7 @@ export default defineNuxtPlugin(() => {
         createdAt: message.createdAt || new Date().toISOString(),
         mark: message.mark as any,
         status: message.status as any,
-        toolCallData: message.toolCallData,
+        toolCalls: message.toolCalls,
       })
     }
 
@@ -217,6 +221,25 @@ export default defineNuxtPlugin(() => {
     const { conversationId, messageIds } = data
     if (currentConversationId.value !== conversationId) return
     messages.value = messages.value.filter(m => !messageIds.includes(m.id))
+  })
+
+  // Assistant 工具调用更新事件处理器（精细粒度）
+  on<AssistantToolCallUpdated>('assistant.toolCall.updated', (data) => {
+    const { conversationId, messageId, toolCallId, toolCall } = data
+    if (currentConversationId.value !== conversationId) return
+
+    const targetMessage = messages.value.find(m => m.id === messageId)
+    if (targetMessage && targetMessage.role === 'assistant') {
+      if (!targetMessage.toolCalls) {
+        targetMessage.toolCalls = []
+      }
+      const existingIndex = targetMessage.toolCalls.findIndex(tc => tc.id === toolCallId)
+      if (existingIndex >= 0) {
+        targetMessage.toolCalls[existingIndex] = toolCall
+      } else {
+        targetMessage.toolCalls.push(toolCall)
+      }
+    }
   })
 
   // ==================== 任务事件处理器 ====================

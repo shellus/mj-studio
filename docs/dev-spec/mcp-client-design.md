@@ -125,9 +125,63 @@ interface ToolCallResult {
 }
 ```
 
+**`ToolCallRecord`** - 工具调用记录（存储在 tool 消息的 content 中）
+
+```typescript
+interface ToolCallRecord {
+  id: string                    // tool_use_id
+  serverId: number
+  serverName: string
+  toolName: string              // 原始工具名
+  displayName: string           // mcp__{server}__{tool} 格式，用于 AI 模型识别
+  arguments: Record<string, unknown>
+  status: 'pending' | 'invoking' | 'done' | 'error' | 'cancelled'
+  response?: unknown
+  isError?: boolean
+}
+```
+
 ---
 
-## 服务端核心组件
+## 消息存储结构
+
+工具调用采用"assistant 消息内嵌 toolCalls 数组"模式存储，避免连续工具调用产生大量消息气泡。
+
+### 消息类型
+
+| 角色 | 字段 | 说明 |
+|-----|------|------|
+| `assistant` | `content` | AI 回复文本 |
+| `assistant` | `toolCalls` | 工具调用记录数组 (`ToolCallRecord[]`) |
+
+### 工具调用流程中的消息更新
+
+```
+1. AI 返回 tool_use
+   └── 保存/更新 assistant 消息
+       ├── content: 当前文本内容
+       └── toolCalls: [{status: 'pending', ...}]
+
+2. 用户确认/拒绝
+   └── 更新 assistant 消息的 toolCalls 中对应记录的 status
+
+3. 工具执行完成
+   └── 更新 assistant 消息的 toolCalls 中对应记录的 status、response、isError
+
+4. 连续多个工具调用
+   └── 所有调用追加到同一个 assistant 消息的 toolCalls 数组中
+
+5. AI 继续回复
+   └── 更新同一个 assistant 消息的 content
+```
+
+### SSE 事件
+
+| 事件 | 说明 |
+|-----|------|
+| `assistant.toolCall.updated` | assistant 消息的单个工具调用状态更新 |
+
+---
 
 ### MCPClientManager
 
@@ -175,7 +229,8 @@ interface ToolCallResult {
 **主要函数**：
 - `waitForToolConfirmation(messageId, toolCallId)` - 等待用户确认，返回 Promise
 - `confirmToolCall(messageId, toolCallId, approved)` - 确认或拒绝
-- `updateToolCallStatus(...)` - 更新状态并广播 SSE 事件
+- `updateToolCallStatus(...)` - 更新内存状态并广播旧版 SSE 事件
+- `broadcastToolMessageUpdate(...)` - 广播 `tool.message.updated` 事件（新版）
 
 ### 工具名称转换
 
@@ -274,8 +329,7 @@ app/
 │   │   ├── ServerCard.vue
 │   │   └── ServerEditModal.vue
 │   └── chat/
-│       ├── ToolCallBlock.vue      # 工具调用内联块
-│       └── ToolResultMessage.vue  # 工具结果消息
+│       └── ToolCallBlock.vue      # 工具调用内联块（含状态、参数、结果展示）
 │
 ├── composables/
 │   └── useMcpServers.ts
