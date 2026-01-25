@@ -456,7 +456,9 @@ export const openaiChatProvider: ChatProvider = {
                 // 处理 finish_reason
                 if (finishReason === 'tool_calls') {
                   // 输出所有收集到的 tool_calls
-                  for (const [, tc] of pendingToolCalls) {
+                  // Sort by index to ensure order
+                  const sortedToolCalls = Array.from(pendingToolCalls.entries()).sort((a, b) => a[0] - b[0])
+                  for (const [, tc] of sortedToolCalls) {
                     let input: Record<string, unknown> = {}
                     try {
                       input = JSON.parse(tc.arguments || '{}')
