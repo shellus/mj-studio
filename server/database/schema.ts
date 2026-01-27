@@ -135,6 +135,7 @@ export const assistants = sqliteTable('assistants', {
   pinnedAt: integer('pinned_at', { mode: 'timestamp' }), // 收藏时间（null=未收藏，有值=已收藏，按此字段降序排列收藏助手）
   lastActiveAt: integer('last_active_at', { mode: 'timestamp' }), // 最后活跃时间（对话/消息变动时更新）
   maxToolSteps: integer('max_tool_steps').notNull().default(20), // MCP 工具调用最大轮次
+  autoApproveMcp: integer('auto_approve_mcp', { mode: 'boolean' }).notNull().default(false), // 自动通过 MCP 调用（作为新建对话的默认值）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
@@ -147,6 +148,7 @@ export const conversations = sqliteTable('conversations', {
   userId: integer('user_id').notNull(),
   assistantId: integer('assistant_id').notNull(),
   title: text('title').notNull(),
+  autoApproveMcp: integer('auto_approve_mcp', { mode: 'boolean' }).notNull().default(false), // 自动通过 MCP 调用
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })

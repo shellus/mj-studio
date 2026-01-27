@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     assistantId,
     title: title?.trim() || '新对话',
+    autoApproveMcp: assistant.autoApproveMcp ?? false,
   })
 
   // 更新助手的对话数量（service.refreshConversationCount 会自动广播 chat.assistant.updated 事件）

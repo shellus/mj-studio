@@ -16,6 +16,7 @@ export interface Assistant {
   pinnedAt: string | null
   lastActiveAt: string | null
   mcpServerIds?: number[]
+  autoApproveMcp?: boolean
 }
 
 export function useAssistants() {

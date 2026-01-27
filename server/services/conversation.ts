@@ -39,12 +39,14 @@ export function useConversationService() {
     userId: number
     assistantId: number
     title: string
+    autoApproveMcp?: boolean
   }): Promise<Conversation> {
     const now = new Date()
     const [conversation] = await db.insert(conversations).values({
       userId: data.userId,
       assistantId: data.assistantId,
       title: data.title,
+      autoApproveMcp: data.autoApproveMcp ?? false,
       createdAt: now,
       updatedAt: now,
     }).returning()
@@ -404,6 +406,16 @@ export function useConversationService() {
     return { conversation: newConversation, messages: newMessages }
   }
 
+  // 更新对话的自动通过 MCP 设置
+  async function updateAutoApproveMcp(id: number, userId: number, autoApproveMcp: boolean): Promise<Conversation | undefined> {
+    const [updated] = await db.update(conversations)
+      .set({ autoApproveMcp, updatedAt: new Date() })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+      .returning()
+
+    return updated
+  }
+
   return {
     listByAssistant,
     getById,
@@ -423,5 +435,6 @@ export function useConversationService() {
     removeMessagesUntil,
     generateTitle,
     fork,
+    updateAutoApproveMcp,
   }
 }

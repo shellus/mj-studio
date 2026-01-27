@@ -379,6 +379,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
         // 注意：使用 assistant 消息 ID 作为确认的 key
         const assistantMessageIdForConfirm = currentMessageId
 
+        // 获取对话的 autoApproveMcp 设置
+        const conversationAutoApprove = result.conversation.autoApproveMcp ?? false
+
         // 6. 并行处理所有工具调用
         const startIndex = currentToolCallRecords.length - pendingToolCalls.length
         await Promise.all(pendingToolCalls.map(async (call, i) => {
@@ -386,7 +389,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           const { toolUseId, tool, args } = call
 
           // 检查是否需要用户确认
-          let approved = tool.isAutoApprove
+          // 优先级：对话级别 autoApproveMcp > 服务级别 autoApproveTools
+          let approved = conversationAutoApprove || tool.isAutoApprove
           if (!approved && assistantMessageIdForConfirm) {
             approved = await waitForToolConfirmation(assistantMessageIdForConfirm, toolUseId)
           }

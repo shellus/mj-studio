@@ -21,6 +21,7 @@ export interface Conversation {
   userId: number
   assistantId: number
   title: string
+  autoApproveMcp?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -380,6 +381,20 @@ export function useConversations() {
     return updated
   }
 
+  // 更新对话的自动通过 MCP 设置
+  async function updateConversationAutoApproveMcp(id: number, autoApproveMcp: boolean) {
+    const updated = await $fetch<Conversation>(`/api/conversations/${id}`, {
+      method: 'PUT',
+      body: { autoApproveMcp },
+    })
+    // 本地更新（不通过 SSE 广播）
+    const conversation = conversations.value.find(c => c.id === id)
+    if (conversation) {
+      conversation.autoApproveMcp = autoApproveMcp
+    }
+    return updated
+  }
+
   // 删除对话
   // 对话删除通过全局 SSE 事件 chat.conversation.deleted 处理
   async function deleteConversation(id: number) {
@@ -596,6 +611,7 @@ export function useConversations() {
     createConversation,
     startNewConversation,
     updateConversationTitle,
+    updateConversationAutoApproveMcp,
     deleteConversation,
     sendMessage,
     deleteMessage,

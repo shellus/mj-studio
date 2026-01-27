@@ -32,6 +32,7 @@ const formData = reactive({
   aimodelId: null as number | null,
   enableThinking: false,
   mcpServerIds: [] as number[],
+  autoApproveMcp: false,
 })
 
 // 表单验证
@@ -64,6 +65,7 @@ watch(() => props.assistant, async (assistant) => {
       aimodelId: assistant.aimodelId,
       enableThinking: assistant.enableThinking || false,
       mcpServerIds: [],
+      autoApproveMcp: assistant.autoApproveMcp || false,
     })
     // 加载 MCP 服务关联
     await loadMcpServerIds(assistant.id)
@@ -76,6 +78,7 @@ watch(() => props.assistant, async (assistant) => {
       aimodelId: null,
       enableThinking: false,
       mcpServerIds: [],
+      autoApproveMcp: false,
     })
   }
 }, { immediate: true })
@@ -138,6 +141,7 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
     aimodelId: event.data.aimodelId,
     enableThinking: event.data.enableThinking,
     mcpServerIds: event.data.mcpServerIds,
+    autoApproveMcp: event.data.autoApproveMcp,
   })
 }
 
@@ -275,6 +279,17 @@ const activeServers = computed(() => servers.value.filter(s => s.isActive))
           </div>
           <p class="text-xs text-(--ui-text-muted) mt-2">
             选择要启用的 MCP 服务，让助手可以调用外部工具
+          </p>
+        </UFormField>
+
+        <!-- 自动通过 MCP 调用 -->
+        <UFormField v-if="activeServers.length > 0" label="自动通过 MCP 调用" name="autoApproveMcp">
+          <div class="flex items-center h-9">
+            <USwitch v-model="formData.autoApproveMcp" />
+            <span class="ml-2 text-sm text-(--ui-text-muted)">新建对话时默认开启</span>
+          </div>
+          <p class="text-xs text-(--ui-text-muted) mt-1">
+            开启后，新建对话的 MCP 工具调用将自动通过，无需手动确认
           </p>
         </UFormField>
 

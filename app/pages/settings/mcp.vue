@@ -202,6 +202,16 @@ async function handleToggleActive(server: McpServerDisplay) {
   }
 }
 
+async function handleUpdateAutoApprove(server: McpServerDisplay, tools: string[]) {
+  try {
+    await updateServer(server.id, { autoApproveTools: tools })
+    toast.add({ title: '自动通过设置已更新', color: 'success' })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '操作失败'
+    toast.add({ title: '操作失败', description: message, color: 'error' })
+  }
+}
+
 onMounted(() => {
   fetchApiKeyData()
   fetchServers()
@@ -241,6 +251,7 @@ onMounted(() => {
             @delete="handleDelete(server)"
             @test="handleTest(server)"
             @toggle-active="handleToggleActive(server)"
+            @update-auto-approve="handleUpdateAutoApprove(server, $event)"
           />
 
           <!-- 空状态 -->

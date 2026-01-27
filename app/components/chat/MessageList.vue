@@ -22,6 +22,7 @@ const props = defineProps<{
   assistantId?: number | null
   conversationId?: number | null
   estimatedTime?: number | null  // 预计首字时长（秒）
+  autoApproveMcp?: boolean  // 自动通过 MCP 调用
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   deleteUntil: [id: number]
   stop: []
   sendSuggestion: [content: string]
+  'update:autoApproveMcp': [value: boolean]
 }>()
 
 // 开场白建议
@@ -863,8 +865,15 @@ function isEditing(messageId: number): boolean {
               <!-- 统一确认按钮（仅在有 pending 状态时显示） -->
               <div
                 v-if="hasPendingToolCalls(message)"
-                class="px-4 py-3 flex justify-end border-t border-(--ui-border)"
+                class="px-4 py-3 flex items-center justify-between border-t border-(--ui-border)"
               >
+                <label class="flex items-center gap-2 text-sm text-(--ui-text-muted) cursor-pointer select-none">
+                  <UCheckbox
+                    :model-value="autoApproveMcp"
+                    @update:model-value="emit('update:autoApproveMcp', $event)"
+                  />
+                  <span>自动通过</span>
+                </label>
                 <UButton
                   size="sm"
                   color="primary"

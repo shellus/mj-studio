@@ -104,6 +104,7 @@ const {
   forkConversation,
   deleteMessagesUntil,
   compressConversation,
+  updateConversationAutoApproveMcp,
   // 输入状态管理
   getInputState,
   updateInputContent,
@@ -529,6 +530,17 @@ async function handleUpdateThinking(enableThinking: boolean) {
   }
 }
 
+// 更新对话的自动通过 MCP 设置
+async function handleUpdateAutoApproveMcp(autoApproveMcp: boolean) {
+  if (!currentConversationId.value) return
+
+  try {
+    await updateConversationAutoApproveMcp(currentConversationId.value, autoApproveMcp)
+  } catch (error: any) {
+    toast.add({ title: error.message || '更新失败', color: 'error' })
+  }
+}
+
 // 滚动到压缩请求位置
 function handleScrollToCompress() {
   messageListRef.value?.scrollToCompressRequest()
@@ -609,6 +621,7 @@ onUnmounted(() => {
           :assistant-id="currentAssistantId"
           :conversation-id="currentConversationId"
           :estimated-time="currentEstimatedTime"
+          :auto-approve-mcp="currentConversation?.autoApproveMcp ?? false"
           class="flex-1 min-h-0"
           @delete="handleDeleteMessage"
           @edit="handleEditMessage"
@@ -617,6 +630,7 @@ onUnmounted(() => {
           @replay="handleReplayMessage"
           @stop="handleStop"
           @send-suggestion="handleSendMessage"
+          @update:auto-approve-mcp="handleUpdateAutoApproveMcp"
         />
 
         <!-- 输入框 -->
