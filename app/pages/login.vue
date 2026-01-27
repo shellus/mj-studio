@@ -4,6 +4,8 @@ definePageMeta({
 })
 
 const { login } = useAuth()
+const { loadUpstreams: loadAvailableUpstreams } = useAvailableUpstreams()
+const { loadAssistants } = useAssistants()
 const toast = useToast()
 const config = useRuntimeConfig()
 
@@ -36,6 +38,12 @@ async function handleSubmit() {
 
     // 保存 JWT token 到 localStorage
     login(result.token, result.user)
+
+    // 加载新用户的数据
+    await Promise.all([
+      loadAvailableUpstreams(),
+      loadAssistants(),
+    ])
 
     toast.add({
       title: isLogin.value ? '登录成功' : '注册成功',

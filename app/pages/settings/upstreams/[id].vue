@@ -15,6 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { upstreams, loadUpstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
+const { loadUpstreams: loadAvailableUpstreams } = useAvailableUpstreams()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
@@ -360,6 +361,8 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
+    // 同步刷新可用上游数据（用于模型选择器）
+    await loadAvailableUpstreams()
     router.back()
   } catch (error: unknown) {
     const err = error as { data?: { message?: string }; message?: string }

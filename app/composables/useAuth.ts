@@ -11,6 +11,25 @@ const token = ref<string | null>(null)
 const user = ref<AuthUser | null>(null)
 const isInitialized = ref(false)
 
+// 清空所有用户相关的全局状态
+function clearUserData() {
+  // 使用 clearNuxtState 清空所有用户相关的 useState
+  const stateKeys = [
+    'upstreams',
+    'available-upstreams',
+    'assistants',
+    'tasks',
+    'mcp-servers',
+    'trash-tasks',
+    'conversations',
+    'messages',
+    'conversation-suggestions',
+  ]
+  for (const key of stateKeys) {
+    clearNuxtState(key)
+  }
+}
+
 export function useAuth() {
   const loggedIn = computed(() => !!token.value && !!user.value)
 
@@ -36,6 +55,9 @@ export function useAuth() {
 
   // 登录
   function login(newToken: string, newUser: AuthUser) {
+    // 清空旧用户数据（切换账号时避免数据混淆）
+    clearUserData()
+
     token.value = newToken
     user.value = newUser
 
