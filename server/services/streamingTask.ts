@@ -68,6 +68,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
   // 开始流式会话
   startStreamingSession(messageId, conversationId, userId, abortController)
 
+  // 记录请求开始时间（在 try 外部，以便 catch 也能访问）
+  const requestStartTime = Date.now()
+
   try {
     // 获取对话和消息
     const result = await conversationService.getWithMessages(conversationId)
@@ -195,7 +198,6 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     let thinkingStarted = false  // 是否已输出思考开标签
     let thinkingEnded = false    // 是否已输出思考闭标签
     let firstChunkReceived = false
-    const requestStartTime = Date.now() // 记录请求开始时间
     let updatedEstimatedTime: number | null = null // 记录更新后的预计时间
 
     // 工具调用相关变量
@@ -514,12 +516,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       const finalizeResult = tryFinalizeSession(currentMessageId)
       if (finalizeResult) {
         const contentToSave = finalizeResult.content || fullContent
-        await conversationService.updateMessageContentAndStatus(currentMessageId, contentToSave, 'stopped', responseMark)
+        const duration = Date.now() - requestStartTime
+        await conversationService.updateMessageContentAndStatus(currentMessageId, contentToSave, 'stopped', responseMark, duration)
 
         await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
           conversationId,
           messageId: currentMessageId,
           status: 'stopped',
+          duration,
           ...(updatedEstimatedTime !== null ? {
             estimatedTime: updatedEstimatedTime,
             upstreamId: aimodel.upstreamId,
@@ -547,14 +551,18 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       ? `<thinking>\n${fullThinking}\n</thinking>\n\n${fullContent}`
       : fullContent)
 
+    // 计算生成耗时
+    const duration = Date.now() - requestStartTime
+
     // 更新当前消息内容和状态
-    await conversationService.updateMessageContentAndStatus(currentMessageId, finalContent, 'completed', responseMark)
+    await conversationService.updateMessageContentAndStatus(currentMessageId, finalContent, 'completed', responseMark, duration)
 
     // 广播 done 事件
     await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
       conversationId,
       messageId: currentMessageId,
       status: 'completed',
+      duration,
       ...(updatedEstimatedTime !== null ? {
         estimatedTime: updatedEstimatedTime,
         upstreamId: aimodel.upstreamId,
@@ -570,13 +578,15 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
   } catch (error: unknown) {
     // 错误处理：保存错误信息
     const errorMessage = getErrorMessage(error)
+    const duration = Date.now() - requestStartTime
 
     // 更新消息为错误状态
     await conversationService.updateMessageContentAndStatus(
       messageId,
       errorMessage,
       'failed',
-      'error'
+      'error',
+      duration
     )
 
     // 广播 done 事件（带错误）
@@ -585,6 +595,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       messageId,
       status: 'failed',
       error: errorMessage,
+      duration,
     })
 
     // 延迟清理缓存
@@ -654,13 +665,15 @@ export async function stopStreamingTask(messageId: number): Promise<boolean> {
 
   // 流式循环还没处理完（可能卡在等待上游响应，如思考阶段）
   // 由我们来保存已累积的内容
-  await conversationService.updateMessageContentAndStatus(messageId, finalizeResult.content, 'stopped')
+  const duration = Date.now() - session.startedAt
+  await conversationService.updateMessageContentAndStatus(messageId, finalizeResult.content, 'stopped', undefined, duration)
 
   // 广播 done 事件
   await emitToUser<ChatMessageDone>(userId, 'chat.message.done', {
     conversationId,
     messageId,
     status: 'stopped',
+    duration,
   })
 
   // 清理缓存

@@ -487,16 +487,29 @@ function formatSize(size: number): string {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+// 格式化耗时显示
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`
+  return `${(ms / 1000).toFixed(1)} s`
+}
+
 // 获取消息的下拉菜单项
 function getMessageMenuItems(message: Message) {
   const items: any[][] = []
 
-  // 信息组（模型和大小）
+  // 信息组（模型、耗时和大小）
   const infoItems: any[] = []
   if (message.modelDisplayName) {
     infoItems.push({
       label: message.modelDisplayName,
       icon: 'i-heroicons-cpu-chip',
+      disabled: true,
+    })
+  }
+  if (message.duration) {
+    infoItems.push({
+      label: formatDuration(message.duration),
+      icon: 'i-heroicons-clock',
       disabled: true,
     })
   }

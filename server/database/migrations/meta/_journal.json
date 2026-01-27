@@ -169,6 +169,13 @@
       "when": 1769356236060,
       "tag": "0023_add-model-test-tables",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1769502839658,
+      "tag": "0024_add-message-duration",
+      "breakpoints": true
     }
   ]
 }
