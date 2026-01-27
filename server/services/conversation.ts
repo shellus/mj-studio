@@ -218,10 +218,13 @@ export function useConversationService() {
   }
 
   // 更新消息内容和状态
-  async function updateMessageContentAndStatus(messageId: number, content: string, status: MessageStatus, mark?: MessageMark): Promise<void> {
-    const updateData: { content: string; status: MessageStatus; mark?: MessageMark | null } = { content, status }
+  async function updateMessageContentAndStatus(messageId: number, content: string, status: MessageStatus, mark?: MessageMark, duration?: number): Promise<void> {
+    const updateData: { content: string; status: MessageStatus; mark?: MessageMark | null; duration?: number } = { content, status }
     if (mark !== undefined) {
       updateData.mark = mark
+    }
+    if (duration !== undefined) {
+      updateData.duration = duration
     }
     await db.update(messages)
       .set(updateData)

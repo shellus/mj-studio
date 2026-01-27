@@ -55,6 +55,7 @@ export interface ChatMessageDone {
   estimatedTime?: number
   upstreamId?: number
   aimodelId?: number
+  duration?: number
 }
 
 /**

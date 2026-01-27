@@ -124,7 +124,7 @@ export default defineNuxtPlugin(() => {
   })
 
   on<ChatMessageDone>('chat.message.done', (data) => {
-    const { conversationId, messageId, status, error, estimatedTime, upstreamId, aimodelId } = data
+    const { conversationId, messageId, status, error, estimatedTime, upstreamId, aimodelId, duration } = data
     if (currentConversationId.value !== conversationId) return
 
     const targetMessage = messages.value.find(m => m.id === messageId)
@@ -133,6 +133,9 @@ export default defineNuxtPlugin(() => {
       if (error) {
         targetMessage.content = error
         targetMessage.mark = MESSAGE_MARK.ERROR
+      }
+      if (duration !== undefined) {
+        targetMessage.duration = duration
       }
     }
 
