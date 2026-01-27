@@ -15,6 +15,11 @@ const menuItems = [
     to: '/settings/upstreams',
   },
   {
+    label: '模型测试',
+    icon: 'i-heroicons-beaker',
+    to: '/settings/model-test',
+  },
+  {
     label: '导入/导出',
     icon: 'i-heroicons-arrow-path-rounded-square',
     to: '/settings/export',

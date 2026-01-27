@@ -227,3 +227,36 @@ export const assistantMcpServers = sqliteTable('assistant_mcp_servers', {
 
 export type AssistantMcpServer = typeof assistantMcpServers.$inferSelect
 export type NewAssistantMcpServer = typeof assistantMcpServers.$inferInsert
+
+// ==================== 模型可用性测试相关表 ====================
+
+// 测试记录表
+export const modelTestRecords = sqliteTable('model_test_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  category: text('category').$type<ModelCategory>().notNull(),
+  prompt: text('prompt').notNull(),
+  keywords: text('keywords'), // JSON 数组字符串
+  totalCount: integer('total_count').notNull().default(0),
+  successCount: integer('success_count').notNull().default(0),
+  failedCount: integer('failed_count').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+export type ModelTestRecord = typeof modelTestRecords.$inferSelect
+export type NewModelTestRecord = typeof modelTestRecords.$inferInsert
+
+// 测试结果表
+export const modelTestResults = sqliteTable('model_test_results', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  recordId: integer('record_id').notNull(),
+  aimodelId: integer('aimodel_id').notNull(),
+  status: text('status').$type<'success' | 'failed'>().notNull(),
+  responseTime: integer('response_time'),
+  responsePreview: text('response_preview'),
+  errorMessage: text('error_message'),
+  createdAt: text('created_at').notNull(),
+})
+
+export type ModelTestResult = typeof modelTestResults.$inferSelect
+export type NewModelTestResult = typeof modelTestResults.$inferInsert
