@@ -90,7 +90,7 @@ pnpm test
 **创建 worktree 后的设置**：
 1. 复制 `.env` 文件
 2. 软链接 `node_modules/` 和 `data/`（避免重复安装依赖和复制数据）
-3. 复制相关设计文档到 worktree
+3. 运行 `nuxt prepare` 生成 `.nuxt` 目录（否则测试会失败）
 
 **命令示例**：
 ```bash
@@ -101,4 +101,7 @@ git worktree add .worktrees/<branch-name> -b feature/<branch-name>
 cp .env .worktrees/<branch-name>/.env
 ln -s $(pwd)/node_modules .worktrees/<branch-name>/node_modules
 ln -s $(pwd)/data .worktrees/<branch-name>/data
+
+# 生成 Nuxt 类型（必须，否则测试失败）
+cd .worktrees/<branch-name> && pnpm nuxt prepare
 ```

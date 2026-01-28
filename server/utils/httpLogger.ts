@@ -34,15 +34,6 @@ function calcSize(text: string): number {
   return new TextEncoder().encode(text).length
 }
 
-// 脱敏 Authorization header
-function sanitizeAuthHeader(value: string): string {
-  if (value.length <= 8) {
-    return '****'
-  }
-  const start = value.slice(0, 4)
-  const end = value.slice(-4)
-  return `${start}****${end}`
-}
 
 // 生成内容预览（开头20字符 + ... + 结尾20字符 + 字节数）
 function generateContentPreview(content: string): string {
@@ -174,21 +165,12 @@ function sanitizeBody(body: LogRequestBody): JsonValue {
   return result
 }
 
-// 脱敏 headers
+// 处理 headers（保留原始值以便重放调试）
 function sanitizeHeaders(headers: Record<string, string> | undefined): Record<string, string> {
   if (!headers || typeof headers !== 'object') {
     return {}
   }
-  const result: Record<string, string> = {}
-  for (const [key, value] of Object.entries(headers)) {
-    const lowerKey = key.toLowerCase()
-    if (lowerKey === 'authorization' || lowerKey === 'x-api-key') {
-      result[key] = sanitizeAuthHeader(value)
-    } else {
-      result[key] = value
-    }
-  }
-  return result
+  return { ...headers }
 }
 
 // 确保日志目录存在
