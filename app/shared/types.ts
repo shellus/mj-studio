@@ -526,6 +526,7 @@ export interface McpServerDisplay {
   type: McpServerType
   isActive: boolean
   baseUrl: string | null
+  headers: Record<string, string> | null
   timeout: number
   disabledTools: string[]
   autoApproveTools: string[]

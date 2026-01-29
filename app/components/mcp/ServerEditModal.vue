@@ -49,10 +49,10 @@ watch(editingServer, (server) => {
     form.name = server.name
     form.description = server.description || ''
     form.baseUrl = server.baseUrl || ''
-    form.headers = ''
+    form.headers = stringifyHeaders(server.headers)
     form.command = server.command || ''
     form.args = server.args?.join('\n') || ''
-    form.env = ''
+    form.env = stringifyHeaders(server.env)
     form.timeout = server.timeout
     form.logoUrl = server.logoUrl || ''
     serverType.value = server.type === 'stdio' ? 'stdio' : 'http'
@@ -88,18 +88,30 @@ const typeHint = computed(() => {
     : '将使用 SSE 传输'
 })
 
-// 解析请求头（KEY=value 格式）
+// 解析请求头（Key: value 格式）
 function parseHeaders(str: string): Record<string, string> | undefined {
   if (!str.trim()) return undefined
 
   const result: Record<string, string> = {}
   for (const line of str.split('\n')) {
-    const [key, ...rest] = line.split('=')
-    if (key && rest.length) {
-      result[key.trim()] = rest.join('=').trim()
+    const colonIndex = line.indexOf(':')
+    if (colonIndex > 0) {
+      const key = line.slice(0, colonIndex).trim()
+      const value = line.slice(colonIndex + 1).trim()
+      if (key && value) {
+        result[key] = value
+      }
     }
   }
   return Object.keys(result).length > 0 ? result : undefined
+}
+
+// 将 Record<string, string> 转换为多行文本（Key: value 格式）
+function stringifyHeaders(headers: Record<string, string> | null | undefined): string {
+  if (!headers) return ''
+  return Object.entries(headers)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n')
 }
 
 // 解析 JSON 配置（支持批量）
@@ -288,10 +300,10 @@ function onSave() {
             <UInput v-model="form.baseUrl" placeholder="https://api.example.com/mcp" class="w-full" />
           </UFormField>
 
-          <UFormField label="请求头" hint="每行一个，格式：KEY=value">
+          <UFormField label="请求头" hint="每行一个，格式：Key: value">
             <UTextarea
               v-model="form.headers"
-              placeholder="Authorization=Bearer sk-xxx"
+              placeholder="Authorization: Bearer sk-xxx"
               :rows="3"
               class="w-full font-mono"
             />

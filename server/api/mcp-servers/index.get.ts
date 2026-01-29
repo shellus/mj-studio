@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
       disabledTools: s.disabledTools,
       autoApproveTools: s.autoApproveTools,
       logoUrl: s.logoUrl,
+      headers: s.headers,
       command: s.command,
       args: s.args,
       env: s.env,
