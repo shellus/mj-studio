@@ -5,6 +5,7 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { McpServer } from '../../database/schema'
 import { createTransport, getTransportDescription } from './transports'
 import { buildToolDisplayName, MCP_CLIENT_CONFIG } from './config'
@@ -14,6 +15,73 @@ import type {
   McpTransport,
   ToolCallResult,
 } from './types'
+
+/**
+ * 从错误对象中提取详细的错误信息
+ */
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof StreamableHTTPError) {
+    const statusText = getHttpStatusText(error.code)
+    // 清理 SDK 的冗余前缀，提取有意义的部分
+    let detail = error.message
+      .replace('Streamable HTTP error: ', '')
+      .replace('Error POSTing to endpoint: ', '')
+      .trim()
+
+    // 如果没有详细信息，根据状态码提供有意义的提示
+    if (!detail) {
+      detail = getHttpErrorHint(error.code)
+    }
+
+    return `HTTP ${error.code} ${statusText}${detail ? ` - ${detail}` : ''}`
+  }
+
+  if (error instanceof Error) {
+    if (error.cause instanceof Error) {
+      return `${error.message} (${error.cause.message})`
+    }
+    return error.message
+  }
+
+  return '连接失败'
+}
+
+/**
+ * 获取 HTTP 状态码对应的文本描述
+ */
+function getHttpStatusText(code: number): string {
+  const statusTexts: Record<number, string> = {
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    405: 'Method Not Allowed',
+    408: 'Request Timeout',
+    500: 'Internal Server Error',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable',
+    504: 'Gateway Timeout',
+  }
+  return statusTexts[code] || ''
+}
+
+/**
+ * 根据 HTTP 状态码提供错误提示
+ */
+function getHttpErrorHint(code: number): string {
+  const hints: Record<number, string> = {
+    400: '请求格式错误，请检查 MCP 服务端点 URL 是否正确',
+    401: '认证失败，请检查 API 密钥或认证信息',
+    403: '访问被拒绝，请检查权限配置',
+    404: '端点不存在，请检查 URL 路径是否正确',
+    405: '请求方法不允许，服务端可能不支持此协议',
+    500: '服务端内部错误',
+    502: '网关错误，服务端可能未启动',
+    503: '服务不可用，请稍后重试',
+    504: '网关超时，服务端响应过慢',
+  }
+  return hints[code] || ''
+}
 
 export class McpClientInstance {
   private client: Client
@@ -80,9 +148,9 @@ export class McpClientInstance {
       console.log(`[MCP Client] 已连接: ${getTransportDescription(this.server)}`)
     } catch (error) {
       this._status = 'error'
-      this._errorMessage = error instanceof Error ? error.message : '连接失败'
+      this._errorMessage = extractErrorMessage(error)
       console.error(`[MCP Client] 连接失败: ${this.server.name}`, error)
-      throw error
+      throw new Error(this._errorMessage, { cause: error })
     }
   }
 
