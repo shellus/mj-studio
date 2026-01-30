@@ -14,6 +14,7 @@ import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, log
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
 import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
+import { buildReasoningParams } from './reasoning'
 
 // OpenAI 多模态消息内容类型
 type ChatMessageContent =
@@ -265,8 +266,10 @@ export const openaiChatProvider: ChatProvider = {
           stream: true,
         }
 
+        // 根据模型类型构建思考参数
         if (enableThinking) {
-          body.reasoning_effort = OPENAI_REASONING_EFFORT
+          const reasoningParams = buildReasoningParams(modelName, true, 'medium')
+          Object.assign(body, reasoningParams)
         }
 
         // OpenAI Web Search 参数

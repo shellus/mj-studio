@@ -19,6 +19,7 @@ import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, log
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
 import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app/shared/types'
+import { buildReasoningParams } from './reasoning'
 
 // OpenAI 多模态消息内容类型
 type ResponseMessageContent =
@@ -280,8 +281,16 @@ export const openaiResponseProvider: ChatProvider = {
           body.instructions = systemPrompt
         }
 
+        // 根据模型类型构建思考参数
         if (enableThinking) {
-          body.reasoning = { effort: OPENAI_REASONING_EFFORT }
+          const reasoningParams = buildReasoningParams(modelName, true, 'medium')
+          // Response API 使用 reasoning.effort 格式
+          if (reasoningParams.reasoning_effort) {
+            body.reasoning = { effort: reasoningParams.reasoning_effort }
+          } else {
+            // 其他格式直接合并
+            Object.assign(body, reasoningParams)
+          }
         }
 
         // 工具定义
