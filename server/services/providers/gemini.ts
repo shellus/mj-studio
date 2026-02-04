@@ -56,12 +56,11 @@ export const geminiProvider: SyncProvider = {
       const url = `${baseUrl}/v1beta/models/${modelName}:generateContent`
       const body: Record<string, unknown> = {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['Text', 'Image'] },
       }
 
+      // 只在需要时设置 imageConfig，不设置 responseModalities
       if (modelParams?.size || modelParams?.aspectRatio) {
         body.generationConfig = {
-          ...body.generationConfig as Record<string, unknown>,
           imageConfig: {
             ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
             ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
@@ -167,12 +166,11 @@ export const geminiProvider: SyncProvider = {
 
       const body: Record<string, unknown> = {
         contents: [{ parts }],
-        generationConfig: { responseModalities: ['Text', 'Image'] },
       }
 
+      // 只在需要时设置 imageConfig，不设置 responseModalities
       if (modelParams?.size || modelParams?.aspectRatio) {
         body.generationConfig = {
-          ...body.generationConfig as Record<string, unknown>,
           imageConfig: {
             ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
             ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
