@@ -108,7 +108,20 @@ export async function downloadFile(url: string, logPrefix?: string): Promise<str
 
     const contentType = response.headers.get('content-type') || 'application/octet-stream'
     const mimeTypePart = contentType.split(';')[0]
-    const ext = getExtFromMimeType(mimeTypePart || 'application/octet-stream')
+    let ext = getExtFromMimeType(mimeTypePart || 'application/octet-stream')
+
+    // 如果无法从 Content-Type 识别扩展名，尝试从 URL 路径提取
+    if (ext === 'bin') {
+      try {
+        const urlPath = new URL(url).pathname
+        const urlExt = urlPath.split('.').pop()?.toLowerCase()
+        if (urlExt && /^[a-z0-9]{2,5}$/.test(urlExt)) {
+          ext = urlExt
+        }
+      } catch {
+        // URL 解析失败，保持 bin
+      }
+    }
 
     const buffer = Buffer.from(await response.arrayBuffer())
     const fileName = generateFileName(buffer, ext)
