@@ -109,7 +109,7 @@ export const videoUnifiedProvider: AsyncProvider = {
         if (p?.watermark !== undefined) body.watermark = p.watermark
 
         const startTime = Date.now()
-        logTaskRequest(taskId, { url, method: 'POST', headers: { Authorization: 'Bearer ***' }, body })
+        logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
         try {
           const response = await $fetch<VideoCreateResponse>(url, {
@@ -145,7 +145,7 @@ export const videoUnifiedProvider: AsyncProvider = {
 
         const startTime = Date.now()
         if (taskId) {
-          logTaskRequest(taskId, { url, method: 'GET', headers: { Authorization: 'Bearer ***' } })
+          logTaskRequest(taskId, { url, method: 'GET', headers })
         }
 
         try {

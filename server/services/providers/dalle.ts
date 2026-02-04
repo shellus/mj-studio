@@ -205,7 +205,7 @@ export const dalleProvider: SyncProvider = {
       logTaskRequest(taskId, {
         url,
         method: 'POST',
-        headers: { 'Authorization': '[REDACTED]' },
+        headers,
         body: { model: modelName, prompt, n: 1, response_format: 'b64_json', image: `[file ${blob.size} bytes]` },
       })
 

@@ -53,7 +53,7 @@ export const geminiProvider: SyncProvider = {
         return { success: false, error: 'Gemini API Key 未配置' }
       }
 
-      const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${apiKey}`
+      const url = `${baseUrl}/v1beta/models/${modelName}:generateContent`
       const body: Record<string, unknown> = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseModalities: ['Text', 'Image'] },
@@ -70,17 +70,22 @@ export const geminiProvider: SyncProvider = {
       }
 
       const startTime = Date.now()
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      }
+
       logTaskRequest(taskId, {
-        url: url.replace(apiKey, '[REDACTED]'),
+        url,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body,
       })
 
       try {
         const response = await $fetch<GeminiResponse>(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body,
           signal,
         })
@@ -143,7 +148,7 @@ export const geminiProvider: SyncProvider = {
         return generateText2Image(params)
       }
 
-      const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${apiKey}`
+      const url = `${baseUrl}/v1beta/models/${modelName}:generateContent`
 
       // 构建 parts 数组，包含参考图和文本提示
       const parts: Array<{text?: string, inlineData?: {mimeType: string, data: string}}> = []
@@ -176,6 +181,10 @@ export const geminiProvider: SyncProvider = {
       }
 
       const startTime = Date.now()
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      }
 
       // 请求中的图片数据截断记录
       const logBody = JSON.parse(JSON.stringify(body))
@@ -185,16 +194,16 @@ export const geminiProvider: SyncProvider = {
         }
       })
       logTaskRequest(taskId, {
-        url: url.replace(apiKey, '[REDACTED]'),
+        url,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: logBody,
       })
 
       try {
         const response = await $fetch<GeminiResponse>(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body,
           signal,
         })

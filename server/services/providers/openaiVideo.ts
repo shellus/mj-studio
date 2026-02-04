@@ -127,7 +127,10 @@ export const openaiVideoProvider: AsyncProvider = {
         logTaskRequest(taskId, {
           url,
           method: 'POST',
-          headers: { Authorization: 'Bearer ***' },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
           body: {
             model: modelName,
             prompt,
@@ -189,7 +192,7 @@ export const openaiVideoProvider: AsyncProvider = {
           logTaskRequest(taskId, {
             url,
             method: 'GET',
-            headers: { Authorization: 'Bearer ***' },
+            headers: { 'Authorization': `Bearer ${apiKey}` },
           })
         }
 

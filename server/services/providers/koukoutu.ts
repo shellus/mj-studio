@@ -90,7 +90,10 @@ export const koukoutuProvider: AsyncProvider = {
         logTaskRequest(taskId, {
           url,
           method: 'POST',
-          headers: { Authorization: '[REDACTED]' },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          },
           body: {
             model_key: modelKey,
             output_format: 'webp',
