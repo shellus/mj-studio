@@ -55,17 +55,27 @@ export const geminiProvider: SyncProvider = {
 
       const url = `${baseUrl}/v1beta/models/${modelName}:generateContent`
       const body: Record<string, unknown> = {
-        contents: [{ parts: [{ text: prompt }] }],
-      }
-
-      // 只在需要时设置 imageConfig，不设置 responseModalities
-      if (modelParams?.size || modelParams?.aspectRatio) {
-        body.generationConfig = {
-          imageConfig: {
-            ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
-            ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
-          },
-        }
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          candidateCount: 1,
+          maxOutputTokens: 8192,
+          temperature: 1.0,
+          topP: 0.95,
+          topK: 40,
+          ...(modelParams?.size || modelParams?.aspectRatio ? {
+            imageConfig: {
+              ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
+              ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
+            },
+          } : {}),
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
+        ],
       }
 
       const startTime = Date.now()
@@ -149,33 +159,42 @@ export const geminiProvider: SyncProvider = {
 
       const url = `${baseUrl}/v1beta/models/${modelName}:generateContent`
 
-      // 构建 parts 数组，包含参考图和文本提示
-      const parts: Array<{text?: string, inlineData?: {mimeType: string, data: string}}> = []
-
+      // 注意：text 放在前面，inlineData 放在后面（按客服建议的顺序）
+      const orderedParts: Array<{text?: string, inlineData?: {mimeType: string, data: string}}> = []
+      orderedParts.push({ text: prompt })
       for (const img of images) {
         const match = img.match(/^data:(image\/[^;]+);base64,(.+)$/)
         if (match) {
           const mimeType = match[1]
           const data = match[2]
           if (mimeType && data) {
-            parts.push({ inlineData: { mimeType, data } })
+            orderedParts.push({ inlineData: { mimeType, data } })
           }
         }
       }
-      parts.push({ text: prompt })
 
       const body: Record<string, unknown> = {
-        contents: [{ parts }],
-      }
-
-      // 只在需要时设置 imageConfig，不设置 responseModalities
-      if (modelParams?.size || modelParams?.aspectRatio) {
-        body.generationConfig = {
-          imageConfig: {
-            ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
-            ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
-          },
-        }
+        contents: [{ role: 'user', parts: orderedParts }],
+        generationConfig: {
+          candidateCount: 1,
+          maxOutputTokens: 8192,
+          temperature: 1.0,
+          topP: 0.95,
+          topK: 40,
+          ...(modelParams?.size || modelParams?.aspectRatio ? {
+            imageConfig: {
+              ...(modelParams?.size ? { imageSize: modelParams.size } : {}),
+              ...(modelParams?.aspectRatio ? { aspectRatio: modelParams.aspectRatio } : {}),
+            },
+          } : {}),
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
+        ],
       }
 
       const startTime = Date.now()
