@@ -72,6 +72,12 @@ function preprocessContent(content: string): string {
   // 清理零宽字符
   result = result.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
 
+  // 处理 :::details 折叠块语法 → 转为 details-block 代码块
+  result = result.replace(
+    /^:::\s*details\s+(.+)\n([\s\S]*?)^:::\s*$/gm,
+    (_, summary, innerContent) => `\`\`\`details-block\n${summary.trim()}\n${innerContent.trim()}\n\`\`\`\n\n`
+  )
+
   // 将已闭合的 <think>/<thinking> 转换为特殊代码块（便于分块处理）
   result = result.replace(
     /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>\s*/g,
@@ -217,7 +223,7 @@ function renderInline(text: string): string {
 }
 
 // 渲染单个 token 为 HTML
-async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search', content: string }> {
+async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search' | 'details', content: string }> {
   switch (token.type) {
     case 'heading': {
       const sizes: Record<number, string> = {
@@ -256,6 +262,11 @@ async function renderToken(token: Token): Promise<{ type: 'html' | 'drawing' | '
       // web-search 搜索结果组件
       if (lang === 'web-search') {
         return { type: 'web-search', content: code }
+      }
+
+      // details 折叠块
+      if (lang === 'details-block') {
+        return { type: 'details', content: code }
       }
 
       // 普通代码块
@@ -353,7 +364,7 @@ function escapeHtml(text: string): string {
 // 每个块的渲染状态
 interface BlockState {
   index: number
-  type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search'
+  type: 'html' | 'drawing' | 'think' | 'think-streaming' | 'web-search' | 'details'
   content: string
   drawingParams?: MjDrawingParams
   webSearchParams?: WebSearchParams
@@ -482,6 +493,17 @@ function toggleThink(index: number) {
         :status="block.webSearchParams.status"
         :results="block.webSearchParams.results"
       />
+
+      <!-- Details 折叠块 -->
+      <details v-else-if="block.type === 'details'" class="think-block my-2">
+        <summary class="cursor-pointer text-sm text-(--ui-text-muted) hover:text-(--ui-text) select-none">
+          <span class="inline-flex items-center gap-1">
+            <UIcon name="i-heroicons-chevron-right" class="w-4 h-4" />
+            {{ block.content.split('\n')[0] }}
+          </span>
+        </summary>
+        <div class="mt-2 pl-5 text-sm text-(--ui-text-muted) whitespace-pre-wrap">{{ block.content.split('\n').slice(1).join('\n') }}</div>
+      </details>
     </template>
 
     <!-- 流式光标 -->
