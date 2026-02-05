@@ -99,11 +99,13 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       throw new Error('上游配置不存在')
     }
 
-    // 从助手配置读取思考开关
-    const enableThinking = assistant.enableThinking || false
+    // 从对话配置读取开关，结合模型能力判断最终状态
+    const modelSupportsThinking = aimodel.capabilities?.includes('reasoning') ?? false
+    const modelSupportsWebSearch = aimodel.capabilities?.includes('web_search') ?? false
 
-    // 从模型能力读取 Web Search 开关
-    const enableWebSearch = aimodel.capabilities?.includes('web_search') || false
+    // 对话开关 AND 模型能力 = 最终状态
+    const enableThinking = (result.conversation.enableThinking ?? false) && modelSupportsThinking
+    const enableWebSearch = (result.conversation.enableWebSearch ?? false) && modelSupportsWebSearch
 
     // 获取助手关联的 MCP 服务和工具
     const mcpServerService = useMcpServerService()

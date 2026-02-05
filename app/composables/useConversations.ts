@@ -22,6 +22,8 @@ export interface Conversation {
   assistantId: number
   title: string
   autoApproveMcp?: boolean
+  enableThinking?: boolean
+  enableWebSearch?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -44,6 +46,8 @@ export interface ConversationInputState {
   content: string
   uploadingFiles: UploadingFile[]
   showCompressHint: boolean
+  enableThinking: boolean
+  enableWebSearch: boolean
 }
 
 // 模块级单例：流式订阅的 AbortController 映射（messageId -> AbortController）
@@ -96,7 +100,7 @@ export function useConversations() {
   }
 
   // 新对话的输入状态（conversationId 为 null 时使用）
-  const newConversationInputState = ref<ConversationInputState>({ content: '', uploadingFiles: [], showCompressHint: false })
+  const newConversationInputState = ref<ConversationInputState>({ content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false })
 
   // 获取当前对话的输入状态
   function getInputState(conversationId: number | null): ConversationInputState {
@@ -104,7 +108,7 @@ export function useConversations() {
       return newConversationInputState.value
     }
     if (!inputStates.value[conversationId]) {
-      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
     }
     return inputStates.value[conversationId]
   }
@@ -116,7 +120,7 @@ export function useConversations() {
       return
     }
     if (!inputStates.value[conversationId]) {
-      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
     }
     inputStates.value[conversationId].content = content
   }
@@ -128,7 +132,7 @@ export function useConversations() {
       return
     }
     if (!inputStates.value[conversationId]) {
-      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
     }
     inputStates.value[conversationId].uploadingFiles = files
   }
@@ -140,9 +144,33 @@ export function useConversations() {
       return
     }
     if (!inputStates.value[conversationId]) {
-      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
     }
     inputStates.value[conversationId].showCompressHint = show
+  }
+
+  // 更新输入状态的思考开关
+  function updateInputEnableThinking(conversationId: number | null, enable: boolean) {
+    if (!conversationId) {
+      newConversationInputState.value.enableThinking = enable
+      return
+    }
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
+    }
+    inputStates.value[conversationId].enableThinking = enable
+  }
+
+  // 更新输入状态的 Web Search 开关
+  function updateInputEnableWebSearch(conversationId: number | null, enable: boolean) {
+    if (!conversationId) {
+      newConversationInputState.value.enableWebSearch = enable
+      return
+    }
+    if (!inputStates.value[conversationId]) {
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
+    }
+    inputStates.value[conversationId].enableWebSearch = enable
   }
 
   // 清空输入状态
@@ -155,7 +183,7 @@ export function useConversations() {
           URL.revokeObjectURL(file.previewUrl)
         }
       }
-      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false }
+      inputStates.value[conversationId] = { content: '', uploadingFiles: [], showCompressHint: false, enableThinking: false, enableWebSearch: false }
     }
   }
 
@@ -358,10 +386,10 @@ export function useConversations() {
 
   // 创建对话
   // 对话添加通过全局 SSE 事件 chat.conversation.created 处理
-  async function createConversation(assistantId: number, title?: string) {
+  async function createConversation(assistantId: number, title?: string, enableThinking?: boolean, enableWebSearch?: boolean) {
     const conversation = await $fetch<Conversation>('/api/conversations', {
       method: 'POST',
-      body: { assistantId, title },
+      body: { assistantId, title, enableThinking, enableWebSearch },
     })
     // 不再本地 push，由 SSE 事件 handleConversationCreated 处理
     // 但需要设置当前对话 ID 以便后续操作
@@ -391,6 +419,34 @@ export function useConversations() {
     const conversation = conversations.value.find(c => c.id === id)
     if (conversation) {
       conversation.autoApproveMcp = autoApproveMcp
+    }
+    return updated
+  }
+
+  // 更新对话的思考开关
+  async function updateConversationEnableThinking(id: number, enableThinking: boolean) {
+    const updated = await $fetch<Conversation>(`/api/conversations/${id}`, {
+      method: 'PUT',
+      body: { enableThinking },
+    })
+    // 本地更新
+    const conversation = conversations.value.find(c => c.id === id)
+    if (conversation) {
+      conversation.enableThinking = enableThinking
+    }
+    return updated
+  }
+
+  // 更新对话的 Web Search 开关
+  async function updateConversationEnableWebSearch(id: number, enableWebSearch: boolean) {
+    const updated = await $fetch<Conversation>(`/api/conversations/${id}`, {
+      method: 'PUT',
+      body: { enableWebSearch },
+    })
+    // 本地更新
+    const conversation = conversations.value.find(c => c.id === id)
+    if (conversation) {
+      conversation.enableWebSearch = enableWebSearch
     }
     return updated
   }
@@ -612,6 +668,8 @@ export function useConversations() {
     startNewConversation,
     updateConversationTitle,
     updateConversationAutoApproveMcp,
+    updateConversationEnableThinking,
+    updateConversationEnableWebSearch,
     deleteConversation,
     sendMessage,
     deleteMessage,
@@ -628,6 +686,8 @@ export function useConversations() {
     updateInputContent,
     updateUploadingFiles,
     updateCompressHint,
+    updateInputEnableThinking,
+    updateInputEnableWebSearch,
     clearInputState,
     // 事件处理器需要的内部状态和方法（供插件使用）
     currentAssistantId,

@@ -97,6 +97,9 @@ export interface ChatConversationCreated {
     userId: number
     assistantId: number
     title: string
+    autoApproveMcp?: boolean
+    enableThinking?: boolean
+    enableWebSearch?: boolean
     createdAt: string
     updatedAt: string
   }
@@ -116,7 +119,10 @@ export interface ChatConversationDeleted {
 export interface ChatConversationUpdated {
   conversation: {
     id: number
-    title: string
+    title?: string
+    autoApproveMcp?: boolean
+    enableThinking?: boolean
+    enableWebSearch?: boolean
     updatedAt: string
   }
 }
@@ -137,7 +143,6 @@ export interface ChatAssistantUpdated {
     isDefault: boolean
     suggestions: string[] | null
     conversationCount: number
-    enableThinking: boolean
     pinnedAt: Date | null
     lastActiveAt: Date | null
   }

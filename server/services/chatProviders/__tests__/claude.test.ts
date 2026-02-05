@@ -10,6 +10,9 @@ import * as upstreamService from '../../upstream'
 vi.mock('../../file', () => ({
   readFileAsBase64: vi.fn(),
   isImageMimeType: vi.fn(),
+  isNativeImageMimeType: vi.fn(),
+  isPdfMimeType: vi.fn(),
+  readFileAsText: vi.fn(),
 }))
 
 vi.mock('../../upstream', () => ({
@@ -54,7 +57,10 @@ describe('Claude Provider', () => {
     vi.clearAllMocks()
     vi.mocked(upstreamService.useUpstreamService).mockReturnValue(mockUpstreamService as any)
     vi.mocked(fileUtils.isImageMimeType).mockImplementation((mime) => mime.startsWith('image/'))
+    vi.mocked(fileUtils.isNativeImageMimeType).mockImplementation((mime) => mime.startsWith('image/') && mime !== 'image/svg+xml')
+    vi.mocked(fileUtils.isPdfMimeType).mockImplementation((mime) => mime === 'application/pdf')
     vi.mocked(fileUtils.readFileAsBase64).mockReturnValue('data:image/png;base64,mockbase64data')
+    vi.mocked(fileUtils.readFileAsText).mockReturnValue(null)
 
     // Reset global fetch mock
     global.fetch = vi.fn()

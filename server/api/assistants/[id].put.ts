@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, description, avatar, systemPrompt, aimodelId, isDefault, enableThinking, mcpServerIds, autoApproveMcp } = body
+  const { name, description, avatar, systemPrompt, aimodelId, isDefault, mcpServerIds, autoApproveMcp } = body
 
   // 构建更新对象
   const updateData: Record<string, any> = {}
@@ -46,10 +46,6 @@ export default defineEventHandler(async (event) => {
 
   if (isDefault !== undefined) {
     updateData.isDefault = isDefault
-  }
-
-  if (enableThinking !== undefined) {
-    updateData.enableThinking = enableThinking
   }
 
   if (autoApproveMcp !== undefined) {

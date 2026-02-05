@@ -9,7 +9,7 @@
 import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
-import { readFileAsBase64, isImageMimeType } from '../file'
+import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
@@ -28,25 +28,40 @@ interface GeminiContent {
   parts: GeminiPart[]
 }
 
-// 将文件转换为 Gemini 多模态内容
+// 将文件转换为 Gemini 多模态内容（智能处理图片/PDF/文本）
 function filesToGeminiParts(files: MessageFile[]): GeminiPart[] {
   const parts: GeminiPart[] = []
 
   for (const file of files) {
-    if (isImageMimeType(file.mimeType)) {
+    // 1. 图片类型（非 SVG）→ 作为 inlineData
+    if (isNativeImageMimeType(file.mimeType)) {
       const base64 = readFileAsBase64(file.fileName)
       if (base64) {
         const match = base64.match(/^data:([^;]+);base64,(.+)$/)
-        if (match) {
-          const mimeType = match[1]
-          const data = match[2]
-          if (mimeType && data) {
-            parts.push({
-              inlineData: { mimeType, data },
-            })
-          }
+        if (match?.[1] && match[2]) {
+          parts.push({ inlineData: { mimeType: match[1], data: match[2] } })
         }
       }
+      continue
+    }
+
+    // 2. PDF → 作为 inlineData（Gemini 支持 PDF）
+    if (isPdfMimeType(file.mimeType)) {
+      const base64 = readFileAsBase64(file.fileName)
+      if (base64) {
+        const match = base64.match(/^data:([^;]+);base64,(.+)$/)
+        if (match?.[1] && match[2]) {
+          parts.push({ inlineData: { mimeType: match[1], data: match[2] } })
+        }
+      }
+      continue
+    }
+
+    // 3. 其他文件 → 读取为文本
+    const textResult = readFileAsText(file.fileName)
+    if (textResult) {
+      const ext = file.fileName.split('.').pop() || ''
+      parts.push({ text: `[文件: ${file.fileName}]\n\`\`\`${ext}\n${textResult.content}\n\`\`\`` })
     }
   }
 

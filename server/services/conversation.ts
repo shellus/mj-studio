@@ -40,6 +40,8 @@ export function useConversationService() {
     assistantId: number
     title: string
     autoApproveMcp?: boolean
+    enableThinking?: boolean
+    enableWebSearch?: boolean
   }): Promise<Conversation> {
     const now = new Date()
     const [conversation] = await db.insert(conversations).values({
@@ -47,6 +49,8 @@ export function useConversationService() {
       assistantId: data.assistantId,
       title: data.title,
       autoApproveMcp: data.autoApproveMcp ?? false,
+      enableThinking: data.enableThinking ?? false,
+      enableWebSearch: data.enableWebSearch ?? false,
       createdAt: now,
       updatedAt: now,
     }).returning()
@@ -66,6 +70,9 @@ export function useConversationService() {
         userId: conversation.userId,
         assistantId: conversation.assistantId,
         title: conversation.title,
+        autoApproveMcp: conversation.autoApproveMcp,
+        enableThinking: conversation.enableThinking,
+        enableWebSearch: conversation.enableWebSearch,
         createdAt: conversation.createdAt instanceof Date ? conversation.createdAt.toISOString() : conversation.createdAt,
         updatedAt: conversation.updatedAt instanceof Date ? conversation.updatedAt.toISOString() : conversation.updatedAt,
       },
@@ -416,6 +423,46 @@ export function useConversationService() {
     return updated
   }
 
+  // 更新对话的思考开关
+  async function updateEnableThinking(id: number, userId: number, enableThinking: boolean): Promise<Conversation | undefined> {
+    const [updated] = await db.update(conversations)
+      .set({ enableThinking, updatedAt: new Date() })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+      .returning()
+
+    if (updated) {
+      await emitToUser<ChatConversationUpdated>(userId, 'chat.conversation.updated', {
+        conversation: {
+          id: updated.id,
+          enableThinking: updated.enableThinking,
+          updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        },
+      })
+    }
+
+    return updated
+  }
+
+  // 更新对话的 Web 搜索开关
+  async function updateEnableWebSearch(id: number, userId: number, enableWebSearch: boolean): Promise<Conversation | undefined> {
+    const [updated] = await db.update(conversations)
+      .set({ enableWebSearch, updatedAt: new Date() })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+      .returning()
+
+    if (updated) {
+      await emitToUser<ChatConversationUpdated>(userId, 'chat.conversation.updated', {
+        conversation: {
+          id: updated.id,
+          enableWebSearch: updated.enableWebSearch,
+          updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        },
+      })
+    }
+
+    return updated
+  }
+
   return {
     listByAssistant,
     getById,
@@ -436,5 +483,7 @@ export function useConversationService() {
     generateTitle,
     fork,
     updateAutoApproveMcp,
+    updateEnableThinking,
+    updateEnableWebSearch,
   }
 }

@@ -8,7 +8,7 @@
 import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
-import { readFileAsBase64, isImageMimeType } from '../file'
+import { readFileAsBase64, readFileAsText, isNativeImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
@@ -38,12 +38,13 @@ interface ChatMessage {
   tool_call_id?: string
 }
 
-// 将文件转换为多模态消息内容
+// 将文件转换为多模态消息内容（智能处理图片/文本）
 function filesToContent(files: MessageFile[]): ChatMessageContent[] {
   const contents: ChatMessageContent[] = []
 
   for (const file of files) {
-    if (isImageMimeType(file.mimeType)) {
+    // 1. 图片类型（非 SVG）→ 作为 image_url
+    if (isNativeImageMimeType(file.mimeType)) {
       const base64 = readFileAsBase64(file.fileName)
       if (base64) {
         contents.push({
@@ -51,6 +52,17 @@ function filesToContent(files: MessageFile[]): ChatMessageContent[] {
           image_url: { url: base64, detail: 'auto' },
         })
       }
+      continue
+    }
+
+    // 2. 其他文件（包括 PDF、SVG、文本等）→ 读取为文本嵌入
+    const textResult = readFileAsText(file.fileName)
+    if (textResult) {
+      const ext = file.fileName.split('.').pop() || ''
+      contents.push({
+        type: 'text',
+        text: `[文件: ${file.fileName}]\n\`\`\`${ext}\n${textResult.content}\n\`\`\``,
+      })
     }
   }
 

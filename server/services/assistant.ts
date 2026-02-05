@@ -82,7 +82,6 @@ export function useAssistantService() {
     aimodelId: number | null
     isDefault: boolean
     suggestions: string[] | null
-    enableThinking: boolean
     pinnedAt: Date | null
     lastActiveAt: Date | null
   }>): Promise<Assistant | undefined> {
@@ -111,7 +110,6 @@ export function useAssistantService() {
           isDefault: updated.isDefault,
           suggestions: updated.suggestions,
           conversationCount: updated.conversationCount,
-          enableThinking: updated.enableThinking,
           pinnedAt: updated.pinnedAt,
           lastActiveAt: updated.lastActiveAt,
         },
@@ -203,7 +201,6 @@ export function useAssistantService() {
           isDefault: updated.isDefault,
           suggestions: updated.suggestions,
           conversationCount: updated.conversationCount,
-          enableThinking: updated.enableThinking,
           pinnedAt: updated.pinnedAt,
           lastActiveAt: updated.lastActiveAt,
         },

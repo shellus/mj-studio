@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { title, autoApproveMcp } = body
+  const { title, autoApproveMcp, enableThinking, enableWebSearch } = body
 
   const service = useConversationService()
 
@@ -35,6 +35,24 @@ export default defineEventHandler(async (event) => {
   // 更新自动通过 MCP 设置
   if (autoApproveMcp !== undefined) {
     const updated = await service.updateAutoApproveMcp(conversationId, user.id, autoApproveMcp)
+    if (!updated) {
+      throw createError({ statusCode: 404, message: '对话不存在或无权修改' })
+    }
+    return updated
+  }
+
+  // 更新思考开关
+  if (enableThinking !== undefined) {
+    const updated = await service.updateEnableThinking(conversationId, user.id, enableThinking)
+    if (!updated) {
+      throw createError({ statusCode: 404, message: '对话不存在或无权修改' })
+    }
+    return updated
+  }
+
+  // 更新 Web 搜索开关
+  if (enableWebSearch !== undefined) {
+    const updated = await service.updateEnableWebSearch(conversationId, user.id, enableWebSearch)
     if (!updated) {
       throw createError({ statusCode: 404, message: '对话不存在或无权修改' })
     }

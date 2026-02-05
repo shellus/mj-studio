@@ -105,11 +105,15 @@ const {
   deleteMessagesUntil,
   compressConversation,
   updateConversationAutoApproveMcp,
+  updateConversationEnableThinking,
+  updateConversationEnableWebSearch,
   // 输入状态管理
   getInputState,
   updateInputContent,
   updateUploadingFiles,
   updateCompressHint,
+  updateInputEnableThinking,
+  updateInputEnableWebSearch,
   clearInputState,
 } = useConversations()
 
@@ -436,7 +440,14 @@ async function handleSendMessage(content: string, files?: import('~/shared/types
     try {
       // 使用文本内容或第一个文件名作为标题
       const title = content?.slice(0, 20) || files?.[0]?.name?.slice(0, 20) || '新对话'
-      const conversation = await createConversation(currentAssistantId.value, title)
+      // 从本地输入状态获取开关设置
+      const inputState = getInputState(null)
+      const conversation = await createConversation(
+        currentAssistantId.value,
+        title,
+        inputState.enableThinking,
+        inputState.enableWebSearch
+      )
       conversationId = conversation.id
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
@@ -461,7 +472,14 @@ async function handleAddMessage(content: string, role: 'user' | 'assistant') {
   let conversationId = currentConversationId.value
   if (!conversationId && currentAssistantId.value) {
     try {
-      const conversation = await createConversation(currentAssistantId.value, content.slice(0, 20))
+      // 从本地输入状态获取开关设置
+      const inputState = getInputState(null)
+      const conversation = await createConversation(
+        currentAssistantId.value,
+        content.slice(0, 20),
+        inputState.enableThinking,
+        inputState.enableWebSearch
+      )
       conversationId = conversation.id
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
@@ -517,16 +535,33 @@ async function handleUpdateModel(aimodelId: number) {
   }
 }
 
-// 更新助手思考开关
+// 更新对话思考开关
 async function handleUpdateThinking(enableThinking: boolean) {
-  if (!currentAssistant.value) return
+  // 总是先更新本地状态（支持新对话场景）
+  updateInputEnableThinking(currentConversationId.value, enableThinking)
 
-  try {
-    await updateAssistant(currentAssistant.value.id, {
-      enableThinking,
-    })
-  } catch (error: any) {
-    toast.add({ title: error.message || '更新失败', color: 'error' })
+  // 如果对话已存在，同时更新服务端
+  if (currentConversationId.value) {
+    try {
+      await updateConversationEnableThinking(currentConversationId.value, enableThinking)
+    } catch (error: any) {
+      toast.add({ title: error.message || '更新失败', color: 'error' })
+    }
+  }
+}
+
+// 更新对话 Web Search 开关
+async function handleUpdateWebSearch(enableWebSearch: boolean) {
+  // 总是先更新本地状态（支持新对话场景）
+  updateInputEnableWebSearch(currentConversationId.value, enableWebSearch)
+
+  // 如果对话已存在，同时更新服务端
+  if (currentConversationId.value) {
+    try {
+      await updateConversationEnableWebSearch(currentConversationId.value, enableWebSearch)
+    } catch (error: any) {
+      toast.add({ title: error.message || '更新失败', color: 'error' })
+    }
   }
 }
 
@@ -644,7 +679,8 @@ onUnmounted(() => {
           :content="currentInputState.content"
           :uploading-files="currentInputState.uploadingFiles"
           :show-compress-hint="currentInputState.showCompressHint"
-          :enable-thinking="currentAssistant?.enableThinking || false"
+          :enable-thinking="currentConversation?.enableThinking ?? currentInputState.enableThinking ?? false"
+          :enable-web-search="currentConversation?.enableWebSearch ?? currentInputState.enableWebSearch ?? false"
           @send="handleSendMessage"
           @add-message="handleAddMessage"
           @stop="handleStop"
@@ -655,6 +691,7 @@ onUnmounted(() => {
           @update:uploading-files="updateUploadingFiles(currentConversationId, $event)"
           @update:show-compress-hint="updateCompressHint(currentConversationId, $event)"
           @update:enable-thinking="handleUpdateThinking"
+          @update:enable-web-search="handleUpdateWebSearch"
         />
       </div>
 

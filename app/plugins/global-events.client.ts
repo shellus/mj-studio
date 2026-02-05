@@ -164,6 +164,9 @@ export default defineNuxtPlugin(() => {
       userId: conversation.userId,
       assistantId: conversation.assistantId,
       title: conversation.title,
+      autoApproveMcp: conversation.autoApproveMcp,
+      enableThinking: conversation.enableThinking,
+      enableWebSearch: conversation.enableWebSearch,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
     })
@@ -198,7 +201,10 @@ export default defineNuxtPlugin(() => {
         id: existing.id,
         userId: existing.userId,
         assistantId: existing.assistantId,
-        title: conversation.title,
+        title: conversation.title ?? existing.title,
+        autoApproveMcp: conversation.autoApproveMcp ?? existing.autoApproveMcp,
+        enableThinking: conversation.enableThinking ?? existing.enableThinking,
+        enableWebSearch: conversation.enableWebSearch ?? existing.enableWebSearch,
         createdAt: existing.createdAt,
         updatedAt: conversation.updatedAt,
       }

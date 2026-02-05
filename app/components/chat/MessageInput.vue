@@ -17,6 +17,7 @@ const props = defineProps<{
   uploadingFiles: UploadingFile[]
   showCompressHint: boolean
   enableThinking: boolean  // 思考开关状态
+  enableWebSearch: boolean  // Web Search 开关状态
 }>()
 
 const emit = defineEmits<{
@@ -31,6 +32,7 @@ const emit = defineEmits<{
   'update:uploadingFiles': [files: UploadingFile[]]
   'update:showCompressHint': [value: boolean]
   'update:enableThinking': [value: boolean]
+  'update:enableWebSearch': [value: boolean]
 }>()
 
 const textareaRef = ref<HTMLTextAreaElement>()
@@ -52,6 +54,32 @@ const isUploading = computed(() =>
 // 判断是否为图片类型
 function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith('image/')
+}
+
+// 判断是否为原生图片类型（SVG 除外）
+function isNativeImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('image/') && mimeType !== 'image/svg+xml'
+}
+
+// 判断是否为 PDF
+function isPdfMimeType(mimeType: string): boolean {
+  return mimeType === 'application/pdf'
+}
+
+// 大文件阈值：20KB
+const TEXT_FILE_SIZE_THRESHOLD = 20 * 1024
+
+// 检查文件是否需要确认（非图片/PDF 且大于阈值）
+async function shouldConfirmLargeFile(file: File): Promise<boolean> {
+  if (isNativeImageMimeType(file.type) || isPdfMimeType(file.type)) {
+    return true // 图片和 PDF 直接上传
+  }
+  if (file.size <= TEXT_FILE_SIZE_THRESHOLD) {
+    return true // 小于阈值直接上传
+  }
+  // 大文件需要确认
+  const sizeKB = (file.size / 1024).toFixed(1)
+  return confirm(`文件 "${file.name}" 大小为 ${sizeKB}KB，将作为文本嵌入对话上下文。这可能占用较多上下文空间，是否继续？`)
 }
 
 // 生成唯一 ID
@@ -142,6 +170,10 @@ async function handleFileSelect(event: Event) {
   if (!files?.length) return
 
   for (const file of files) {
+    // 大文件确认
+    if (!await shouldConfirmLargeFile(file)) {
+      continue
+    }
     await uploadFile(file)
   }
 
@@ -168,6 +200,10 @@ async function handleDrop(event: DragEvent) {
   if (!files?.length) return
 
   for (const file of files) {
+    // 大文件确认
+    if (!await shouldConfirmLargeFile(file)) {
+      continue
+    }
     await uploadFile(file)
   }
 }
@@ -414,6 +450,15 @@ function handleInput(e: Event) {
           :model-value="props.enableThinking"
           size="sm"
           @update:model-value="emit('update:enableThinking', $event)"
+        />
+      </label>
+      <!-- Web Search 开关 -->
+      <label class="flex items-center gap-2">
+        <UIcon name="i-heroicons-globe-alt" class="w-4 h-4" title="联网搜索" />
+        <USwitch
+          :model-value="props.enableWebSearch"
+          size="sm"
+          @update:model-value="emit('update:enableWebSearch', $event)"
         />
       </label>
       <!-- 文件上传按钮 -->

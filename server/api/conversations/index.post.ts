@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
   const body = await readBody(event)
 
-  const { assistantId, title } = body
+  const { assistantId, title, enableThinking, enableWebSearch } = body
 
   if (!assistantId) {
     throw createError({ statusCode: 400, message: '请指定助手' })
@@ -26,6 +26,8 @@ export default defineEventHandler(async (event) => {
     assistantId,
     title: title?.trim() || '新对话',
     autoApproveMcp: assistant.autoApproveMcp ?? false,
+    enableThinking: enableThinking ?? false,
+    enableWebSearch: enableWebSearch ?? false,
   })
 
   // 更新助手的对话数量（service.refreshConversationCount 会自动广播 chat.assistant.updated 事件）

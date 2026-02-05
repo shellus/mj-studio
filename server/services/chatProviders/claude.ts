@@ -8,7 +8,7 @@
 import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
-import { readFileAsBase64, isImageMimeType } from '../file'
+import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
@@ -19,6 +19,7 @@ import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app
 type ClaudeContentBlock =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+  | { type: 'document'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string; is_error: boolean }
 
@@ -27,30 +28,49 @@ interface ClaudeMessage {
   content: string | ClaudeContentBlock[]
 }
 
-// 将文件转换为 Claude 多模态内容
+// 将文件转换为 Claude 多模态内容（智能处理图片/PDF/文本）
 function filesToClaudeContent(files: MessageFile[]): ClaudeContentBlock[] {
   const contents: ClaudeContentBlock[] = []
 
   for (const file of files) {
-    if (isImageMimeType(file.mimeType)) {
+    // 1. 图片类型（非 SVG）→ 作为图片块
+    if (isNativeImageMimeType(file.mimeType)) {
       const base64 = readFileAsBase64(file.fileName)
       if (base64) {
         const match = base64.match(/^data:([^;]+);base64,(.+)$/)
-        if (match) {
-          const mediaType = match[1]
-          const data = match[2]
-          if (mediaType && data) {
-            contents.push({
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: mediaType,
-                data: data,
-              },
-            })
-          }
+        if (match?.[1] && match[2]) {
+          contents.push({
+            type: 'image',
+            source: { type: 'base64', media_type: match[1], data: match[2] },
+          })
         }
       }
+      continue
+    }
+
+    // 2. PDF → 作为文档块
+    if (isPdfMimeType(file.mimeType)) {
+      const base64 = readFileAsBase64(file.fileName)
+      if (base64) {
+        const match = base64.match(/^data:([^;]+);base64,(.+)$/)
+        if (match?.[1] && match[2]) {
+          contents.push({
+            type: 'document',
+            source: { type: 'base64', media_type: match[1], data: match[2] },
+          })
+        }
+      }
+      continue
+    }
+
+    // 3. 其他文件 → 读取为文本嵌入
+    const textResult = readFileAsText(file.fileName)
+    if (textResult) {
+      const ext = file.fileName.split('.').pop() || ''
+      contents.push({
+        type: 'text',
+        text: `[文件: ${file.fileName}]\n\`\`\`${ext}\n${textResult.content}\n\`\`\``,
+      })
     }
   }
 

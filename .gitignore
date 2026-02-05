@@ -36,6 +36,9 @@ logs/
 .cache/
 node-compile-cache/
 
+# 测试覆盖率
+coverage/
+
 # 临时文件
 todo.md
 image.png

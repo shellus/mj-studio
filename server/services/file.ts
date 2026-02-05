@@ -302,6 +302,40 @@ export function isImageMimeType(mimeType: string): boolean {
   return mimeType.startsWith('image/')
 }
 
+// ==================== 智能文件处理工具函数 ====================
+
+// 文件大小阈值：超过此大小的文本文件需要用户确认
+export const TEXT_FILE_SIZE_THRESHOLD = 20 * 1024 // 20KB
+
+// 判断是否为原生图片类型（SVG 除外，因为 SVG 本质是文本）
+export function isNativeImageMimeType(mimeType: string): boolean {
+  return mimeType.startsWith('image/') && mimeType !== 'image/svg+xml'
+}
+
+// 判断是否为 PDF
+export function isPdfMimeType(mimeType: string): boolean {
+  return mimeType === 'application/pdf'
+}
+
+// 读取文件为文本内容（用于嵌入消息）
+export function readFileAsText(fileName: string): { content: string; size: number } | null {
+  const result = readFile(fileName)
+  if (!result) return null
+
+  try {
+    const content = result.buffer.toString('utf-8')
+    return { content, size: result.size }
+  } catch {
+    return null
+  }
+}
+
+// 获取文件大小
+export function getFileSize(fileName: string): number | null {
+  const result = readFile(fileName)
+  return result?.size ?? null
+}
+
 // ==================== 向后兼容的别名 ====================
 
 /** @deprecated 使用 downloadFile */
