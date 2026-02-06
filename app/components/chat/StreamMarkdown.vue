@@ -213,6 +213,12 @@ function renderInline(text: string): string {
   // 行内代码 `code`
   result = result.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-(--ui-bg-elevated) text-sm font-mono">$1</code>')
 
+  // 图片 ![alt](url) - 必须在链接之前处理
+  result = result.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-2 inline-block" loading="lazy" />'
+  )
+
   // 链接 [text](url)
   result = result.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
