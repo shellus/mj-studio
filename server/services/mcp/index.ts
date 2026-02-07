@@ -19,6 +19,7 @@ import { generateImage } from './tools/generate-image'
 import { generateVideo } from './tools/generate-video'
 import { getTask } from './tools/get-task'
 import { listTasks } from './tools/list-tasks'
+import { getUploadUrl } from './tools/get-upload-url'
 
 /**
  * 创建 MCP 服务器实例
@@ -77,6 +78,14 @@ export function createMcpServer(user: AuthUser): McpServer {
       chat(user, assistantId, message, conversationId, title, stream),
   )
 
+  // 文件上传工具
+  server.tool(
+    'get_upload_url',
+    'Get a temporary upload URL for uploading local files. Use the returned curl command to upload files, then use the returned URL as image input for generate_image/generate_video.',
+    {},
+    async () => getUploadUrl(user),
+  )
+
   // 图片生成工具
   server.tool(
     'generate_image',
@@ -86,9 +95,10 @@ export function createMcpServer(user: AuthUser): McpServer {
       prompt: z.string().describe('Image description or editing instructions'),
       images: z.array(z.string()).optional().describe('Reference images for editing/transformation (image-to-image). Provide URLs or base64 data'),
       modelParams: z.record(z.string(), z.unknown()).optional().describe('Model-specific parameters'),
+      blocking: z.boolean().optional().describe('Wait for task completion before returning (default true). Set to false for async mode.'),
     },
-    async ({ aimodelId, prompt, images, modelParams }) =>
-      generateImage(user, aimodelId, prompt, images, modelParams),
+    async ({ aimodelId, prompt, images, modelParams, blocking }) =>
+      generateImage(user, aimodelId, prompt, images, modelParams, blocking ?? true),
   )
 
   // 视频生成工具
@@ -100,9 +110,10 @@ export function createMcpServer(user: AuthUser): McpServer {
       prompt: z.string().describe('Video description or animation instructions'),
       images: z.array(z.string()).optional().describe('Starting frame images for image-to-video generation. Provide URLs or base64 data'),
       modelParams: z.record(z.string(), z.unknown()).optional().describe('Model-specific parameters'),
+      blocking: z.boolean().optional().describe('Wait for task completion before returning (default true). Set to false for async mode.'),
     },
-    async ({ aimodelId, prompt, images, modelParams }) =>
-      generateVideo(user, aimodelId, prompt, images, modelParams),
+    async ({ aimodelId, prompt, images, modelParams, blocking }) =>
+      generateVideo(user, aimodelId, prompt, images, modelParams, blocking ?? true),
   )
 
   // 任务查询工具

@@ -9,6 +9,7 @@ export interface JwtPayload {
   userId: number
   email: string
   name: string | null
+  purpose: string
 }
 
 // 获取 JWT 密钥（从环境变量读取）
@@ -21,13 +22,13 @@ function getJwtSecret(): Uint8Array {
 }
 
 // 生成 JWT token
-export async function signJwt(payload: JwtPayload): Promise<string> {
+export async function signJwt(payload: JwtPayload, expiresIn: string): Promise<string> {
   const secret = getJwtSecret()
 
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('30d') // 30天过期
+    .setExpirationTime(expiresIn)
     .sign(secret)
 
   return token
@@ -43,6 +44,7 @@ export async function verifyJwt(token: string): Promise<JwtPayload | null> {
       userId: payload.userId as number,
       email: payload.email as string,
       name: payload.name as string | null,
+      purpose: payload.purpose as string,
     }
   } catch {
     return null

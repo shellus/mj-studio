@@ -5,14 +5,53 @@
 
 export const asyncTaskGuidePrompt = {
   name: 'async_task_guide',
-  description: 'Guidelines for handling async tasks (image/video generation) - READ THIS BEFORE using generate_image or generate_video',
-  content: `# Async Task Handling Guide
+  description: 'Guidelines for handling tasks (image/video generation) and file uploads',
+  content: `# Task Handling Guide
 
-When using \`generate_image\` or \`generate_video\` tools, the task runs asynchronously. Follow these guidelines:
+## Default Behavior: Blocking Mode
 
-## Response Format
+By default, \`generate_image\` and \`generate_video\` will **block and wait** until the task completes, then return the result directly.
 
-After calling \`generate_image\` or \`generate_video\`, you will receive:
+### Response Format (blocking=true, default)
+
+\`\`\`json
+{
+  "taskId": 123,
+  "status": "success",
+  "resourceUrl": "https://domain/api/files/xxx.png"
+}
+\`\`\`
+
+Or on failure:
+\`\`\`json
+{
+  "taskId": 123,
+  "status": "failed",
+  "error": "error message"
+}
+\`\`\`
+
+Or on timeout (image: 3min, video: 10min):
+\`\`\`json
+{
+  "taskId": 123,
+  "status": "timeout",
+  "message": "Use get_task to check status later."
+}
+\`\`\`
+
+### Recommended Workflow (blocking mode)
+
+1. Call \`generate_image\` or \`generate_video\` (blocking=true is default)
+2. The tool will wait and return the final result
+3. Show the result to the user
+
+## Async Mode (blocking=false)
+
+Set \`blocking: false\` to get immediate response with taskId, then poll manually.
+
+### Response Format (blocking=false)
+
 \`\`\`json
 {
   "taskId": 123,
@@ -21,24 +60,21 @@ After calling \`generate_image\` or \`generate_video\`, you will receive:
 }
 \`\`\`
 
-- \`taskId\`: Use this to query task status
-- \`status\`: Initial status is always "pending"
-- \`estimatedTime\`: Estimated completion time in SECONDS
-
-## IMPORTANT: Polling Strategy
+### Polling Strategy for Async Mode
 
 **DO NOT poll immediately or continuously!**
 
-1. **Wait before first query**: Wait at least \`estimatedTime\` seconds before calling \`get_task\`
-2. **If task still processing**: Wait another 10-30 seconds before next query
-3. **Maximum 3-5 queries**: If still not complete, inform the user and stop polling
+1. Wait at least \`estimatedTime\` seconds before calling \`get_task\`
+2. If still processing, wait another 10-30 seconds
+3. Maximum 3-5 queries total
 
-## Recommended Workflow
+## File Upload (for image-to-image / image-to-video)
 
-1. Call \`generate_image\` or \`generate_video\`
-2. Tell the user: "Task submitted. Estimated completion: {estimatedTime} seconds. I'll check the result after that."
-3. **If your client supports sleep/wait**: Wait for \`estimatedTime\` seconds, then call \`get_task\`
-4. **If your client does NOT support sleep**: Tell the user "Please ask me to check the result in about {estimatedTime} seconds" and STOP. Wait for user to ask before querying.
+To upload local files as input images:
+
+1. Call \`get_upload_url\` to get a temporary upload URL and curl command
+2. Execute the returned curl command to upload the file
+3. Use the returned URL as the \`images\` parameter
 
 ## Task Status Values
 
@@ -48,25 +84,5 @@ After calling \`generate_image\` or \`generate_video\`, you will receive:
 - \`success\`: Completed successfully (resourceUrl available)
 - \`failed\`: Failed (error message available)
 - \`cancelled\`: Cancelled by user
-
-## Example Conversation
-
-**Good:**
-> User: Generate an image of a sunset
-> Assistant: I'll create that image for you.
-> [calls generate_image]
-> Assistant: Task submitted (ID: 123). The estimated time is 60 seconds. I'll check the result after that time.
-> [waits 60 seconds or asks user to wait]
-> [calls get_task]
-> Assistant: Here's your image: [shows result]
-
-**Bad (causes timeout issues):**
-> User: Generate an image of a sunset
-> Assistant: I'll create that image for you.
-> [calls generate_image]
-> [immediately calls get_task] - still pending
-> [calls get_task again] - still pending
-> [calls get_task again] - still pending
-> ... (loops until client timeout)
 `,
 }

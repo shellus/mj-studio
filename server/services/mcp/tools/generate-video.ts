@@ -7,6 +7,9 @@ import { upstreams } from '../../../database/schema'
 import { useTaskService } from '../../task'
 import { useAimodelService } from '../../aimodel'
 import { eq, and, isNull } from 'drizzle-orm'
+import { waitForTask } from './wait-for-task'
+
+const VIDEO_TIMEOUT_MS = 10 * 60 * 1000 // 10 分钟
 
 export async function generateVideo(
   user: AuthUser,
@@ -14,6 +17,7 @@ export async function generateVideo(
   prompt: string,
   images?: string[],
   modelParams?: Record<string, unknown>,
+  blocking: boolean = true,
 ) {
   const aimodelService = useAimodelService()
   const taskService = useTaskService()
@@ -73,12 +77,47 @@ export async function generateVideo(
     console.error('MCP 异步提交视频任务失败:', err)
   })
 
+  // 非阻塞模式：立即返回
+  if (!blocking) {
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        taskId: task.id,
+        status: 'pending',
+        estimatedTime: aimodel.estimatedTime,
+        message: `Task created. Please wait ${aimodel.estimatedTime} seconds before querying with get_task. Do NOT poll immediately.`,
+      }) }],
+    }
+  }
+
+  // 阻塞模式：等待任务完成
+  const result = await waitForTask(task.id, user.id, VIDEO_TIMEOUT_MS)
+
+  if (result.status === 'success') {
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        taskId: result.taskId,
+        status: 'success',
+        resourceUrl: result.resourceUrl,
+      }) }],
+    }
+  }
+
+  if (result.status === 'timeout') {
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify({
+        taskId: result.taskId,
+        status: 'timeout',
+        message: 'Task did not complete within 10 minutes. Use get_task to check status later.',
+      }) }],
+    }
+  }
+
   return {
     content: [{ type: 'text' as const, text: JSON.stringify({
-      taskId: task.id,
-      status: 'pending',
-      estimatedTime: aimodel.estimatedTime,
-      message: `Task created. Please wait ${aimodel.estimatedTime} seconds before querying with get_task. Do NOT poll immediately.`,
+      taskId: result.taskId,
+      status: result.status,
+      error: result.error,
     }) }],
+    isError: result.status === 'error',
   }
 }

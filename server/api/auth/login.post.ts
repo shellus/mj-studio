@@ -39,7 +39,8 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     email: user.email,
     name: user.name,
-  })
+    purpose: 'auth',
+  }, '30d')
 
   return {
     success: true,

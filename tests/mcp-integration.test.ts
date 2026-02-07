@@ -200,6 +200,80 @@ describe('MCP 协议', () => {
     expect(toolNames).toContain('generate_video')
     expect(toolNames).toContain('get_task')
     expect(toolNames).toContain('list_tasks')
+    expect(toolNames).toContain('get_upload_url')
+  })
+})
+
+// ==================== 文件上传工具 ====================
+
+describe('文件上传工具', () => {
+  let uploadUrl = ''
+  let uploadToken = ''
+
+  it('get_upload_url 应返回上传信息', async () => {
+    if (!MCP_API_KEY || !sessionId) {
+      console.log('跳过：未初始化 MCP 会话')
+      return
+    }
+
+    const result = await callTool('get_upload_url', {})
+
+    expect(result.uploadUrl).toBeDefined()
+    expect(result.method).toBe('POST')
+    expect(result.headers).toBeDefined()
+    expect(result.headers.Authorization).toMatch(/^Bearer /)
+    expect(result.fieldName).toBe('file')
+    expect(result.curlExample).toBeDefined()
+    expect(result.expiresIn).toBe('10 minutes')
+
+    uploadUrl = result.uploadUrl
+    uploadToken = result.headers.Authorization.replace('Bearer ', '')
+
+    console.log('上传 URL:', uploadUrl)
+  })
+
+  it('使用临时 JWT 上传文件应成功', async () => {
+    if (!uploadUrl || !uploadToken) {
+      console.log('跳过：未获取到上传 URL')
+      return
+    }
+
+    // 构造一个最小的 PNG 文件（1x1 像素透明 PNG）
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+      0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, // RGBA, CRC
+      0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+      0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01,
+      0xE5, 0x27, 0xDE, 0xFC,                           // CRC
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, // IEND chunk
+      0xAE, 0x42, 0x60, 0x82,                           // CRC
+    ])
+
+    const boundary = '----TestBoundary' + Date.now()
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="test.png"\r\nContent-Type: image/png\r\n\r\n`),
+      pngHeader,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ])
+
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${uploadToken}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body,
+    })
+
+    const data = await response.json()
+    console.log('上传结果:', data)
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.url).toBeDefined()
+    expect(data.url).toContain('/api/files/')
   })
 })
 
