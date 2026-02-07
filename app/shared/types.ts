@@ -200,6 +200,8 @@ export interface MessageFile {
   mimeType: string
   /** 文件大小（字节） */
   size: number
+  /** 公网访问 URL（用于 API 请求时替代 base64） */
+  publicUrl?: string
 }
 
 // ==================== 上游平台类型 ====================

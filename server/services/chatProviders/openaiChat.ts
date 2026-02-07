@@ -45,12 +45,21 @@ function filesToContent(files: MessageFile[]): ChatMessageContent[] {
   for (const file of files) {
     // 1. 图片类型（非 SVG）→ 作为 image_url
     if (isNativeImageMimeType(file.mimeType)) {
-      const base64 = readFileAsBase64(file.fileName)
-      if (base64) {
+      // 优先使用公网 URL，避免 base64 导致 token 超限
+      if (file.publicUrl) {
         contents.push({
           type: 'image_url',
-          image_url: { url: base64, detail: 'auto' },
+          image_url: { url: file.publicUrl, detail: 'auto' },
         })
+      } else {
+        // 降级：使用 base64（兼容旧数据）
+        const base64 = readFileAsBase64(file.fileName)
+        if (base64) {
+          contents.push({
+            type: 'image_url',
+            image_url: { url: base64, detail: 'auto' },
+          })
+        }
       }
       continue
     }

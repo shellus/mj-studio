@@ -247,6 +247,13 @@ export function useConversationService() {
       .where(eq(messages.id, messageId))
   }
 
+  // 更新消息的 files 字段
+  async function updateMessageFiles(messageId: number, files: MessageFile[]): Promise<void> {
+    await db.update(messages)
+      .set({ files })
+      .where(eq(messages.id, messageId))
+  }
+
   // 获取单条消息
   async function getMessageById(id: number): Promise<Message | undefined> {
     return db.query.messages.findFirst({
@@ -476,6 +483,7 @@ export function useConversationService() {
     updateMessageStatus,
     updateMessageContentAndStatus,
     updateMessageToolCalls,
+    updateMessageFiles,
     getMessageById,
     updateMessageContent,
     removeMessage,

@@ -2,6 +2,8 @@
 import { createHash } from 'crypto'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, statSync, createReadStream, type ReadStream } from 'fs'
 import { join } from 'path'
+import type { MessageFile } from '../../app/shared/types'
+import { getFullResourceUrl } from '../utils/url'
 
 // 文件存储目录
 const UPLOAD_DIR = join(process.cwd(), 'uploads')
@@ -359,4 +361,54 @@ export const imageExists = fileExists
 /** @deprecated 使用 getFileUrl */
 export function getImageUrl(fileName: string): string {
   return `/api/files/${fileName}`
+}
+
+/**
+ * 从 base64 保存文件并返回包含公网 URL 的 MessageFile
+ * 用于对话生图场景，需要将图片 URL 传回给 API
+ */
+export function saveBase64FileWithUrl(base64Data: string, originalName?: string): MessageFile | null {
+  const result = saveBase64File(base64Data, originalName)
+  if (!result) return null
+
+  const localUrl = getFileUrl(result.fileName)
+  const publicUrl = getFullResourceUrl(localUrl)
+
+  return {
+    name: originalName || result.fileName,
+    fileName: result.fileName,
+    mimeType: result.mimeType,
+    size: result.size,
+    publicUrl: publicUrl || undefined,
+  }
+}
+
+/**
+ * 提取并保存消息内容中的 base64 图片
+ * 用于对话生图场景，检测 AI 返回的 base64 图片并保存到本地
+ *
+ * @param content 消息内容
+ * @returns { newContent: string, files: MessageFile[] } 替换后的内容和保存的文件列表
+ */
+export function extractAndSaveBase64Images(content: string): { newContent: string; files: MessageFile[] } {
+  const files: MessageFile[] = []
+
+  // 匹配 Markdown 图片语法中的 base64 数据
+  // 格式: ![alt](data:image/xxx;base64,...)
+  const regex = /!\[([^\]]*)\]\((data:image\/[^;]+;base64,[^)]+)\)/g
+
+  const newContent = content.replace(regex, (match, alt, base64Data) => {
+    const file = saveBase64FileWithUrl(base64Data)
+    if (file) {
+      files.push(file)
+      // 替换为本地 URL
+      const localUrl = getFileUrl(file.fileName)
+      console.log(`[File] 提取并保存 base64 图片: ${file.fileName}`)
+      return `![${alt || 'image'}](${localUrl})`
+    }
+    // 保存失败则保留原始内容
+    return match
+  })
+
+  return { newContent, files }
 }

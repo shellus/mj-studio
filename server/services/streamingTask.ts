@@ -30,6 +30,7 @@ import { useMcpServerService } from './mcpServer'
 import { useMcpClientManager, mcpToolsToChatTools, findMcpToolByDisplayName, MCP_CLIENT_CONFIG } from './mcpClient'
 import type { McpToolWithServer } from './mcpClient'
 import { waitForToolConfirmation, cancelPendingToolCalls, broadcastToolCallUpdated } from './toolCallState'
+import { extractAndSaveBase64Images } from './file'
 
 interface StreamingTaskParams {
   messageId: number           // AI 消息 ID
@@ -553,9 +554,18 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     // 使用缓存的完整内容（包含标签），保持与流式输出一致
     const cachedContent = getStreamingContent(currentMessageId)
-    const finalContent = cachedContent || (fullThinking
+    let finalContent = cachedContent || (fullThinking
       ? `<thinking>\n${fullThinking}\n</thinking>\n\n${fullContent}`
       : fullContent)
+
+    // 提取并保存消息中的 base64 图片（对话生图场景）
+    const { newContent, files: extractedFiles } = extractAndSaveBase64Images(finalContent)
+    if (extractedFiles.length > 0) {
+      finalContent = newContent
+      // 更新消息的 files 字段
+      await conversationService.updateMessageFiles(currentMessageId, extractedFiles)
+      console.log(`[Streaming] 提取了 ${extractedFiles.length} 张图片`)
+    }
 
     // 计算生成耗时
     const duration = Date.now() - requestStartTime
