@@ -80,6 +80,9 @@ export const videoUnifiedProvider: AsyncProvider = {
       enhancePrompt: true,
       upsample: true,
     },
+    validation: {
+      supportsImageUrl: true,
+    },
   },
 
   createService(baseUrl: string, apiKey: string) {

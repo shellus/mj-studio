@@ -75,6 +75,9 @@ export const dalleProvider: SyncProvider = {
       guidance: true,
       watermark: true,
     },
+    validation: {
+      supportsImageUrl: true,
+    },
   },
 
   createService(baseUrl: string, apiKey: string) {

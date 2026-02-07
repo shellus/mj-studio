@@ -57,6 +57,9 @@ export const openaiChatImageProvider: SyncProvider = {
       quality: true,
       background: true,
     },
+    validation: {
+      supportsImageUrl: true,
+    },
   },
 
   createService(baseUrl: string, apiKey: string) {

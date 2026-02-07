@@ -40,6 +40,7 @@ export const koukoutuProvider: AsyncProvider = {
     validation: {
       requiresPrompt: false,
       requiresImage: true,
+      supportsImageUrl: false,
     },
   },
 

@@ -63,6 +63,9 @@ export const mjProvider: AsyncProvider = {
     capabilities: {
       referenceImage: true,
     },
+    validation: {
+      supportsImageUrl: true,
+    },
   },
 
   createService(baseUrl: string, apiKey: string): MJService {

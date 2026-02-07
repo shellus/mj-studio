@@ -42,6 +42,9 @@ export const geminiProvider: SyncProvider = {
     capabilities: {
       referenceImage: true,
     },
+    validation: {
+      supportsImageUrl: true,
+    },
   },
 
   createService(baseUrl: string, apiKey: string) {

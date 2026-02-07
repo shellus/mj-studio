@@ -39,6 +39,7 @@ export interface ValidationRules {
   requiresImage?: boolean     // 必须有图片（如抠图）
   minImages?: number          // 最少图片数（如 blend）
   maxImages?: number          // 最多图片数
+  supportsImageUrl?: boolean  // 支持图片 URL（默认 true，false 时需转 base64）
 }
 
 /** Provider 元数据 */
@@ -49,7 +50,7 @@ export interface ProviderMeta {
   isAsync: boolean
   supportedModelTypes: (ImageModelType | VideoModelType)[]
   capabilities?: ModelCapabilities
-  validation?: ValidationRules
+  validation: ValidationRules
 }
 
 // ============================================================================

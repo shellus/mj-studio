@@ -36,16 +36,50 @@ export function useTaskService() {
     return upstreamService.getApiKey(upstream, aimodel?.keyName)
   }
 
-  // 将本地 URL 数组转换为 Base64 数组
-  function convertImagesToBase64(images: string[] | undefined): string[] {
+  // 将图片 URL 数组转换为 Base64 数组
+  // fetchRemoteUrls: 是否下载远程 URL 转 base64（用于不支持 URL 的上游如抠抠图）
+  async function convertImagesToBase64(images: string[] | undefined, fetchRemoteUrls: boolean = false): Promise<string[]> {
     if (!images || images.length === 0) return []
-    return images.map(url => {
+
+    const results: string[] = []
+    for (const url of images) {
       // 如果已经是 base64，直接返回
-      if (url.startsWith('data:')) return url
-      // 从本地 URL 提取文件名并读取为 base64
-      const fileName = url.replace(/^\/api\/files\//, '')
-      return readFileAsBase64(fileName) || url
-    }).filter(Boolean) as string[]
+      if (url.startsWith('data:')) {
+        results.push(url)
+        continue
+      }
+
+      // 尝试从本地文件读取
+      // 支持 /api/files/xxx 和完整 URL 如 http://domain/api/files/xxx
+      const localMatch = url.match(/\/api\/files\/(.+)$/)
+      if (localMatch) {
+        const base64 = readFileAsBase64(localMatch[1])
+        if (base64) {
+          results.push(base64)
+          continue
+        }
+      }
+
+      // 远程 URL 处理
+      if (fetchRemoteUrls && (url.startsWith('http://') || url.startsWith('https://'))) {
+        try {
+          const response = await fetch(url)
+          if (response.ok) {
+            const buffer = await response.arrayBuffer()
+            const contentType = response.headers.get('content-type') || 'image/png'
+            const base64 = `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`
+            results.push(base64)
+            continue
+          }
+        } catch {
+          // 下载失败，保留原 URL
+        }
+      }
+
+      // 兜底：保留原 URL
+      results.push(url)
+    }
+    return results
   }
 
   // 创建任务（仅保存到数据库）
@@ -458,10 +492,12 @@ export function useTaskService() {
       const service = provider.createService(upstream.baseUrl, apiKey)
 
       // 构建通用参数
+      // 如果 Provider 不支持图片 URL，需要下载远程 URL 转 base64
+      const fetchRemoteUrls = !provider.meta.validation.supportsImageUrl
       const params: GenerateParams = {
         taskId,
         prompt: task.prompt ?? '',
-        images: task.images ? convertImagesToBase64(task.images) : undefined,
+        images: task.images ? await convertImagesToBase64(task.images, fetchRemoteUrls) : undefined,
         modelName: task.modelName || getModelTypeDefaults(task.modelType as any)?.modelName || task.modelName,
         modelParams: task.modelParams as ImageModelParams | undefined,
         type: task.type as 'imagine' | 'blend' | undefined,
