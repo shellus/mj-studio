@@ -187,6 +187,7 @@ MJ-Studio 提供 MCP（Model Context Protocol）接口，允许外部 AI 客户�
 | `conversationId` | number | 否 | 对话 ID，不传则创建新对话 |
 | `title` | string | 否 | 对话标题，仅新建对话时有效，不传则自动生成 |
 | `stream` | boolean | 否 | 是否流式响应，默认 `false` |
+| `persistent` | boolean | 否 | 是否永久保留对话，默认 `false`（临时对话 1 小时后自动清理） |
 
 **返回（非流式，stream=false）**：
 ```json

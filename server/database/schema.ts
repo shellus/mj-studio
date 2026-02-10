@@ -150,6 +150,7 @@ export const conversations = sqliteTable('conversations', {
   autoApproveMcp: integer('auto_approve_mcp', { mode: 'boolean' }).notNull().default(false), // 自动通过 MCP 调用
   enableThinking: integer('enable_thinking', { mode: 'boolean' }).notNull().default(false), // 启用思考模式
   enableWebSearch: integer('enable_web_search', { mode: 'boolean' }).notNull().default(false), // 启用 Web 搜索
+  expiresAt: integer('expires_at', { mode: 'timestamp' }), // 临时对话过期时间，null 表示永久对话
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })

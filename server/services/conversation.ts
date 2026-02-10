@@ -1,15 +1,34 @@
 // 对话服务层
 import { db } from '../database'
 import { conversations, messages, type Conversation, type Message, type MessageMark, type MessageStatus, type MessageFile, type ToolCallRecord } from '../database/schema'
-import { eq, and, desc, inArray } from 'drizzle-orm'
+import { eq, and, desc, inArray, isNull, isNotNull } from 'drizzle-orm'
 import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated, type ChatConversationDeleted, type ChatMessageCreated, type ChatMessageUpdated, type ChatMessageDeleted, type ChatMessagesDeleted } from './globalEvents'
 import { useAssistantService } from './assistant'
 
 export function useConversationService() {
-  // 获取用户在某个助手下的所有对话
-  async function listByAssistant(userId: number, assistantId: number): Promise<Conversation[]> {
+  // 获取用户在某个助手下的对话（支持按类型筛选）
+  async function listByAssistant(
+    userId: number,
+    assistantId: number,
+    type?: 'permanent' | 'temporary' | 'all'
+  ): Promise<Conversation[]> {
+    const baseCondition = and(
+      eq(conversations.userId, userId),
+      eq(conversations.assistantId, assistantId)
+    )
+
+    let whereCondition = baseCondition
+
+    // 根据类型筛选
+    if (type === 'permanent') {
+      whereCondition = and(baseCondition, isNull(conversations.expiresAt))
+    } else if (type === 'temporary') {
+      whereCondition = and(baseCondition, isNotNull(conversations.expiresAt))
+    }
+    // type === 'all' 或 undefined 时不额外筛选
+
     return db.query.conversations.findMany({
-      where: and(eq(conversations.userId, userId), eq(conversations.assistantId, assistantId)),
+      where: whereCondition,
       orderBy: [desc(conversations.updatedAt)],
     })
   }
@@ -42,8 +61,14 @@ export function useConversationService() {
     autoApproveMcp?: boolean
     enableThinking?: boolean
     enableWebSearch?: boolean
+    persistent?: boolean  // 是否永久保留对话，默认 false（临时对话）
   }): Promise<Conversation> {
     const now = new Date()
+    // persistent !== true 时创建临时对话（1小时后过期）
+    const expiresAt = data.persistent !== true
+      ? new Date(Date.now() + 60 * 60 * 1000)  // 1 小时后
+      : null  // 永久对话
+
     const [conversation] = await db.insert(conversations).values({
       userId: data.userId,
       assistantId: data.assistantId,
@@ -51,6 +76,7 @@ export function useConversationService() {
       autoApproveMcp: data.autoApproveMcp ?? false,
       enableThinking: data.enableThinking ?? false,
       enableWebSearch: data.enableWebSearch ?? false,
+      expiresAt,
       createdAt: now,
       updatedAt: now,
     }).returning()
@@ -120,11 +146,26 @@ export function useConversationService() {
     return { assistantId: conversation.assistantId, lastActiveAt: now }
   }
 
-  // 删除对话（级联删除消息）
-  async function remove(id: number, userId: number): Promise<{ success: boolean; assistantId?: number }> {
-    // 先验证对话属于该用户
+  // 延期临时对话（仅对有 expiresAt 的对话生效）
+  async function extendExpirationIfTemporary(conversationId: number): Promise<void> {
+    const conversation = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
+      columns: { expiresAt: true },
+    })
+
+    // 只延期临时对话（expiresAt != null）
+    if (conversation?.expiresAt) {
+      const newExpiresAt = new Date(Date.now() + 60 * 60 * 1000) // 延期 1 小时
+      await db.update(conversations)
+        .set({ expiresAt: newExpiresAt })
+        .where(eq(conversations.id, conversationId))
+    }
+  }
+
+  // 根据 ID 删除对话（级联删除消息）- 内部方法，不验证权限
+  async function deleteById(id: number, userId: number): Promise<{ success: boolean; assistantId?: number }> {
     const conversation = await getById(id)
-    if (!conversation || conversation.userId !== userId) {
+    if (!conversation) {
       return { success: false }
     }
 
@@ -148,6 +189,17 @@ export function useConversationService() {
     }
 
     return { success: result.length > 0, assistantId }
+  }
+
+  // 删除对话（带权限验证）
+  async function remove(id: number, userId: number): Promise<{ success: boolean; assistantId?: number }> {
+    // 先验证对话属于该用户
+    const conversation = await getById(id)
+    if (!conversation || conversation.userId !== userId) {
+      return { success: false }
+    }
+
+    return await deleteById(id, userId)
   }
 
   // 添加消息
@@ -185,6 +237,11 @@ export function useConversationService() {
         .set({ sortId: message.id })
         .where(eq(messages.id, message.id))
       message.sortId = message.id
+    }
+
+    // 仅用户消息延期临时对话
+    if (data.role === 'user') {
+      await extendExpirationIfTemporary(data.conversationId)
     }
 
     // 更新对话时间（返回 assistantId 和 lastActiveAt）
@@ -477,6 +534,8 @@ export function useConversationService() {
     create,
     updateTitle,
     touch,
+    extendExpirationIfTemporary,
+    deleteById,
     remove,
     addMessage,
     updateMessageSortId,

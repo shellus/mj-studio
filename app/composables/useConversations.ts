@@ -24,6 +24,7 @@ export interface Conversation {
   autoApproveMcp?: boolean
   enableThinking?: boolean
   enableWebSearch?: boolean
+  expiresAt: string | null  // 临时对话的过期时间，null 表示永久对话
   createdAt: string
   updatedAt: string
 }
@@ -341,14 +342,16 @@ export function useConversations() {
   })
 
   // 加载对话列表
-  async function loadConversations(assistantId: number) {
+  async function loadConversations(assistantId: number, type?: 'permanent' | 'temporary' | 'all') {
     isLoading.value = true
     // 保存当前助手 ID（用于事件过滤）
     currentAssistantId.value = assistantId
     try {
-      const result = await $fetch<Conversation[]>('/api/conversations', {
-        query: { assistantId },
-      })
+      const query: Record<string, any> = { assistantId }
+      if (type) {
+        query.type = type
+      }
+      const result = await $fetch<Conversation[]>('/api/conversations', { query })
       conversations.value = result
       // 清空当前对话选择
       currentConversationId.value = null

@@ -311,11 +311,17 @@ onMounted(() => {
                     <td class="py-2 pr-4">否</td>
                     <td class="py-2">是否流式响应，默认 false</td>
                   </tr>
-                  <tr>
+                  <tr class="border-b border-(--ui-border)/50">
                     <td class="py-2 pr-4 font-mono">aimodelId</td>
                     <td class="py-2 pr-4">number</td>
                     <td class="py-2 pr-4">否</td>
                     <td class="py-2">一次性模型 ID，本次请求使用该模型</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 pr-4 font-mono">persistent</td>
+                    <td class="py-2 pr-4">boolean</td>
+                    <td class="py-2 pr-4">否</td>
+                    <td class="py-2">是否永久保留对话，默认 false（临时对话 1 小时后自动清理）</td>
                   </tr>
                 </tbody>
               </table>

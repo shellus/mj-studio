@@ -73,9 +73,10 @@ export function createMcpServer(user: AuthUser): McpServer {
       conversationId: z.number().optional().describe('Conversation ID, create new if not provided'),
       title: z.string().optional().describe('Conversation title, only for new conversations, auto-generate if not provided'),
       stream: z.boolean().optional().describe('Enable streaming response, default false'),
+      persistent: z.boolean().optional().describe('Whether to keep the conversation permanently (default false, temporary conversations expire after 1 hour)'),
     },
-    async ({ assistantId, message, conversationId, title, stream }) =>
-      chat(user, assistantId, message, conversationId, title, stream),
+    async ({ assistantId, message, conversationId, title, stream, persistent }) =>
+      chat(user, assistantId, message, conversationId, title, stream, persistent),
   )
 
   // 文件上传工具

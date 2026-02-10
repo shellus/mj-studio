@@ -303,6 +303,13 @@ async function handleSelectConversation(id: number) {
   showRightDrawer.value = false
 }
 
+// 加载对话列表（按类型筛选）
+async function handleLoadConversations(type: 'permanent' | 'temporary') {
+  if (currentAssistantId.value) {
+    await loadConversations(currentAssistantId.value, type)
+  }
+}
+
 // 删除对话
 async function handleDeleteConversation(id: number) {
   // 先获取对话的 assistantId
@@ -595,9 +602,12 @@ onUnmounted(() => {
         <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
         <span class="ml-1">助手</span>
       </UButton>
-      <span class="flex-1 text-center truncate font-medium text-sm">
-        {{ currentConversation?.title || currentAssistant?.name || '选择助手' }}
-      </span>
+      <div class="flex-1 flex items-center justify-center gap-2 min-w-0">
+        <span class="text-center truncate font-medium text-sm">
+          {{ currentConversation?.title || currentAssistant?.name || '选择助手' }}
+        </span>
+        <ChatTemporaryBadge v-if="currentConversation?.expiresAt" :expires-at="currentConversation.expiresAt" class="flex-shrink-0" />
+      </div>
       <UButton variant="ghost" size="sm" @click="showRightDrawer = true">
         <span class="mr-1">对话</span>
         <UIcon name="i-heroicons-chat-bubble-left-right" class="w-5 h-5" />
@@ -644,8 +654,9 @@ onUnmounted(() => {
       <!-- 中间：消息区域（始终显示） -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- 桌面端对话标题栏 -->
-        <div v-if="currentConversation" class="h-12 items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 hidden lg:flex">
+        <div v-if="currentConversation" class="h-12 items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 hidden lg:flex gap-2">
           <span class="font-medium truncate">{{ currentConversation.title }}</span>
+          <ChatTemporaryBadge v-if="currentConversation.expiresAt" :expires-at="currentConversation.expiresAt" />
         </div>
 
         <!-- 消息列表 -->
@@ -729,6 +740,7 @@ onUnmounted(() => {
           <ChatConversationList
             :conversations="conversations"
             :current-conversation-id="currentConversationId"
+            :assistant-id="currentAssistantId"
             class="flex-1 min-h-0"
             @select="handleSelectConversation"
             @create="handleCreateConversation"
@@ -737,6 +749,7 @@ onUnmounted(() => {
             @generate-title="handleGenerateTitle"
             @share="handleShare"
             @duplicate="handleDuplicateConversation"
+            @load-conversations="handleLoadConversations"
           />
         </div>
       </div>
@@ -768,6 +781,7 @@ onUnmounted(() => {
           <ChatConversationList
             :conversations="conversations"
             :current-conversation-id="currentConversationId"
+            :assistant-id="currentAssistantId"
             class="flex-1 min-h-0"
             @select="handleSelectConversation"
             @create="handleCreateConversation"
@@ -776,6 +790,7 @@ onUnmounted(() => {
             @generate-title="handleGenerateTitle"
             @share="handleShare"
             @duplicate="handleDuplicateConversation"
+            @load-conversations="handleLoadConversations"
           />
         </div>
       </template>

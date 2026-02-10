@@ -24,13 +24,14 @@ export default defineEventHandler(async (event) => {
     const { user } = await requireApiKeyAuth(event)
     const body = await readBody(event)
 
-    const { assistantId, message, conversationId, title, stream, aimodelId } = body as {
+    const { assistantId, message, conversationId, title, stream, aimodelId, persistent } = body as {
       assistantId: number
       message: string
       conversationId?: number
       title?: string
       stream?: boolean
       aimodelId?: number
+      persistent?: boolean
     }
 
     // 参数验证
@@ -85,6 +86,7 @@ export default defineEventHandler(async (event) => {
         userId: user.id,
         assistantId,
         title: title || conversationService.generateTitle(message),
+        persistent,
       })
       actualConversationId = newConversation.id
       await assistantService.refreshConversationCount(assistantId)

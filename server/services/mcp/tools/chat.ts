@@ -20,6 +20,7 @@ export async function chat(
   conversationId?: number,
   title?: string,
   stream?: boolean,
+  persistent?: boolean,
 ) {
   // 验证助手属于用户
   const assistantService = useAssistantService()
@@ -70,6 +71,7 @@ export async function chat(
       userId: user.id,
       assistantId,
       title: title || conversationService.generateTitle(message),
+      persistent,
     })
     actualConversationId = newConversation.id
 

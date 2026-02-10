@@ -4,6 +4,7 @@ import type { Conversation } from '~/composables/useConversations'
 const props = defineProps<{
   conversations: Conversation[]
   currentConversationId: number | null
+  assistantId: number | null  // 新增：需要知道当前助手ID
 }>()
 
 const emit = defineEmits<{
@@ -14,7 +15,26 @@ const emit = defineEmits<{
   generateTitle: [id: number]
   share: [id: number]
   duplicate: [id: number]
+  loadConversations: [type: 'permanent' | 'temporary']  // 新增：通知父组件加载对话
 }>()
+
+// Tab 切换状态（永久/临时）
+const activeTab = ref<'permanent' | 'temporary'>('permanent')
+
+// 监听 Tab 切换，触发加载对话
+watch(activeTab, (newTab) => {
+  if (props.assistantId) {
+    emit('loadConversations', newTab)
+  }
+})
+
+// 监听 assistantId 变化，重置 Tab 并加载永久对话
+watch(() => props.assistantId, (newId) => {
+  if (newId) {
+    activeTab.value = 'permanent'
+    emit('loadConversations', 'permanent')
+  }
+})
 
 // 删除确认
 const deleteConfirmId = ref<number | null>(null)
@@ -93,11 +113,33 @@ function handleKeydown(e: KeyboardEvent) {
       </UButton>
     </div>
 
+    <!-- Tab 切换 -->
+    <div class="flex border-b border-(--ui-border)">
+      <button
+        class="flex-1 px-3 py-2 text-sm transition-colors"
+        :class="activeTab === 'permanent'
+          ? 'text-(--ui-primary) border-b-2 border-(--ui-primary) font-medium'
+          : 'text-(--ui-text-muted) hover:text-(--ui-text)'"
+        @click="activeTab = 'permanent'"
+      >
+        永久
+      </button>
+      <button
+        class="flex-1 px-3 py-2 text-sm transition-colors"
+        :class="activeTab === 'temporary'
+          ? 'text-(--ui-primary) border-b-2 border-(--ui-primary) font-medium'
+          : 'text-(--ui-text-muted) hover:text-(--ui-text)'"
+        @click="activeTab = 'temporary'"
+      >
+        临时
+      </button>
+    </div>
+
     <!-- 对话列表 -->
     <div class="flex-1 overflow-y-auto">
       <!-- 空状态 -->
       <div v-if="conversations.length === 0" class="p-4 text-center text-(--ui-text-muted) text-sm">
-        暂无对话
+        暂无{{ activeTab === 'permanent' ? '永久' : '临时' }}对话
       </div>
 
       <!-- 对话项 -->
