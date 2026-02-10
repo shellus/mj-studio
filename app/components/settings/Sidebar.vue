@@ -30,9 +30,14 @@ const menuItems = [
     to: '/settings/prompts',
   },
   {
-    label: 'MCP 接口',
-    icon: 'i-heroicons-key',
+    label: 'MCP 服务',
+    icon: 'i-heroicons-puzzle-piece',
     to: '/settings/mcp',
+  },
+  {
+    label: 'API 管理',
+    icon: 'i-heroicons-key',
+    to: '/settings/api',
   },
   {
     label: '通用设置',

@@ -31,6 +31,8 @@
 
 ### 数据库迁移
 
+- 数据库文件在`data/mj-studio.db`
+
 **禁止使用 `pnpm db:generate`**，因为它需要交互式选择字段变化类型，我们只用自定义迁移：
 ```bash
 pnpm drizzle-kit generate --custom --name=my-migration

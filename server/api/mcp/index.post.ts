@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
-import { requireMcpAuth } from '../../utils/jwt'
+import { requireApiKeyAuth } from '../../utils/jwt'
 import { createMcpServer } from '../../services/mcp'
 
 // 存储活跃的 MCP 会话
@@ -26,7 +26,7 @@ setInterval(() => {
 
 export default defineEventHandler(async (event) => {
   // 认证
-  const { user } = await requireMcpAuth(event)
+  const { user } = await requireApiKeyAuth(event)
 
   const sessionId = getHeader(event, 'mcp-session-id')
   const body = await readBody(event)

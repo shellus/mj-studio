@@ -22,7 +22,7 @@ MJ-Studio 提供 MCP（Model Context Protocol）接口，允许外部 AI 客户�
 
 ### API Key
 
-用户在「个人中心」生成专属 API Key，外部客户端通过此 Key 认证身份。
+用户在「设置 → API 管理」生成专属 API Key，外部客户端通过此 Key 认证身份。
 
 **Key 特性**：
 - 每个用户仅有一个 Key

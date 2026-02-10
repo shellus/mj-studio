@@ -95,9 +95,9 @@ export async function requireAuth(event: H3Event): Promise<{ user: AuthUser }> {
   }
 }
 
-// MCP API Key 认证
-// 通过 Bearer Token 验证 MCP API Key，返回用户信息
-export async function requireMcpAuth(event: H3Event): Promise<{ user: AuthUser }> {
+// API Key 认证（MCP 接口和 HTTP API 共用）
+// 通过 Bearer Token 验证 API Key，返回用户信息
+export async function requireApiKeyAuth(event: H3Event): Promise<{ user: AuthUser }> {
   const token = getTokenFromHeader(event)
   if (!token) {
     throw createError({
