@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
     autoApproveMcp: assistant.autoApproveMcp ?? false,
     enableThinking: enableThinking ?? false,
     enableWebSearch: enableWebSearch ?? false,
+    persistent: true,  // Web 端创建的对话默认为永久
   })
 
   // 将助手的系统提示词固化到对话中（作为一条 system-prompt 消息）

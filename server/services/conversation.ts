@@ -456,6 +456,7 @@ export function useConversationService() {
       userId,
       assistantId: originalConversation.assistantId,
       title: `#🔀${messageNumber} ${originalConversation.title}`,
+      persistent: true,  // 分叉对话继承永久属性
     })
 
     // 复制消息到新对话
