@@ -397,7 +397,13 @@ export function useConversations() {
     // 不再本地 push，由 SSE 事件 handleConversationCreated 处理
     // 但需要设置当前对话 ID 以便后续操作
     currentConversationId.value = conversation.id
-    messages.value = []
+    // 获取对话消息（包含后端固化的 system-prompt 消息）
+    try {
+      const result = await $fetch<{ conversation: Conversation, messages: Message[] }>(`/api/conversations/${conversation.id}`)
+      messages.value = result.messages
+    } catch {
+      messages.value = []
+    }
     return conversation
   }
 

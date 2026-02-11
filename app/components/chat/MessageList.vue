@@ -49,14 +49,24 @@ const suggestionsLoading = computed(() => {
   return isSuggestionsLoading(props.assistantId)
 })
 
+// 提取固化的系统提示词消息
+const systemPromptMessage = computed(() => {
+  return props.messages.find(m => m.mark === MESSAGE_MARK.SYSTEM_PROMPT) ?? null
+})
+
+// 排除系统提示词后的可见消息
+const visibleMessages = computed(() => {
+  return props.messages.filter(m => m.mark !== MESSAGE_MARK.SYSTEM_PROMPT)
+})
+
 // 是否显示开场白（空对话时显示）
 const showSuggestions = computed(() => {
-  return props.messages.length === 0 && props.assistantId
+  return visibleMessages.value.length === 0 && props.assistantId
 })
 
 // 加载开场白
 watch(() => props.assistantId, (id) => {
-  if (id && props.messages.length === 0) {
+  if (id && visibleMessages.value.length === 0) {
     loadSuggestions(id)
   }
 }, { immediate: true })
@@ -330,6 +340,34 @@ function isMessageActive(id: number): boolean {
 
 // 压缩响应展开状态（默认折叠）
 const expandedCompressResponses = ref<Set<number>>(new Set())
+
+// 系统提示词展开状态（默认折叠）
+const systemPromptExpanded = ref(false)
+const editingSystemPrompt = ref(false)
+const editingSystemPromptContent = ref('')
+
+function toggleSystemPrompt() {
+  systemPromptExpanded.value = !systemPromptExpanded.value
+}
+
+function startEditSystemPrompt() {
+  if (!systemPromptMessage.value) return
+  editingSystemPrompt.value = true
+  editingSystemPromptContent.value = systemPromptMessage.value.content
+}
+
+function cancelEditSystemPrompt() {
+  editingSystemPrompt.value = false
+  editingSystemPromptContent.value = ''
+}
+
+function saveEditSystemPrompt() {
+  if (!systemPromptMessage.value || !editingSystemPromptContent.value.trim()) return
+  systemPromptMessage.value.content = editingSystemPromptContent.value
+  emit('edit', systemPromptMessage.value.id, editingSystemPromptContent.value)
+  editingSystemPrompt.value = false
+  editingSystemPromptContent.value = ''
+}
 
 function toggleCompressResponse(id: number) {
   if (expandedCompressResponses.value.has(id)) {
@@ -629,9 +667,7 @@ function isEditing(messageId: number): boolean {
     </div>
 
     <!-- 消息列表 -->
-    <template v-for="(message, index) in messages" :key="message.id">
-      <!-- 跳过系统提示词消息（不在聊天界面显示） -->
-      <template v-if="message.mark !== MESSAGE_MARK.SYSTEM_PROMPT">
+    <template v-for="(message, index) in visibleMessages" :key="message.id">
       <!-- 对话已开始分界线（第一条消息前显示，点击跳转到底部） -->
       <div
         v-if="props.conversationId && index === 0"
@@ -648,7 +684,68 @@ function isEditing(messageId: number): boolean {
         <div class="flex-1 h-px bg-(--ui-border)" />
       </div>
 
-      <!-- 压缩请求前的分界线 -->
+      <!-- 系统提示词（气泡样式，第一条消息前显示） -->
+      <div
+        v-if="index === 0 && systemPromptMessage"
+        class="flex gap-3"
+      >
+        <!-- 头像 -->
+        <div class="hidden md:flex w-8 h-8 rounded-full items-center justify-center flex-shrink-0 bg-(--ui-bg-elevated)">
+          <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4 text-(--ui-text-muted)" />
+        </div>
+        <!-- 气泡 -->
+        <div class="group min-w-0 max-w-full md:max-w-[85%]">
+          <div class="inline-block max-w-full overflow-hidden px-4 py-2 rounded-2xl rounded-tl-sm bg-(--ui-bg-elevated)">
+            <!-- 编辑模式 -->
+            <div v-if="editingSystemPrompt" class="text-sm">
+              <div class="flex items-center gap-2 mb-2 text-xs text-(--ui-text-muted)">
+                <UIcon name="i-heroicons-cog-6-tooth" class="w-3 h-3" />
+                <span>系统提示词</span>
+              </div>
+              <textarea
+                v-model="editingSystemPromptContent"
+                class="w-full bg-transparent text-(--ui-text) resize-none outline-none whitespace-pre-wrap field-sizing-content min-h-[60px] max-h-[300px] overflow-y-auto"
+                @keydown.escape="cancelEditSystemPrompt"
+                @keydown.ctrl.enter="saveEditSystemPrompt"
+              />
+              <div class="flex justify-end gap-2 mt-2 text-(--ui-text-muted)">
+                <button class="px-2 py-0.5 text-xs hover:text-(--ui-text)" @click="cancelEditSystemPrompt">取消</button>
+                <button class="px-2 py-0.5 text-xs hover:text-(--ui-text)" @click="saveEditSystemPrompt">保存</button>
+              </div>
+            </div>
+            <!-- 折叠/展开模式 -->
+            <div v-else class="text-sm">
+              <button
+                class="flex items-center gap-1.5 text-xs text-(--ui-text-muted) hover:text-(--ui-text) transition-colors"
+                @click="toggleSystemPrompt"
+              >
+                <UIcon
+                  :name="systemPromptExpanded ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
+                  class="w-3 h-3"
+                />
+                <span>系统提示词</span>
+                <span v-if="!systemPromptExpanded" class="text-xs opacity-50">点击展开</span>
+              </button>
+              <div v-if="systemPromptExpanded" class="mt-2">
+                <div class="text-(--ui-text-muted) whitespace-pre-wrap break-words">{{ systemPromptMessage.content }}</div>
+              </div>
+            </div>
+          </div>
+          <!-- 元信息行（编辑按钮） -->
+          <div
+            v-if="systemPromptExpanded && !editingSystemPrompt"
+            class="mt-1 text-xs text-(--ui-text-dimmed) opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <button
+              class="p-1 hover:bg-(--ui-bg-elevated) rounded"
+              title="编辑"
+              @click="startEditSystemPrompt"
+            >
+              <UIcon name="i-heroicons-pencil" class="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
       <div
         v-if="message.mark === MESSAGE_MARK.COMPRESS_REQUEST"
         class="flex items-center gap-4 py-4"
@@ -973,7 +1070,6 @@ function isEditing(messageId: number): boolean {
         </div>
       </div>
     </div>
-    </template>
     </template>
 
     <!-- 删除确认框 -->
