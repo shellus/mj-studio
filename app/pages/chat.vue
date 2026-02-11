@@ -250,7 +250,7 @@ async function handleSaveAssistant(data: any) {
     }
     showAssistantEditor.value = false
   } catch (error: any) {
-    toast.add({ title: error.message || '操作失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '操作失败', color: 'error' })
   }
 }
 
@@ -265,7 +265,7 @@ async function handleDeleteAssistant(id: number) {
       updateUrlParams(currentAssistantId.value, null)
     }
   } catch (error: any) {
-    toast.add({ title: error.message || '删除失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '删除失败', color: 'error' })
   }
 }
 
@@ -285,7 +285,7 @@ async function handleDuplicateAssistant(id: number) {
     updateUrlParams(result.assistant.id, null)
     toast.add({ title: '助手已复制', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '复制助手失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '复制助手失败', color: 'error' })
   }
 }
 
@@ -325,7 +325,7 @@ async function handleDeleteConversation(id: number) {
       updateUrlParams(currentAssistantId.value, null)
     }
   } catch (error: any) {
-    toast.add({ title: error.message || '删除失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '删除失败', color: 'error' })
   }
 }
 
@@ -335,7 +335,7 @@ async function handleRenameConversation(id: number, title: string) {
     await updateConversationTitle(id, title)
     toast.add({ title: '对话已重命名', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '重命名失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '重命名失败', color: 'error' })
   }
 }
 
@@ -353,7 +353,7 @@ async function handleGenerateTitle(id: number) {
     }
     toast.add({ title: '标题已更新', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '生成标题失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '生成标题失败', color: 'error' })
   }
 }
 
@@ -366,7 +366,7 @@ async function handleShare(id: number) {
     const shareUrl = `/share/${result.token}`
     window.open(shareUrl, '_blank')
   } catch (error: any) {
-    toast.add({ title: error.message || '生成分享链接失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '生成分享链接失败', color: 'error' })
   }
 }
 
@@ -384,7 +384,7 @@ async function handleDuplicateConversation(id: number) {
     updateUrlParams(currentAssistantId.value, result.conversation.id)
     toast.add({ title: '对话已复制', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '复制对话失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '复制对话失败', color: 'error' })
   }
 }
 
@@ -394,7 +394,7 @@ async function handleDeleteMessage(id: number) {
     await deleteMessage(id)
     toast.add({ title: '消息已删除', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '删除失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '删除失败', color: 'error' })
   }
 }
 
@@ -403,7 +403,7 @@ async function handleReplayMessage(message: any) {
   try {
     await replayMessage(message)
   } catch (error: any) {
-    toast.add({ title: error.message || '重放失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '重放失败', color: 'error' })
   }
 }
 
@@ -412,7 +412,7 @@ async function handleEditMessage(id: number, content: string) {
   try {
     await editMessage(id, content)
   } catch (error: any) {
-    toast.add({ title: error.message || '编辑失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '编辑失败', color: 'error' })
   }
 }
 
@@ -425,7 +425,7 @@ async function handleForkMessage(messageId: number) {
     updateUrlParams(currentAssistantId.value, newConversation.id)
     toast.add({ title: '已创建分叉对话', color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '分叉失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '分叉失败', color: 'error' })
   }
 }
 
@@ -435,7 +435,7 @@ async function handleDeleteUntilMessage(messageId: number) {
     const count = await deleteMessagesUntil(messageId)
     toast.add({ title: `已删除 ${count} 条消息`, color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '删除失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '删除失败', color: 'error' })
   }
 }
 
@@ -459,7 +459,7 @@ async function handleSendMessage(content: string, files?: import('~/shared/types
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
-      toast.add({ title: error.message || '创建对话失败', color: 'error' })
+      toast.add({ title: error.data?.message || error.message || '创建对话失败', color: 'error' })
       return
     }
   }
@@ -469,7 +469,7 @@ async function handleSendMessage(content: string, files?: import('~/shared/types
   try {
     await sendMessage(conversationId, content, files)
   } catch (error: any) {
-    toast.add({ title: error.message || '发送失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '发送失败', color: 'error' })
   }
 }
 
@@ -491,7 +491,7 @@ async function handleAddMessage(content: string, role: 'user' | 'assistant') {
       // 更新 URL
       updateUrlParams(currentAssistantId.value, conversationId)
     } catch (error: any) {
-      toast.add({ title: error.message || '创建对话失败', color: 'error' })
+      toast.add({ title: error.data?.message || error.message || '创建对话失败', color: 'error' })
       return
     }
   }
@@ -502,7 +502,7 @@ async function handleAddMessage(content: string, role: 'user' | 'assistant') {
     await addManualMessage(conversationId, content, role)
     toast.add({ title: `已添加${role === 'user' ? '用户' : 'AI'}消息`, color: 'success' })
   } catch (error: any) {
-    toast.add({ title: error.message || '添加失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '添加失败', color: 'error' })
   }
 }
 
@@ -525,7 +525,7 @@ async function handleCompress() {
       })
     }
   } catch (error: any) {
-    toast.add({ title: error.message || '压缩失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '压缩失败', color: 'error' })
   }
 }
 
@@ -538,7 +538,7 @@ async function handleUpdateModel(aimodelId: number) {
       aimodelId,
     })
   } catch (error: any) {
-    toast.add({ title: error.message || '更新失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '更新失败', color: 'error' })
   }
 }
 
@@ -552,7 +552,7 @@ async function handleUpdateThinking(enableThinking: boolean) {
     try {
       await updateConversationEnableThinking(currentConversationId.value, enableThinking)
     } catch (error: any) {
-      toast.add({ title: error.message || '更新失败', color: 'error' })
+      toast.add({ title: error.data?.message || error.message || '更新失败', color: 'error' })
     }
   }
 }
@@ -567,7 +567,7 @@ async function handleUpdateWebSearch(enableWebSearch: boolean) {
     try {
       await updateConversationEnableWebSearch(currentConversationId.value, enableWebSearch)
     } catch (error: any) {
-      toast.add({ title: error.message || '更新失败', color: 'error' })
+      toast.add({ title: error.data?.message || error.message || '更新失败', color: 'error' })
     }
   }
 }
@@ -579,7 +579,7 @@ async function handleUpdateAutoApproveMcp(autoApproveMcp: boolean) {
   try {
     await updateConversationAutoApproveMcp(currentConversationId.value, autoApproveMcp)
   } catch (error: any) {
-    toast.add({ title: error.message || '更新失败', color: 'error' })
+    toast.add({ title: error.data?.message || error.message || '更新失败', color: 'error' })
   }
 }
 

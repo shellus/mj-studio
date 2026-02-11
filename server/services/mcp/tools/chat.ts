@@ -75,6 +75,16 @@ export async function chat(
     })
     actualConversationId = newConversation.id
 
+    // 将助手的系统提示词固化到对话中
+    if (assistant.systemPrompt) {
+      await conversationService.addMessage(user.id, {
+        conversationId: actualConversationId,
+        role: 'system',
+        content: assistant.systemPrompt,
+        mark: 'system-prompt',
+      })
+    }
+
     // 更新助手对话计数
     await assistantService.refreshConversationCount(assistantId)
   } else {
@@ -96,7 +106,14 @@ export async function chat(
 
   // 获取历史消息
   const result = await conversationService.getWithMessages(actualConversationId)
-  const historyMessages = result?.messages || []
+  const allMessages = result?.messages || []
+
+  // 从对话消息中提取固化的系统提示词
+  const systemPromptMessage = allMessages.find(m => m.mark === 'system-prompt')
+  const systemPrompt = systemPromptMessage?.content || null
+
+  // 过滤掉 system-prompt 消息
+  const historyMessages = allMessages.filter(m => m.mark !== 'system-prompt')
 
   // 创建用户消息
   const userMessage = await conversationService.addMessage(user.id, {
@@ -157,7 +174,7 @@ export async function chat(
   try {
     const response = await chatService.chat(
       aimodel.modelName,
-      assistant.systemPrompt,
+      systemPrompt,
       historyMessages,
       message.trim(),
     )

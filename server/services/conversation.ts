@@ -206,7 +206,7 @@ export function useConversationService() {
   // userId 参数用于广播事件，支持未来多用户协同场景
   async function addMessage(userId: number, data: {
     conversationId: number
-    role: 'user' | 'assistant'
+    role: 'user' | 'assistant' | 'system'
     content: string
     files?: MessageFile[]
     toolCalls?: ToolCallRecord[]

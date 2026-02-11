@@ -97,7 +97,7 @@ export function useTaskService() {
     type?: 'imagine' | 'blend'
     isBlurred?: boolean
     uniqueId?: string
-    sourceType?: 'workbench' | 'chat'
+    sourceType?: 'workbench' | 'chat' | 'api'
   }): Promise<Task> {
     const taskType = data.taskType ?? 'image'
 
@@ -230,7 +230,7 @@ export function useTaskService() {
   async function listTasks(userId: number, options: {
     page?: number
     pageSize?: number
-    sourceType?: 'workbench' | 'chat' | 'all'
+    sourceType?: 'workbench' | 'chat' | 'api' | 'all'
     taskType?: TaskType | 'all'
     keyword?: string
   } = {}): Promise<{

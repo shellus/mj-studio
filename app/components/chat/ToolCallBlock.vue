@@ -140,6 +140,21 @@ const hasResponse = computed(() => {
 const hasArguments = computed(() => {
   return args.value && Object.keys(args.value).length > 0
 })
+
+// 从响应中提取图片 URL
+const responseImageUrl = computed<string | null>(() => {
+  if (!response.value || status.value !== 'done') return null
+  try {
+    // response 可能是 JSON 字符串或对象
+    const data = typeof response.value === 'string' ? JSON.parse(response.value) : response.value
+    if (data?.resourceUrl && typeof data.resourceUrl === 'string') {
+      return data.resourceUrl
+    }
+  } catch {
+    // 非 JSON 字符串，忽略
+  }
+  return null
+})
 </script>
 
 <template>
@@ -201,6 +216,16 @@ const hasArguments = computed(() => {
       <div v-if="(status === 'done' || status === 'error') && hasResponse" class="px-4 py-3">
         <div class="text-xs mb-2 font-medium" :class="status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--ui-text-muted)'">
           {{ status === 'error' ? '错误信息' : '执行结果' }}
+        </div>
+        <!-- 图片预览（检测到 resourceUrl 时显示） -->
+        <div v-if="responseImageUrl" class="mb-2">
+          <img
+            :src="responseImageUrl"
+            alt="生成的图片"
+            class="max-w-full max-h-80 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+            loading="lazy"
+            @click.stop="navigateTo(responseImageUrl!, { open: { target: '_blank' } })"
+          />
         </div>
         <pre
           class="text-xs rounded p-2 overflow-x-auto max-h-60"

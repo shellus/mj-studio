@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const page = parseInt(query.page as string, 10) || 1
   const pageSize = parseInt(query.pageSize as string, 10) || 20
-  const sourceType = query.sourceType as 'workbench' | 'chat' | 'all' | undefined
+  const sourceType = query.sourceType as 'workbench' | 'chat' | 'api' | 'all' | undefined
   const taskType = query.taskType as TaskType | 'all' | undefined
   const keyword = query.keyword as string | undefined
 

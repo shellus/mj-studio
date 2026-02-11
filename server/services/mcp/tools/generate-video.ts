@@ -69,7 +69,7 @@ export async function generateVideo(
     images: images || [],
     type: 'imagine',
     isBlurred: false, // MCP 创建的任务默认不模糊
-    sourceType: 'workbench',
+    sourceType: 'api',
   })
 
   // 异步提交任务

@@ -89,6 +89,17 @@ export default defineEventHandler(async (event) => {
         persistent,
       })
       actualConversationId = newConversation.id
+
+      // 将助手的系统提示词固化到对话中
+      if (assistant.systemPrompt) {
+        await conversationService.addMessage(user.id, {
+          conversationId: actualConversationId,
+          role: 'system',
+          content: assistant.systemPrompt,
+          mark: 'system-prompt',
+        })
+      }
+
       await assistantService.refreshConversationCount(assistantId)
     } else {
       // 验证对话属于用户
@@ -106,7 +117,14 @@ export default defineEventHandler(async (event) => {
 
     // 获取历史消息
     const result = await conversationService.getWithMessages(actualConversationId)
-    const historyMessages = result?.messages || []
+    const allMessages = result?.messages || []
+
+    // 从对话消息中提取固化的系统提示词
+    const systemPromptMessage = allMessages.find(m => m.mark === 'system-prompt')
+    const systemPrompt = systemPromptMessage?.content || null
+
+    // 过滤掉 system-prompt 消息
+    const historyMessages = allMessages.filter(m => m.mark !== 'system-prompt')
 
     // 创建用户消息
     const userMessage = await conversationService.addMessage(user.id, {
@@ -162,7 +180,7 @@ export default defineEventHandler(async (event) => {
 
     const response = await chatService.chat(
       aimodel.modelName,
-      assistant.systemPrompt,
+      systemPrompt,
       historyMessages,
       message.trim(),
     )

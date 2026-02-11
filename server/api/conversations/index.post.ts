@@ -30,6 +30,16 @@ export default defineEventHandler(async (event) => {
     enableWebSearch: enableWebSearch ?? false,
   })
 
+  // 将助手的系统提示词固化到对话中（作为一条 system-prompt 消息）
+  if (assistant.systemPrompt) {
+    await service.addMessage(user.id, {
+      conversationId: conversation.id,
+      role: 'system',
+      content: assistant.systemPrompt,
+      mark: 'system-prompt',
+    })
+  }
+
   // 更新助手的对话数量（service.refreshConversationCount 会自动广播 chat.assistant.updated 事件）
   await assistantService.refreshConversationCount(assistantId)
 

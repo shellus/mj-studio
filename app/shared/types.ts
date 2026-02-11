@@ -137,7 +137,7 @@ export type TaskStatus =
  * - 用于标识对话消息的发送者
  * - 使用场景：对话历史显示、消息列表渲染
  */
-export type MessageRole = 'user' | 'assistant'
+export type MessageRole = 'user' | 'assistant' | 'system'
 
 /**
  * 工具调用记录（存储在 assistant 消息的 toolCalls 字段）
@@ -169,7 +169,7 @@ export interface ToolCallRecord {
  * - 用于标识特殊类型的消息
  * - 使用场景：错误消息、压缩消息的识别
  */
-export type MessageMark = 'error' | 'compress-request' | 'compress-response'
+export type MessageMark = 'error' | 'compress-request' | 'compress-response' | 'system-prompt'
 
 /**
  * AI 消息状态

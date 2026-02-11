@@ -630,6 +630,8 @@ function isEditing(messageId: number): boolean {
 
     <!-- 消息列表 -->
     <template v-for="(message, index) in messages" :key="message.id">
+      <!-- 跳过系统提示词消息（不在聊天界面显示） -->
+      <template v-if="message.mark !== MESSAGE_MARK.SYSTEM_PROMPT">
       <!-- 对话已开始分界线（第一条消息前显示，点击跳转到底部） -->
       <div
         v-if="props.conversationId && index === 0"
@@ -722,6 +724,21 @@ function isEditing(messageId: number): boolean {
           </div>
           <!-- 压缩响应消息（可折叠） -->
           <div v-else-if="message.mark === MESSAGE_MARK.COMPRESS_RESPONSE" class="text-sm">
+            <!-- 编辑模式 -->
+            <template v-if="isEditing(message.id)">
+              <textarea
+                v-model="editingContent"
+                class="w-full bg-transparent text-(--ui-text) resize-none outline-none whitespace-pre-wrap field-sizing-content"
+                @keydown.escape="cancelEdit"
+                @keydown.ctrl.enter="saveEdit"
+              />
+              <div class="flex justify-end gap-2 mt-2 text-(--ui-text-muted)">
+                <button class="px-2 py-0.5 text-xs hover:text-(--ui-text)" @click="cancelEdit">取消</button>
+                <button class="px-2 py-0.5 text-xs hover:text-(--ui-text)" @click="saveEdit">保存</button>
+              </div>
+            </template>
+            <!-- 显示模式 -->
+            <template v-else>
             <button
               class="flex items-center gap-2 text-amber-600 dark:text-amber-400 hover:opacity-80 transition-opacity w-full"
               @click="toggleCompressResponse(message.id)"
@@ -741,6 +758,7 @@ function isEditing(messageId: number): boolean {
               <!-- 渲染 Markdown -->
               <ChatStreamMarkdown :content="message.content" />
             </div>
+            </template>
           </div>
           <!-- 用户消息：Markdown 渲染 + 文件附件 -->
           <div v-else-if="message.role === 'user'" class="text-sm user-message-content">
@@ -913,7 +931,7 @@ function isEditing(messageId: number): boolean {
           <!-- 操作按钮 -->
           <!-- 编辑按钮 -->
           <button
-            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST && message.mark !== MESSAGE_MARK.COMPRESS_RESPONSE"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST"
             class="p-1 hover:bg-(--ui-bg-elevated) rounded"
             title="编辑"
             @click="startEdit(message)"
@@ -940,7 +958,7 @@ function isEditing(messageId: number): boolean {
           </button>
           <!-- 更多操作下拉菜单 -->
           <UDropdownMenu
-            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST && message.mark !== MESSAGE_MARK.COMPRESS_RESPONSE"
+            v-if="!checkMessageStreaming(message.id) && message.mark !== MESSAGE_MARK.COMPRESS_REQUEST"
             :items="getMessageMenuItems(message)"
             @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
           >
@@ -955,6 +973,7 @@ function isEditing(messageId: number): boolean {
         </div>
       </div>
     </div>
+    </template>
     </template>
 
     <!-- 删除确认框 -->

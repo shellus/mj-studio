@@ -225,6 +225,9 @@ function renderInline(text: string): string {
     '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-(--ui-primary) hover:underline">$1</a>'
   )
 
+  // 换行符转 <br>（GFM breaks 模式：单个换行渲染为换行）
+  result = result.replace(/\n/g, '<br>')
+
   return result
 }
 

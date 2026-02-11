@@ -831,6 +831,7 @@ export const MESSAGE_MARK = {
   ERROR: 'error',
   COMPRESS_REQUEST: 'compress-request',
   COMPRESS_RESPONSE: 'compress-response',
+  SYSTEM_PROMPT: 'system-prompt',
 } as const
 
 /**
@@ -840,4 +841,5 @@ export const MESSAGE_MARK_LABELS: Record<MessageMark, string> = {
   'error': '错误',
   'compress-request': '压缩请求',
   'compress-response': '压缩响应',
+  'system-prompt': '系统提示词',
 }

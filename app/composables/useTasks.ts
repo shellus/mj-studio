@@ -42,7 +42,7 @@ export function useTasks() {
   const total = useState('tasks-total', () => 0)
 
   // 筛选状态
-  const sourceType = useState<'workbench' | 'chat' | 'all'>('tasks-sourceType', () => 'workbench')
+  const sourceType = useState<'workbench' | 'chat' | 'api' | 'all'>('tasks-sourceType', () => 'workbench')
   const taskType = useState<TaskType | 'all'>('tasks-taskType', () => 'all')
   const keyword = useState('tasks-keyword', () => '')
 

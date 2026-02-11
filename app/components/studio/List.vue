@@ -15,6 +15,7 @@ const blurLoading = ref(false)
 const sourceOptions = [
   { label: '绘图工作台', value: 'workbench' },
   { label: '对话插图', value: 'chat' },
+  { label: 'API', value: 'api' },
   { label: '全部', value: 'all' },
 ]
 

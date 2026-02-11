@@ -122,6 +122,10 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       }
     }
 
+    // 从对话消息中提取固化的系统提示词（优先于助手配置）
+    const systemPromptMessage = result.messages.find(m => m.mark === MESSAGE_MARK.SYSTEM_PROMPT)
+    const systemPrompt = systemPromptMessage?.content || null
+
     // 构建历史消息上下文
     let historyMessages = result.messages
 
@@ -152,6 +156,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       // 排除：compress-request 消息、当前 AI 消息、当前用户消息（会通过 userContent 单独传递）
       historyMessages = historyMessages.filter(m =>
         m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
+        && m.mark !== MESSAGE_MARK.SYSTEM_PROMPT
         && m.id !== messageId  // 排除当前 AI 消息
         && m.id !== userMessageId  // 排除当前用户消息（用 ID 精确匹配）
       )
@@ -183,7 +188,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     // 发起流式请求
     const generator = chatService.chatStream(
       aimodel.modelName,
-      assistant.systemPrompt,
+      systemPrompt,
       historyMessages,
       userContent,
       userFiles,
@@ -479,13 +484,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
           if (updatedResult) {
             historyMessages = updatedResult.messages.filter(m =>
               m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
+              && m.mark !== MESSAGE_MARK.SYSTEM_PROMPT
             )
           }
 
           // 继续调用 AI（不传 userMessage，因为上下文已在历史消息中）
           currentGenerator = chatService.chatStream(
             aimodel.modelName,
-            assistant.systemPrompt,
+            systemPrompt,
             historyMessages,
             undefined,  // 不再传 userMessage
             undefined,  // 不再传 userFiles
