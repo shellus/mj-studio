@@ -341,25 +341,62 @@ export function useConversations() {
     return null
   })
 
+  // 是否还有更多对话可加载
+  const hasMoreConversations = useState('has-more-conversations', () => true)
+  // 是否正在加载更多对话
+  const isLoadingMore = useState('is-loading-more-conversations', () => false)
+
   // 加载对话列表
-  async function loadConversations(assistantId: number, type?: 'permanent' | 'temporary' | 'all') {
-    isLoading.value = true
+  async function loadConversations(assistantId: number, type?: 'permanent' | 'temporary' | 'all', append = false) {
+    if (append) {
+      isLoadingMore.value = true
+    } else {
+      isLoading.value = true
+    }
     // 保存当前助手 ID（用于事件过滤）
     currentAssistantId.value = assistantId
     try {
-      const query: Record<string, any> = { assistantId }
+      const query: Record<string, any> = {
+        assistantId,
+        limit: 15,
+      }
       if (type) {
         query.type = type
       }
+      if (append) {
+        query.offset = conversations.value.length
+      }
       const result = await $fetch<Conversation[]>('/api/conversations', { query })
-      conversations.value = result
-      // 清空当前对话选择
-      currentConversationId.value = null
-      messages.value = []
+
+      if (append) {
+        // 追加模式：合并结果
+        conversations.value = [...conversations.value, ...result]
+      } else {
+        // 替换模式：重置列表
+        conversations.value = result
+        // 清空当前对话选择
+        currentConversationId.value = null
+        messages.value = []
+      }
+
+      // 如果返回的数量少于 limit，说明没有更多了
+      hasMoreConversations.value = result.length >= 15
     } catch (error) {
     } finally {
-      isLoading.value = false
+      if (append) {
+        isLoadingMore.value = false
+      } else {
+        isLoading.value = false
+      }
     }
+  }
+
+  // 加载更多对话
+  async function loadMoreConversations(type?: 'permanent' | 'temporary' | 'all') {
+    if (!currentAssistantId.value || isLoadingMore.value || !hasMoreConversations.value) {
+      return
+    }
+    await loadConversations(currentAssistantId.value, type, true)
   }
 
   // 选择对话并加载消息
@@ -672,6 +709,9 @@ export function useConversations() {
     isStreaming,
     isMessageStreaming,
     loadConversations,
+    loadMoreConversations,
+    hasMoreConversations,
+    isLoadingMore,
     selectConversation,
     createConversation,
     startNewConversation,

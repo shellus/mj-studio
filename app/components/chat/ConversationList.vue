@@ -5,6 +5,8 @@ const props = defineProps<{
   conversations: Conversation[]
   currentConversationId: number | null
   assistantId: number | null  // 新增：需要知道当前助手ID
+  hasMore: boolean  // 是否还有更多对话
+  isLoadingMore: boolean  // 是否正在加载更多
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +18,7 @@ const emit = defineEmits<{
   share: [id: number]
   duplicate: [id: number]
   loadConversations: [type: 'permanent' | 'temporary']  // 新增：通知父组件加载对话
+  loadMore: [type: 'permanent' | 'temporary']  // 新增：加载更多对话
 }>()
 
 // Tab 切换状态（永久/临时）
@@ -34,6 +37,32 @@ watch(() => props.assistantId, (newId) => {
     activeTab.value = 'permanent'
     emit('loadConversations', 'permanent')
   }
+})
+
+// 滚动容器 ref
+const scrollContainerRef = ref<HTMLElement | null>(null)
+
+// 监听滚动事件，触发加载更多
+function handleScroll() {
+  if (!scrollContainerRef.value || props.isLoadingMore || !props.hasMore) {
+    return
+  }
+
+  const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.value
+  // 距离底部 100px 时触发加载
+  if (scrollHeight - scrollTop - clientHeight < 100) {
+    emit('loadMore', activeTab.value)
+  }
+}
+
+// 组件挂载时添加滚动监听
+onMounted(() => {
+  scrollContainerRef.value?.addEventListener('scroll', handleScroll)
+})
+
+// 组件卸载时移除滚动监听
+onUnmounted(() => {
+  scrollContainerRef.value?.removeEventListener('scroll', handleScroll)
 })
 
 // 删除确认
@@ -136,7 +165,7 @@ function handleKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- 对话列表 -->
-    <div class="flex-1 overflow-y-auto">
+    <div ref="scrollContainerRef" class="flex-1 overflow-y-auto">
       <!-- 空状态 -->
       <div v-if="conversations.length === 0" class="p-4 text-center text-(--ui-text-muted) text-sm">
         暂无{{ activeTab === 'permanent' ? '永久' : '临时' }}对话
@@ -221,6 +250,16 @@ function handleKeydown(e: KeyboardEvent) {
             </template>
           </UDropdownMenu>
         </div>
+      </div>
+
+      <!-- 加载更多指示器 -->
+      <div v-if="isLoadingMore" class="p-4 text-center text-(--ui-text-muted) text-sm">
+        加载中...
+      </div>
+
+      <!-- 没有更多提示 -->
+      <div v-else-if="conversations.length > 0 && !hasMore" class="p-4 text-center text-(--ui-text-dimmed) text-xs">
+        没有更多对话了
       </div>
     </div>
 

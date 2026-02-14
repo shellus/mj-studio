@@ -6,11 +6,13 @@ import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated,
 import { useAssistantService } from './assistant'
 
 export function useConversationService() {
-  // 获取用户在某个助手下的对话（支持按类型筛选）
+  // 获取用户在某个助手下的对话（支持按类型筛选和分页）
   async function listByAssistant(
     userId: number,
     assistantId: number,
-    type?: 'permanent' | 'temporary' | 'all'
+    type?: 'permanent' | 'temporary' | 'all',
+    limit?: number,
+    offset?: number
   ): Promise<Conversation[]> {
     const baseCondition = and(
       eq(conversations.userId, userId),
@@ -27,10 +29,21 @@ export function useConversationService() {
     }
     // type === 'all' 或 undefined 时不额外筛选
 
-    return db.query.conversations.findMany({
+    // 构建查询配置
+    const queryConfig: any = {
       where: whereCondition,
       orderBy: [desc(conversations.updatedAt)],
-    })
+    }
+
+    // 应用分页参数
+    if (limit !== undefined) {
+      queryConfig.limit = limit
+    }
+    if (offset !== undefined) {
+      queryConfig.offset = offset
+    }
+
+    return db.query.conversations.findMany(queryConfig)
   }
 
   // 获取单个对话

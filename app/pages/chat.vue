@@ -89,6 +89,9 @@ const {
   currentConversation,
   isStreaming,
   loadConversations,
+  loadMoreConversations,
+  hasMoreConversations,
+  isLoadingMore,
   selectConversation,
   createConversation,
   startNewConversation,
@@ -308,6 +311,11 @@ async function handleLoadConversations(type: 'permanent' | 'temporary') {
   if (currentAssistantId.value) {
     await loadConversations(currentAssistantId.value, type)
   }
+}
+
+// 加载更多对话
+async function handleLoadMoreConversations(type: 'permanent' | 'temporary') {
+  await loadMoreConversations(type)
 }
 
 // 删除对话
@@ -741,6 +749,8 @@ onUnmounted(() => {
             :conversations="conversations"
             :current-conversation-id="currentConversationId"
             :assistant-id="currentAssistantId"
+            :has-more="hasMoreConversations"
+            :is-loading-more="isLoadingMore"
             class="flex-1 min-h-0"
             @select="handleSelectConversation"
             @create="handleCreateConversation"
@@ -750,6 +760,7 @@ onUnmounted(() => {
             @share="handleShare"
             @duplicate="handleDuplicateConversation"
             @load-conversations="handleLoadConversations"
+            @load-more="handleLoadMoreConversations"
           />
         </div>
       </div>
@@ -769,30 +780,41 @@ onUnmounted(() => {
     </UDrawer>
 
     <!-- 移动端右侧抽屉（助手信息 + 对话列表） -->
-    <UDrawer v-model:open="showRightDrawer" direction="right" title="对话" :ui="{ content: 'w-4/5' }">
+    <UDrawer
+      v-model:open="showRightDrawer"
+      direction="right"
+      title="对话"
+      :ui="{
+        content: 'w-4/5',
+        container: 'w-full flex flex-col gap-4 p-4 overflow-hidden',
+        body: 'flex-1 flex flex-col min-h-0',
+      }"
+    >
       <template #body>
-        <div class="flex flex-col h-full">
-          <!-- 助手信息 -->
-          <ChatAssistantInfo
-            :assistant="currentAssistant"
-            @edit="handleEditAssistant"
-          />
-          <!-- 对话列表 -->
-          <ChatConversationList
-            :conversations="conversations"
-            :current-conversation-id="currentConversationId"
-            :assistant-id="currentAssistantId"
-            class="flex-1 min-h-0"
-            @select="handleSelectConversation"
-            @create="handleCreateConversation"
-            @delete="handleDeleteConversation"
-            @rename="handleRenameConversation"
-            @generate-title="handleGenerateTitle"
-            @share="handleShare"
-            @duplicate="handleDuplicateConversation"
-            @load-conversations="handleLoadConversations"
-          />
-        </div>
+        <!-- 助手信息（固定在顶部） -->
+        <ChatAssistantInfo
+          :assistant="currentAssistant"
+          class="flex-shrink-0"
+          @edit="handleEditAssistant"
+        />
+        <!-- 对话列表（独立滚动） -->
+        <ChatConversationList
+          :conversations="conversations"
+          :current-conversation-id="currentConversationId"
+          :assistant-id="currentAssistantId"
+          :has-more="hasMoreConversations"
+          :is-loading-more="isLoadingMore"
+          class="flex-1 min-h-0"
+          @select="handleSelectConversation"
+          @create="handleCreateConversation"
+          @delete="handleDeleteConversation"
+          @rename="handleRenameConversation"
+          @generate-title="handleGenerateTitle"
+          @share="handleShare"
+          @duplicate="handleDuplicateConversation"
+          @load-conversations="handleLoadConversations"
+          @load-more="handleLoadMoreConversations"
+        />
       </template>
     </UDrawer>
 
