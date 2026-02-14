@@ -306,9 +306,9 @@ const sizeDisplay = computed(() => {
   return `${(size / 1024 / 1024).toFixed(2)} MB`
 })
 
-// 是否需要压缩提醒（超过100KB）
+// 是否需要压缩提醒（超过8条消息）
 const needsCompressHint = computed(() => {
-  return conversationStats.value.size >= 100 * 1024
+  return conversationStats.value.messageCount >= 8
 })
 
 // 监听是否需要显示压缩提醒
@@ -412,28 +412,9 @@ function handleInput(e: Event) {
 </script>
 
 <template>
-  <div class="border-t border-(--ui-border) p-4">
-    <!-- 压缩提醒 -->
-    <div
-      v-if="props.showCompressHint && needsCompressHint"
-      class="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 flex items-center justify-between"
-    >
-      <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-sm">
-        <UIcon name="i-heroicons-exclamation-triangle" class="w-4 h-4" />
-        <span>对话内容较长（{{ sizeDisplay }}），建议压缩以节省 Token</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <UButton size="xs" color="warning" @click="emit('compress')">
-          压缩对话
-        </UButton>
-        <button class="text-amber-500 hover:text-amber-700" @click="dismissCompressHint">
-          <UIcon name="i-heroicons-x-mark" class="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-
+  <div class="border-t border-(--ui-border) p-2 md:p-4">
     <!-- 模型选择器和对话统计 -->
-    <div class="flex flex-wrap items-center gap-3 mb-3">
+    <div class="flex items-center gap-2 mb-2">
       <ModelSelector
         ref="modelSelectorRef"
         :upstreams="upstreams"
@@ -445,8 +426,8 @@ function handleInput(e: Event) {
         @update:aimodel-id="handleModelChange"
       />
       <!-- 思考开关 -->
-      <label class="flex items-center gap-2">
-        <UIcon name="i-heroicons-light-bulb" class="w-4 h-4" title="思考开关" />
+      <label class="flex items-center gap-1 shrink-0" title="思考开关">
+        <UIcon name="i-heroicons-light-bulb" class="w-4 h-4" />
         <USwitch
           :model-value="props.enableThinking"
           size="sm"
@@ -454,8 +435,8 @@ function handleInput(e: Event) {
         />
       </label>
       <!-- Web Search 开关 -->
-      <label class="flex items-center gap-2">
-        <UIcon name="i-heroicons-globe-alt" class="w-4 h-4" title="联网搜索" />
+      <label class="flex items-center gap-1 shrink-0" title="联网搜索">
+        <UIcon name="i-heroicons-globe-alt" class="w-4 h-4" />
         <USwitch
           :model-value="props.enableWebSearch"
           size="sm"
@@ -466,30 +447,39 @@ function handleInput(e: Event) {
       <UButton
         variant="ghost"
         size="sm"
+        class="shrink-0"
         :disabled="disabled || isStreaming"
         @click="triggerFileSelect"
       >
         <UIcon name="i-heroicons-paper-clip" class="w-4 h-4" />
-        <span>附件</span>
+        <span class="hidden md:inline">附件</span>
       </UButton>
       <!-- 对话统计 -->
-      <div v-if="messages?.length" class="flex items-center gap-3 text-xs text-(--ui-text-muted)">
-        <span>{{ conversationStats.messageCount }} 条消息</span>
-        <span>{{ sizeDisplay }}</span>
+      <div v-if="messages?.length" class="flex items-center gap-1 md:gap-2 text-xs text-(--ui-text-muted) ml-auto shrink-0">
+        <span class="whitespace-nowrap">{{ conversationStats.messageCount }}<span class="hidden md:inline"> 条消息</span></span>
+        <span class="whitespace-nowrap">{{ sizeDisplay }}</span>
         <button
           v-if="conversationStats.hasCompressed"
-          class="text-amber-600 dark:text-amber-400 hover:underline"
+          class="text-amber-600 dark:text-amber-400 hover:underline whitespace-nowrap"
+          title="已压缩"
           @click="emit('scrollToCompress')"
         >
-          (已压缩)
+          <span class="hidden md:inline">(已压缩)</span>
+          <UIcon class="md:hidden w-3 h-3" name="i-heroicons-check-circle" />
         </button>
         <button
           v-if="conversationStats.messageCount >= 3"
-          class="text-(--ui-primary) hover:underline flex items-center gap-1"
+          :class="[
+            'hover:underline flex items-center gap-1 whitespace-nowrap',
+            needsCompressHint
+              ? 'text-amber-600 dark:text-amber-400 font-medium animate-pulse'
+              : 'text-(--ui-primary)'
+          ]"
+          :title="needsCompressHint ? '对话内容较长，建议压缩' : '压缩对话'"
           @click="emit('compress')"
         >
           <UIcon name="i-heroicons-archive-box-arrow-down" class="w-3 h-3" />
-          压缩对话
+          <span class="hidden md:inline">压缩</span>
         </button>
       </div>
     </div>
