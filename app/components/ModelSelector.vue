@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { onClickOutside } from '@vueuse/core'
 import type { Upstream } from '~/composables/useUpstreams'
 import type { AvailableUpstream, AvailableAimodel } from '~/composables/useAvailableUpstreams'
 import type { ModelCategory } from '~/shared/types'
@@ -30,6 +29,8 @@ const props = defineProps<{
   alignRight?: boolean
   // 紧凑模式（无边框，更小尺寸，适合工具栏）
   compact?: boolean
+  // 移动端隐藏文字（仅显示图标）
+  hideTextOnMobile?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -38,11 +39,8 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-// 下拉框状态
-const isOpen = ref(false)
-const dropdownRef = ref<HTMLElement>()
-const triggerRef = ref<HTMLElement>()
-const dropUp = ref(false)
+// 模态框状态
+const isModalOpen = ref(false)
 
 // 从 aimodelId 计算 upstreamId
 const computedUpstreamId = computed(() => {
@@ -66,27 +64,84 @@ watch(() => props.aimodelId, (val) => {
   selectedUpstreamId.value = computedUpstreamId.value
 })
 
-// 点击外部关闭下拉框
-onClickOutside(dropdownRef, () => {
-  isOpen.value = false
+// 搜索关键词
+const searchQuery = ref('')
+
+// 上游筛选
+const upstreamFilter = ref<number | 'all'>('all')
+
+// 上游选项
+const upstreamOptions = computed(() => {
+  return [
+    { label: '全部上游', value: 'all' as const },
+    ...groupedModels.value.map(g => ({
+      label: g.upstreamName,
+      value: g.upstreamId
+    }))
+  ]
 })
 
-// 计算弹出方向
-function calculateDropDirection() {
-  if (!triggerRef.value) return
-  const rect = triggerRef.value.getBoundingClientRect()
-  const spaceBelow = window.innerHeight - rect.bottom
-  const spaceAbove = rect.top
-  // 下拉面板最大高度 320px (max-h-80)
-  dropUp.value = spaceBelow < 320 && spaceAbove > spaceBelow
+// 过滤后的分组模型
+const filteredGroupedModels = computed(() => {
+  let groups = groupedModels.value
+
+  // 上游筛选
+  if (upstreamFilter.value !== 'all') {
+    groups = groups.filter(g => g.upstreamId === upstreamFilter.value)
+  }
+
+  // 搜索筛选
+  if (!searchQuery.value.trim()) {
+    return groups
+  }
+
+  const query = searchQuery.value.toLowerCase()
+  return groups
+    .map(group => ({
+      ...group,
+      aimodels: group.aimodels.filter(m =>
+        m.name.toLowerCase().includes(query) ||
+        m.modelType.toLowerCase().includes(query)
+      )
+    }))
+    .filter(group => group.aimodels.length > 0)
+})
+
+// 打开模态框
+function openModal() {
+  if (props.readOnly || !hasModels.value) return
+  searchQuery.value = ''
+  upstreamFilter.value = 'all'
+  isModalOpen.value = true
+
+  // 等待模态框渲染后滚动到当前选中的模型
+  nextTick(() => {
+    if (selectedAimodelId.value) {
+      const selectedButton = document.querySelector(`[data-aimodel-id="${selectedAimodelId.value}"]`)
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+  })
 }
 
-// 切换下拉框
-function toggleDropdown() {
-  if (!isOpen.value) {
-    calculateDropDirection()
-  }
-  isOpen.value = !isOpen.value
+// 检查模型是否选中
+function isSelected(upstreamId: number, aimodelId: number): boolean {
+  return selectedUpstreamId.value === upstreamId && selectedAimodelId.value === aimodelId
+}
+
+// 选择模型（点击直接确认）
+function handleSelectModel(upstreamId: number, aimodelId: number) {
+  selectedUpstreamId.value = upstreamId
+  selectedAimodelId.value = aimodelId
+  emit('update:aimodelId', aimodelId)
+  isModalOpen.value = false
+}
+
+// 重置筛选
+function resetFilters() {
+  searchQuery.value = ''
+  upstreamFilter.value = 'all'
 }
 
 // 判断是否是绘图模型类型
@@ -175,22 +230,7 @@ function getModelDisplayText(aimodel: BaseAimodel): string {
   return aimodel.name
 }
 
-// 检查模型是否选中
-function isSelected(upstreamId: number, aimodelId: number): boolean {
-  return selectedUpstreamId.value === upstreamId && selectedAimodelId.value === aimodelId
-}
-
-// 选择模型
-function handleSelectModel(upstreamId: number, aimodelId: number) {
-  if (props.readOnly) return
-
-  selectedUpstreamId.value = upstreamId
-  selectedAimodelId.value = aimodelId
-  emit('update:aimodelId', aimodelId)
-  isOpen.value = false
-}
-
-// 当配置列表变化时，选择第一个配置（已按 sortOrder 排序）
+// 当配置列表变化时,选择第一个配置（已按 sortOrder 排序）
 watch(() => props.upstreams, (upstreams) => {
   if (props.noAutoSelect) return
   if (upstreams.length > 0 && !selectedUpstreamId.value) {
@@ -232,7 +272,7 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="dropdownRef" class="relative">
+  <div>
     <!-- 空状态 -->
     <div v-if="upstreams.length === 0" class="text-xs text-(--ui-text-muted) flex items-center">
       <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 mr-1" />
@@ -240,14 +280,17 @@ defineExpose({
     </div>
 
     <!-- 触发按钮 -->
-    <div v-else ref="triggerRef">
+    <div v-else>
       <button
         type="button"
         class="flex items-center justify-between transition-colors"
         :class="[
           compact
             ? 'gap-2 px-2 py-1 rounded text-sm hover:bg-(--ui-bg-accented)'
-            : 'gap-2 w-full min-w-48 px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) text-sm',
+            : [
+                'gap-2 w-full px-3 py-2 rounded-lg border border-(--ui-border) bg-(--ui-bg) text-sm',
+                hideTextOnMobile ? 'md:min-w-48 px-2 md:px-3 md:w-full' : 'min-w-48'
+              ],
           {
             'opacity-50 cursor-not-allowed': !hasModels,
             'hover:bg-(--ui-bg-elevated)': !readOnly && hasModels && !compact,
@@ -255,73 +298,113 @@ defineExpose({
           }
         ]"
         :disabled="!hasModels || readOnly"
-        @click="toggleDropdown"
+        @click="openModal"
       >
         <span class="flex items-center gap-2">
           <UIcon name="i-heroicons-cpu-chip" :class="'w-4 h-4'" class="text-(--ui-text-muted)" />
-          <span class="text-(--ui-text)">{{ currentDisplayText }}</span>
+          <span :class="['text-(--ui-text)', hideTextOnMobile ? 'hidden md:inline' : '']">{{ currentDisplayText }}</span>
         </span>
         <UIcon
           v-if="!readOnly"
           name="i-heroicons-chevron-down"
-          :class="['w-4 h-4', { 'rotate-180': isOpen }]"
-          class="text-(--ui-text-muted) transition-transform"
+          :class="['w-4 h-4 text-(--ui-text-muted)', hideTextOnMobile ? 'hidden md:inline' : '']"
         />
       </button>
     </div>
 
-    <!-- 下拉面板 -->
-    <Transition
-      enter-active-class="transition duration-100 ease-out"
-      enter-from-class="opacity-0 scale-95"
-      enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition duration-75 ease-in"
-      leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-95"
-    >
-      <div
-        v-if="isOpen && hasModels"
-        class="absolute z-50 max-h-80 overflow-y-auto rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) shadow-lg"
-        :class="[dropUp ? 'bottom-full mb-1' : 'top-full mt-1', dropdownWidth || 'w-80', alignRight ? 'right-0' : 'left-0']"
-      >
-        <!-- 按上游分组 -->
-        <div v-for="(group, index) in groupedModels" :key="group.upstreamId">
-          <!-- 分隔线 -->
-          <div v-if="index > 0" class="border-t border-(--ui-border)" />
-
-          <!-- 上游标题 -->
-          <div class="flex items-center justify-between px-3 py-2 bg-(--ui-bg-muted)">
-            <span class="text-xs font-medium text-(--ui-text-muted)">{{ group.upstreamName }}</span>
-            <button
-              type="button"
-              class="p-1 hover:bg-(--ui-bg-accented) rounded text-(--ui-text-muted) hover:text-(--ui-text)"
-              @click.stop="router.push(`/settings/upstreams/${group.upstreamId}`)"
+    <!-- 模态框 -->
+    <UModal v-model:open="isModalOpen" title="选择模型" :ui="{ content: 'sm:max-w-2xl' }">
+      <template #body>
+        <div class="space-y-4">
+          <!-- 搜索和筛选 -->
+          <div class="flex items-center gap-3">
+            <UInput
+              v-model="searchQuery"
+              placeholder="搜索模型..."
+              icon="i-heroicons-magnifying-glass"
+              class="flex-1"
+              autofocus
+            />
+            <USelect
+              v-model="upstreamFilter"
+              :items="upstreamOptions"
+              value-key="value"
+              label-key="label"
+              class="w-40"
+            />
+            <UButton
+              v-if="searchQuery || upstreamFilter !== 'all'"
+              variant="ghost"
+              size="sm"
+              @click="resetFilters"
             >
-              <UIcon name="i-heroicons-cog-6-tooth" class="w-3.5 h-3.5" />
-            </button>
+              <UIcon name="i-heroicons-arrow-path" class="w-4 h-4" />
+            </UButton>
           </div>
 
           <!-- 模型列表 -->
-          <div :class="listLayout ? 'flex flex-col gap-1 p-2' : 'grid grid-cols-2 gap-2 p-2'">
-            <button
-              v-for="aimodel in group.aimodels"
-              :key="aimodel.id"
-              type="button"
-              class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left text-sm transition-colors"
-              :class="[
-                isSelected(group.upstreamId, aimodel.id)
-                  ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
-                  : 'hover:bg-(--ui-bg-accented) text-(--ui-text)',
-                listLayout ? '' : 'border border-(--ui-border) hover:border-(--ui-primary)'
-              ]"
-              @click="handleSelectModel(group.upstreamId, aimodel.id)"
-            >
-              <UIcon :name="getModelIcon(aimodel.modelType)" class="w-4 h-4 shrink-0" />
-              <span class="truncate">{{ getModelDisplayText(aimodel) }}</span>
-            </button>
+          <div class="max-h-96 overflow-y-auto space-y-3">
+            <!-- 无结果提示 -->
+            <div v-if="filteredGroupedModels.length === 0" class="text-center py-12">
+              <UIcon name="i-heroicons-magnifying-glass" class="w-12 h-12 mx-auto mb-3 text-(--ui-text-dimmed) opacity-50" />
+              <p class="text-(--ui-text-muted) mb-4">未找到匹配的模型</p>
+              <UButton
+                v-if="searchQuery || upstreamFilter !== 'all'"
+                variant="soft"
+                size="sm"
+                @click="resetFilters"
+              >
+                <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 mr-1" />
+                重置筛选
+              </UButton>
+              <UButton
+                v-else
+                variant="soft"
+                size="sm"
+                @click="router.push('/settings/upstreams')"
+              >
+                <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
+                添加上游
+              </UButton>
+            </div>
+
+            <!-- 按上游分组 -->
+            <div v-for="group in filteredGroupedModels" :key="group.upstreamId" class="space-y-2">
+              <!-- 上游标题 -->
+              <div class="flex items-center justify-between px-2 py-1 bg-(--ui-bg-muted) rounded-lg sticky top-0 z-10">
+                <span class="text-xs font-medium text-(--ui-text-muted)">{{ group.upstreamName }}</span>
+                <button
+                  type="button"
+                  class="p-1 hover:bg-(--ui-bg-accented) rounded text-(--ui-text-muted) hover:text-(--ui-text)"
+                  @click.stop="router.push(`/settings/upstreams/${group.upstreamId}`)"
+                >
+                  <UIcon name="i-heroicons-cog-6-tooth" class="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <!-- 模型网格 -->
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  v-for="aimodel in group.aimodels"
+                  :key="aimodel.id"
+                  type="button"
+                  :data-aimodel-id="aimodel.id"
+                  class="flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors border"
+                  :class="[
+                    isSelected(group.upstreamId, aimodel.id)
+                      ? 'bg-(--ui-primary)/10 text-(--ui-primary) border-(--ui-primary)'
+                      : 'hover:bg-(--ui-bg-accented) text-(--ui-text) border-(--ui-border) hover:border-(--ui-primary)'
+                  ]"
+                  @click="handleSelectModel(group.upstreamId, aimodel.id)"
+                >
+                  <UIcon :name="getModelIcon(aimodel.modelType)" class="w-4 h-4 shrink-0" />
+                  <span class="truncate">{{ getModelDisplayText(aimodel) }}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </template>
+    </UModal>
   </div>
 </template>

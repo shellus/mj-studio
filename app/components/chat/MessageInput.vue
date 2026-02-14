@@ -440,6 +440,7 @@ function handleInput(e: Event) {
         category="chat"
         list-layout
         compact
+        hide-text-on-mobile
         :aimodel-id="currentAimodelId"
         @update:aimodel-id="handleModelChange"
       />
@@ -575,7 +576,7 @@ function handleInput(e: Event) {
         ref="textareaRef"
         :value="props.content"
         class="flex-1 resize-none bg-(--ui-bg-elevated) border border-(--ui-border) rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-(--ui-primary) min-h-[48px] max-h-[200px]"
-        :placeholder="isDragging ? '松开以上传文件' : '输入消息，Enter 发送，Shift+Enter 换行'"
+        :placeholder="isDragging ? '松开以上传文件' : '输入消息，Enter 发送'"
         rows="1"
         :disabled="disabled || isStreaming"
         @keydown="handleKeydown"
