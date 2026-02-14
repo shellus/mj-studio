@@ -323,7 +323,6 @@ defineExpose({
               placeholder="搜索模型..."
               icon="i-heroicons-magnifying-glass"
               class="flex-1"
-              autofocus
             />
             <USelect
               v-model="upstreamFilter"

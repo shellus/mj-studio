@@ -455,12 +455,12 @@ function handleInput(e: Event) {
         <span class="hidden md:inline">附件</span>
       </UButton>
       <!-- 对话统计 -->
-      <div v-if="messages?.length" class="flex items-center gap-1 md:gap-2 text-xs text-(--ui-text-muted) ml-auto shrink-0">
+      <div v-if="messages?.length" class="flex items-center gap-1 md:gap-2 text-xs text-(--ui-text-muted) shrink-0">
         <span class="whitespace-nowrap">{{ conversationStats.messageCount }}<span class="hidden md:inline"> 条消息</span></span>
         <span class="whitespace-nowrap">{{ sizeDisplay }}</span>
         <button
           v-if="conversationStats.hasCompressed"
-          class="text-amber-600 dark:text-amber-400 hover:underline whitespace-nowrap"
+          class="text-amber-600 dark:text-amber-400 hover:underline whitespace-nowrap flex items-center gap-1"
           title="已压缩"
           @click="emit('scrollToCompress')"
         >
