@@ -122,9 +122,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       }
     }
 
-    // 从对话消息中提取固化的系统提示词（优先于助手配置）
+    // 从对话消息中提取固化的系统提示词，fallback 到助手配置
     const systemPromptMessage = result.messages.find(m => m.mark === MESSAGE_MARK.SYSTEM_PROMPT)
-    const systemPrompt = systemPromptMessage?.content || null
+    const systemPrompt = systemPromptMessage?.content || assistant.systemPrompt || null
 
     // 构建历史消息上下文
     let historyMessages = result.messages

@@ -462,14 +462,18 @@ export function useConversationService() {
     if (targetIndex < 0) return null
 
     const messagesToCopy = data.messages.slice(0, targetIndex + 1)
-    const messageNumber = targetIndex + 1
+    // 序号排除 system-prompt 消息（不计入可见消息数）
+    const visibleMessageNumber = messagesToCopy.filter(m => m.mark !== MESSAGE_MARK.SYSTEM_PROMPT).length
 
-    // 创建新对话，标题格式：#🔀<消息序号> <原标题>
+    // 创建新对话，标题格式：#🔀<消息序号> <原标题>，继承原对话配置
     const newConversation = await create({
       userId,
       assistantId: originalConversation.assistantId,
-      title: `#🔀${messageNumber} ${originalConversation.title}`,
+      title: `#🔀${visibleMessageNumber} ${originalConversation.title}`,
       persistent: true,  // 分叉对话继承永久属性
+      autoApproveMcp: originalConversation.autoApproveMcp,
+      enableThinking: originalConversation.enableThinking,
+      enableWebSearch: originalConversation.enableWebSearch,
     })
 
     // 复制消息到新对话
