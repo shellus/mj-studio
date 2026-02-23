@@ -5,6 +5,7 @@
  */
 import type { Upstream, Aimodel } from '../../database/schema'
 import { getChatProvider, type ChatApiFormat } from '../chatProviders'
+import { getUpstreamProxyUrl } from '../proxy'
 import type { TestExecuteResult } from './index'
 
 /**
@@ -31,7 +32,8 @@ export async function testChatModel(
     }
 
     // 创建服务实例
-    const service = provider.createService(upstream, aimodel.keyName)
+    const proxyUrl = await getUpstreamProxyUrl(upstream)
+    const service = provider.createService(upstream, aimodel.keyName, proxyUrl)
 
     // 创建超时控制
     const controller = new AbortController()

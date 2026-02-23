@@ -5,6 +5,7 @@ import type { ModelParams, ImageModelParams, TaskUpstreamSummary } from '../../a
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { getProvider, getModelTypeDefaults, type GenerateParams, type AsyncService, type SyncService, type MJService } from './providers'
 import { useUpstreamService } from './upstream'
+import { getUpstreamProxyUrl } from './proxy'
 import { useAimodelService } from './aimodel'
 import { downloadFile, getFileUrl, readFileAsBase64, saveBase64File } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
@@ -489,9 +490,8 @@ export function useTaskService() {
       }
 
       const apiKey = getApiKey(upstream, aimodel)
-      const service = provider.createService(upstream.baseUrl, apiKey)
-
-      // 构建通用参数
+      const proxyUrl = await getUpstreamProxyUrl(upstream)
+      const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl)
       // 如果 Provider 不支持图片 URL，需要下载远程 URL 转 base64
       const fetchRemoteUrls = !provider.meta.validation.supportsImageUrl
       const params: GenerateParams = {
@@ -605,7 +605,8 @@ export function useTaskService() {
     }
 
     const apiKey = getApiKey(upstream, aimodel)
-    const service = provider.createService(upstream.baseUrl, apiKey) as AsyncService
+    const proxyUrl = await getUpstreamProxyUrl(upstream)
+    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl) as AsyncService
     const logPrefix = `[Task] #${task.id}`
 
     try {
@@ -751,7 +752,8 @@ export function useTaskService() {
     }
 
     const apiKey = getApiKey(upstream, aimodel)
-    const service = provider.createService(upstream.baseUrl, apiKey) as MJService
+    const proxyUrl = await getUpstreamProxyUrl(upstream)
+    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl) as MJService
 
     try {
       const result = await service.action(parentTask.upstreamTaskId, customId, newTask.id)

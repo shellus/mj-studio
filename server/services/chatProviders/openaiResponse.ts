@@ -15,6 +15,7 @@ import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchR
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
+import { proxyFetch } from '../../utils/proxy'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
@@ -105,9 +106,10 @@ export const openaiResponseProvider: ChatProvider = {
   apiFormat: 'openai-response',
   label: 'OpenAI Response',
 
-  createService(upstream: Upstream, keyName?: string): ChatService {
+  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService {
     const upstreamService = useUpstreamService()
     const apiKey = upstreamService.getApiKey(upstream, keyName)
+    const fetchFn = proxyFetch(proxyUrl)
 
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
@@ -227,7 +229,7 @@ export const openaiResponseProvider: ChatProvider = {
         }
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),
@@ -363,7 +365,7 @@ export const openaiResponseProvider: ChatProvider = {
         const webSearchResults: WebSearchResultItem[] = []
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),

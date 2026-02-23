@@ -88,5 +88,5 @@ export interface ChatService {
 export interface ChatProvider {
   readonly apiFormat: ChatApiFormat
   readonly label: string
-  createService(upstream: Upstream, keyName?: string): ChatService
+  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService
 }

@@ -13,6 +13,7 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface DalleResponse {
   created: number
@@ -80,7 +81,8 @@ export const dalleProvider: SyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -145,16 +147,17 @@ export const dalleProvider: SyncProvider = {
       logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
       try {
-        const response = await $fetch<DalleResponse>(url, {
+        const res = await fetchFn(url, {
           method: 'POST',
           headers,
-          body,
+          body: JSON.stringify(body),
           signal,
         })
+        const response = await res.json() as DalleResponse
 
         logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
+          status: res.status,
+          statusText: res.statusText,
           body: response,
           durationMs: Date.now() - startTime,
         })
@@ -213,16 +216,17 @@ export const dalleProvider: SyncProvider = {
       })
 
       try {
-        const response = await $fetch<DalleResponse>(url, {
+        const res = await fetchFn(url, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}` },
           body: formData,
           signal,
         })
+        const response = await res.json() as DalleResponse
 
         logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
+          status: res.status,
+          statusText: res.statusText,
           body: response,
           durationMs: Date.now() - startTime,
         })
@@ -317,16 +321,17 @@ export const dalleProvider: SyncProvider = {
       })
 
       try {
-        const response = await $fetch<DalleResponse>(url, {
+        const res = await fetchFn(url, {
           method: 'POST',
           headers,
-          body,
+          body: JSON.stringify(body),
           signal,
         })
+        const response = await res.json() as DalleResponse
 
         logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
+          status: res.status,
+          statusText: res.statusText,
           body: response,
           durationMs: Date.now() - startTime,
         })

@@ -6,6 +6,7 @@ import { useConversationService } from './conversation'
 import { useAssistantService } from './assistant'
 import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
+import { getUpstreamProxyUrl } from './proxy'
 import { getChatProvider } from './chatProviders'
 import type { ChatApiFormat, ChatTool } from './chatProviders'
 import {
@@ -175,7 +176,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     if (!chatProvider) {
       throw new Error(`不支持的聊天 API 格式: ${apiFormat}`)
     }
-    const chatService = chatProvider.createService(upstream, keyName)
+    const proxyUrl = await getUpstreamProxyUrl(upstream)
+    const chatService = chatProvider.createService(upstream, keyName, proxyUrl)
 
     // 构建日志上下文
     const logContext: LogContext = {

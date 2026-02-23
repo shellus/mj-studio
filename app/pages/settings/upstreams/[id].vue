@@ -16,6 +16,7 @@ const router = useRouter()
 const toast = useToast()
 const { upstreams, loadUpstreams, createUpstream, updateUpstream, deleteUpstream } = useUpstreams()
 const { loadUpstreams: loadAvailableUpstreams } = useAvailableUpstreams()
+const { proxies, loadProxies } = useProxies()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
@@ -29,6 +30,7 @@ const form = reactive({
   name: '',
   baseUrl: '',
   remark: '',
+  proxyId: null as number | null,
   upstreamPlatform: undefined as UpstreamPlatform | undefined,
   userApiKey: '',
   disabled: false,
@@ -193,6 +195,7 @@ async function loadUpstreamData() {
         name: upstream.name,
         baseUrl: upstream.baseUrl,
         remark: upstream.remark || '',
+        proxyId: upstream.proxyId ?? null,
         upstreamPlatform: upstream.upstreamPlatform || undefined,
         userApiKey: upstream.userApiKey || '',
         disabled: upstream.disabled || false,
@@ -227,6 +230,7 @@ onMounted(async () => {
   if (upstreams.value.length === 0) {
     await loadUpstreams()
   }
+  await loadProxies()
   loadUpstreamData()
 })
 
@@ -343,6 +347,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         apiKeys: validApiKeys,
         aimodels: aimodels.value,
         remark: form.remark,
+        proxyId: form.proxyId,
         upstreamPlatform: form.upstreamPlatform,
         userApiKey: form.userApiKey || undefined,
         disabled: form.disabled,
@@ -355,6 +360,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         apiKeys: validApiKeys,
         aimodels: aimodels.value,
         remark: form.remark || null,
+        proxyId: form.proxyId,
         upstreamPlatform: form.upstreamPlatform || null,
         userApiKey: form.userApiKey || null,
         disabled: form.disabled,
@@ -499,6 +505,15 @@ async function confirmDelete() {
             <template v-if="form.upstreamPlatform" #hint>
               <span class="text-xs text-(--ui-text-muted)">格式：用户ID:系统访问令牌（在平台个人中心获取）</span>
             </template>
+          </UFormField>
+
+          <UFormField label="代理" name="proxyId">
+            <USelect
+              v-model="form.proxyId"
+              :items="[{ label: '不使用代理', value: null }, ...proxies.map(p => ({ label: `${p.name} (${p.url})`, value: p.id }))]"
+              class="w-80"
+              placeholder="不使用代理"
+            />
           </UFormField>
 
           <UFormField label="备注" name="remark">
@@ -738,6 +753,7 @@ async function confirmDelete() {
       v-model:open="showImportModal"
       :base-url="form.baseUrl"
       :api-key="apiKeys[0]?.key || ''"
+      :proxy-id="form.proxyId"
       @import="onImportModels"
     />
   </SettingsLayout>

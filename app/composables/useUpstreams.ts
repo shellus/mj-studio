@@ -29,6 +29,7 @@ export interface Upstream {
   remark: string | null
   sortOrder: number
   disabled: boolean
+  proxyId?: number | null
   upstreamPlatform?: UpstreamPlatform | null
   userApiKey?: string | null
   upstreamInfo?: UpstreamInfo | null
@@ -62,6 +63,7 @@ export function useUpstreams() {
     remark?: string
     sortOrder?: number
     disabled?: boolean
+    proxyId?: number | null
     upstreamPlatform?: UpstreamPlatform
     userApiKey?: string
   }) {
@@ -84,6 +86,7 @@ export function useUpstreams() {
     remark: string | null
     sortOrder: number
     disabled: boolean
+    proxyId: number | null
     upstreamPlatform: UpstreamPlatform | null
     userApiKey: string | null
   }>) {

@@ -10,6 +10,7 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface GeminiResponse {
   candidates: Array<{
@@ -47,7 +48,8 @@ export const geminiProvider: SyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     // 文生图
     async function generateText2Image(params: GenerateParams): Promise<SyncResult> {
       const { taskId, prompt, modelName, modelParams, signal } = params
@@ -95,28 +97,17 @@ export const geminiProvider: SyncProvider = {
       })
 
       try {
-        const response = await $fetch<GeminiResponse>(url, {
-          method: 'POST',
-          headers,
-          body,
-          signal,
-        })
+        const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body), signal })
+        const response = await res.json() as GeminiResponse
 
         // 响应中的图片数据截断记录
         const logData = JSON.parse(JSON.stringify(response))
         logData.candidates?.forEach((c: { content?: { parts?: Array<{ inlineData?: { data?: string } }> } }) => {
           c.content?.parts?.forEach((p: { inlineData?: { data?: string } }) => {
-            if (p.inlineData?.data) {
-              p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
-            }
+            if (p.inlineData?.data) p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
           })
         })
-        logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
-          body: logData,
-          durationMs: Date.now() - startTime,
-        })
+        logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: logData, durationMs: Date.now() - startTime })
 
         const candidate = response.candidates?.[0]
         if (!candidate) {
@@ -221,27 +212,16 @@ export const geminiProvider: SyncProvider = {
       })
 
       try {
-        const response = await $fetch<GeminiResponse>(url, {
-          method: 'POST',
-          headers,
-          body,
-          signal,
-        })
+        const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body), signal })
+        const response = await res.json() as GeminiResponse
 
         const logData = JSON.parse(JSON.stringify(response))
         logData.candidates?.forEach((c: { content?: { parts?: Array<{ inlineData?: { data?: string } }> } }) => {
           c.content?.parts?.forEach((p: { inlineData?: { data?: string } }) => {
-            if (p.inlineData?.data) {
-              p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
-            }
+            if (p.inlineData?.data) p.inlineData.data = `[base64 ${p.inlineData.data.length} chars]`
           })
         })
-        logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
-          body: logData,
-          durationMs: Date.now() - startTime,
-        })
+        logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: logData, durationMs: Date.now() - startTime })
 
         const candidate = response.candidates?.[0]
         if (!candidate) {

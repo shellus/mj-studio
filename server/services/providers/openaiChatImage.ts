@@ -10,6 +10,7 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface OpenAIChatResponse {
   id: string
@@ -62,7 +63,8 @@ export const openaiChatImageProvider: SyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -82,19 +84,9 @@ export const openaiChatImageProvider: SyncProvider = {
       logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
       try {
-        const response = await $fetch<OpenAIChatResponse>(url, {
-          method: 'POST',
-          headers,
-          body,
-          signal,
-        })
-
-        logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
-          body: response,
-          durationMs: Date.now() - startTime,
-        })
+        const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body), signal })
+        const response = await res.json() as OpenAIChatResponse
+        logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: response, durationMs: Date.now() - startTime })
 
         const content = response.choices?.[0]?.message?.content || ''
         const imageUrl = extractImageUrl(content)
@@ -161,19 +153,9 @@ export const openaiChatImageProvider: SyncProvider = {
       logTaskRequest(taskId, { url, method: 'POST', headers, body: logBody })
 
       try {
-        const response = await $fetch<OpenAIChatResponse>(url, {
-          method: 'POST',
-          headers,
-          body,
-          signal,
-        })
-
-        logTaskResponse(taskId, {
-          status: 200,
-          statusText: 'OK',
-          body: response,
-          durationMs: Date.now() - startTime,
-        })
+        const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body), signal })
+        const response = await res.json() as OpenAIChatResponse
+        logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: response, durationMs: Date.now() - startTime })
 
         const content = response.choices?.[0]?.message?.content || ''
         const imageUrl = extractImageUrl(content)

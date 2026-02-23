@@ -12,6 +12,7 @@ import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams
 import type { VideoModelParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface VideoCreateResponse {
   id: string
@@ -85,7 +86,8 @@ export const videoUnifiedProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -115,19 +117,9 @@ export const videoUnifiedProvider: AsyncProvider = {
         logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
         try {
-          const response = await $fetch<VideoCreateResponse>(url, {
-            method: 'POST',
-            headers,
-            body,
-          })
-
-          logTaskResponse(taskId, {
-            status: 200,
-            statusText: 'OK',
-            body: response,
-            durationMs: Date.now() - startTime,
-          })
-
+          const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body) })
+          const response = await res.json() as VideoCreateResponse
+          logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: response, durationMs: Date.now() - startTime })
           return { upstreamTaskId: response.id }
         } catch (error: unknown) {
           const errorInfo = extractFetchErrorInfo(error)
@@ -152,19 +144,9 @@ export const videoUnifiedProvider: AsyncProvider = {
         }
 
         try {
-          const response = await $fetch<UpstreamQueryResponse>(url, {
-            method: 'GET',
-            headers,
-          })
-
-          if (taskId) {
-            logTaskResponse(taskId, {
-              status: 200,
-              statusText: 'OK',
-              body: response,
-              durationMs: Date.now() - startTime,
-            })
-          }
+          const res = await fetchFn(url, { method: 'GET', headers })
+          const response = await res.json() as UpstreamQueryResponse
+          if (taskId) logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: response, durationMs: Date.now() - startTime })
 
           const normalizedError = typeof response.error === 'object'
             ? response.error?.message || JSON.stringify(response.error)

@@ -10,6 +10,7 @@ import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchR
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
+import { proxyFetch } from '../../utils/proxy'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { CLAUDE_THINKING_BUDGET_TOKENS } from '../../../app/shared/constants'
@@ -107,9 +108,10 @@ export const claudeProvider: ChatProvider = {
   apiFormat: 'claude',
   label: 'Claude',
 
-  createService(upstream: Upstream, keyName?: string): ChatService {
+  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService {
     const upstreamService = useUpstreamService()
     const apiKey = upstreamService.getApiKey(upstream, keyName)
+    const fetchFn = proxyFetch(proxyUrl)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -245,7 +247,7 @@ export const claudeProvider: ChatProvider = {
         }
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),
@@ -381,7 +383,7 @@ export const claudeProvider: ChatProvider = {
         let currentToolUseInputJson = ''
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),

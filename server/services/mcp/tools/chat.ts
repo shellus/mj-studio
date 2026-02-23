@@ -8,6 +8,7 @@ import { useConversationService } from '../../conversation'
 import { useAssistantService } from '../../assistant'
 import { useAimodelService } from '../../aimodel'
 import { useUpstreamService } from '../../upstream'
+import { getUpstreamProxyUrl } from '../../proxy'
 import { getChatProvider } from '../../chatProviders'
 import type { ChatApiFormat } from '../../chatProviders'
 import { startStreamingTask } from '../../streamingTask'
@@ -169,7 +170,8 @@ export async function chat(
       isError: true,
     }
   }
-  const chatService = chatProvider.createService(upstream, aimodel.keyName)
+  const proxyUrl = await getUpstreamProxyUrl(upstream)
+  const chatService = chatProvider.createService(upstream, aimodel.keyName, proxyUrl)
 
   try {
     const response = await chatService.chat(

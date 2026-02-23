@@ -15,6 +15,11 @@ const menuItems = [
     to: '/settings/upstreams',
   },
   {
+    label: '代理配置',
+    icon: 'i-heroicons-globe-alt',
+    to: '/settings/proxies',
+  },
+  {
     label: '模型测试',
     icon: 'i-heroicons-beaker',
     to: '/settings/model-test',

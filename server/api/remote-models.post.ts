@@ -4,6 +4,8 @@
  */
 import { inferModelInfo } from '~/shared/model-inference'
 import type { ModelCategory, ModelCapability, ApiFormat, ModelType } from '~/shared/types'
+import { getUpstreamProxyUrl } from '../services/proxy'
+import { proxyFetch } from '../utils/proxy'
 
 interface RemoteModel {
   id: string
@@ -25,7 +27,7 @@ interface UpstreamModelResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ baseUrl: string; apiKey: string }>(event)
+  const body = await readBody<{ baseUrl: string; apiKey: string; proxyId?: number | null }>(event)
 
   if (!body.baseUrl || !body.apiKey) {
     throw createError({
@@ -41,7 +43,9 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const response = await fetch(url, {
+    const proxyUrl = await getUpstreamProxyUrl({ proxyId: body.proxyId })
+    const fetchFn = proxyFetch(proxyUrl)
+    const response = await fetchFn(url, {
       headers: {
         Authorization: `Bearer ${body.apiKey}`,
       },

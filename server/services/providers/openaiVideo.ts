@@ -13,6 +13,7 @@ import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams
 import type { SoraVideoParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface OpenAIVideoCreateResponse {
   id: string
@@ -68,7 +69,8 @@ export const openaiVideoProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     return {
       async submit(params: GenerateParams): Promise<AsyncSubmitResult> {
         const { taskId, prompt, images, modelName, modelParams } = params
@@ -144,8 +146,8 @@ export const openaiVideoProvider: AsyncProvider = {
         })
 
         try {
-          // 使用原生 fetch（$fetch 对 Buffer body 处理有问题）
-          const response = await fetch(url, {
+          // 使用 fetchFn 支持代理
+          const response = await fetchFn(url, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -200,18 +202,11 @@ export const openaiVideoProvider: AsyncProvider = {
         }
 
         try {
-          const response = await $fetch<UpstreamQueryResponse>(url, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-          })
+          const res = await fetchFn(url, { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` } })
+          const response = await res.json() as UpstreamQueryResponse
 
           if (taskId) {
-            logTaskResponse(taskId, {
-              status: 200,
-              statusText: 'OK',
-              body: response,
-              durationMs: Date.now() - startTime,
-            })
+            logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: response, durationMs: Date.now() - startTime })
           }
 
           // 归一化 error 字段

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { USER_SETTING_KEYS } from '../../shared/constants'
-import type { ImageModelType } from '../../shared/types'
 
 const { settings, isLoading, isLoaded, loadSettings, updateSettings } = useUserSettings()
 const { upstreams } = useAvailableUpstreams()
@@ -25,7 +24,6 @@ const isSaving = ref(false)
 
 // 加载设置
 onMounted(async () => {
-  // upstreams 已由插件加载，这里只需等待 settings
   if (!isLoaded.value) {
     await loadSettings()
   }

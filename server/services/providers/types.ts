@@ -100,7 +100,7 @@ export interface SyncService {
 /** 同步 Provider 配置 */
 export interface SyncProvider {
   readonly meta: ProviderMeta & { isAsync: false }
-  createService(baseUrl: string, apiKey: string): SyncService
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string): SyncService
 }
 
 // ============================================================================
@@ -134,7 +134,7 @@ export interface AsyncService {
 /** 异步 Provider 配置 */
 export interface AsyncProvider {
   readonly meta: ProviderMeta & { isAsync: true }
-  createService(baseUrl: string, apiKey: string): AsyncService
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string): AsyncService
 }
 
 // ============================================================================

@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
   const body = await readBody(event)
 
-  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, disabled, upstreamPlatform, userApiKey } = body
+  const { name, baseUrl, apiKeys, aimodels, remark, sortOrder, disabled, proxyId, upstreamPlatform, userApiKey } = body
 
   // 验证必填字段
   if (!name?.trim()) {
@@ -61,6 +61,7 @@ export default defineEventHandler(async (event) => {
     remark: remark?.trim() || undefined,
     sortOrder,
     disabled,
+    proxyId: proxyId ?? null,
     upstreamPlatform,
     userApiKey,
   })

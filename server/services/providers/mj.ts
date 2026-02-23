@@ -13,6 +13,7 @@
 import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo, classifyError } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface MJSubmitResponse {
   code: number
@@ -68,7 +69,8 @@ export const mjProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string): MJService {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string): MJService {
+    const fetchFn = proxyFetch(proxyUrl)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -87,36 +89,16 @@ export const mjProvider: AsyncProvider = {
           logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
           try {
-            const response = await $fetch<MJSubmitResponse>(url, {
-              method: 'POST',
-              headers,
-              body,
-            })
+            const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body) })
+            const result = await res.json() as MJSubmitResponse
 
-            const result = typeof response === 'string' ? JSON.parse(response) : response
+            logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: result, durationMs: Date.now() - startTime })
 
-            logTaskResponse(taskId, {
-              status: 200,
-              statusText: 'OK',
-              body: result,
-              durationMs: Date.now() - startTime,
-            })
-
-            if (result.code !== 1) {
-              throw new Error(result.description || '提交失败')
-            }
-
+            if (result.code !== 1) throw new Error(result.description || '提交失败')
             return { upstreamTaskId: result.result }
           } catch (error: unknown) {
             const errorInfo = extractFetchErrorInfo(error)
-            logTaskResponse(taskId, {
-              status: errorInfo.status,
-              statusText: errorInfo.statusText,
-              body: errorInfo.body,
-              error: errorInfo.message,
-              errorType: errorInfo.errorType,
-              durationMs: Date.now() - startTime,
-            })
+            logTaskResponse(taskId, { status: errorInfo.status, statusText: errorInfo.statusText, body: errorInfo.body, error: errorInfo.message, errorType: errorInfo.errorType, durationMs: Date.now() - startTime })
             throw error
           }
         }
@@ -128,61 +110,32 @@ export const mjProvider: AsyncProvider = {
         logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
         try {
-          const response = await $fetch<MJSubmitResponse>(url, {
-            method: 'POST',
-            headers,
-            body,
-          })
+          const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body) })
+          const result = await res.json() as MJSubmitResponse
 
-          const result = typeof response === 'string' ? JSON.parse(response) : response
+          logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: result, durationMs: Date.now() - startTime })
 
-          logTaskResponse(taskId, {
-            status: 200,
-            statusText: 'OK',
-            body: result,
-            durationMs: Date.now() - startTime,
-          })
-
-          if (result.code !== 1) {
-            throw new Error(result.description || '提交失败')
-          }
-
+          if (result.code !== 1) throw new Error(result.description || '提交失败')
           return { upstreamTaskId: result.result }
         } catch (error: unknown) {
           const errorInfo = extractFetchErrorInfo(error)
-          logTaskResponse(taskId, {
-            status: errorInfo.status,
-            statusText: errorInfo.statusText,
-            body: errorInfo.body,
-            error: errorInfo.message,
-            errorType: errorInfo.errorType,
-            durationMs: Date.now() - startTime,
-          })
+          logTaskResponse(taskId, { status: errorInfo.status, statusText: errorInfo.statusText, body: errorInfo.body, error: errorInfo.message, errorType: errorInfo.errorType, durationMs: Date.now() - startTime })
           throw error
         }
       },
 
       async query(upstreamTaskId: string): Promise<AsyncQueryResult> {
-        const response = await $fetch<MJTaskResponse>(`${baseUrl}/mj/task/${upstreamTaskId}/fetch`, {
-          method: 'GET',
-          headers,
-        })
+        const res = await fetchFn(`${baseUrl}/mj/task/${upstreamTaskId}/fetch`, { method: 'GET', headers })
+        const response = await res.json() as MJTaskResponse
 
-        // 映射 MJ 状态到内部状态
         let status: AsyncQueryResult['status'] = 'processing'
-        if (response.status === 'SUCCESS') {
-          status = 'success'
-        } else if (response.status === 'FAILURE') {
-          status = 'failed'
-        }
+        if (response.status === 'SUCCESS') status = 'success'
+        else if (response.status === 'FAILURE') status = 'failed'
 
-        // 解析进度百分比
         let progress: number | undefined
         if (response.progress) {
           const match = response.progress.match(/(\d+)%/)
-          if (match) {
-            progress = parseInt(match[1]!, 10)
-          }
+          if (match) progress = parseInt(match[1]!, 10)
         }
 
         return {
@@ -199,44 +152,20 @@ export const mjProvider: AsyncProvider = {
         const body = { taskId: parentUpstreamTaskId, customId }
         const startTime = Date.now()
 
-        if (taskId) {
-          logTaskRequest(taskId, { url, method: 'POST', headers, body })
-        }
+        if (taskId) logTaskRequest(taskId, { url, method: 'POST', headers, body })
 
         try {
-          const response = await $fetch<MJSubmitResponse>(url, {
-            method: 'POST',
-            headers,
-            body,
-          })
+          const res = await fetchFn(url, { method: 'POST', headers, body: JSON.stringify(body) })
+          const result = await res.json() as MJSubmitResponse
 
-          const result = typeof response === 'string' ? JSON.parse(response) : response
+          if (taskId) logTaskResponse(taskId, { status: res.status, statusText: res.statusText, body: result, durationMs: Date.now() - startTime })
 
-          if (taskId) {
-            logTaskResponse(taskId, {
-              status: 200,
-              statusText: 'OK',
-              body: result,
-              durationMs: Date.now() - startTime,
-            })
-          }
-
-          if (result.code !== 1) {
-            throw new Error(result.description || '执行动作失败')
-          }
-
+          if (result.code !== 1) throw new Error(result.description || '执行动作失败')
           return { upstreamTaskId: result.result }
         } catch (error: unknown) {
           if (taskId) {
             const errorInfo = extractFetchErrorInfo(error)
-            logTaskResponse(taskId, {
-              status: errorInfo.status,
-              statusText: errorInfo.statusText,
-              body: errorInfo.body,
-              error: errorInfo.message,
-              errorType: errorInfo.errorType,
-              durationMs: Date.now() - startTime,
-            })
+            logTaskResponse(taskId, { status: errorInfo.status, statusText: errorInfo.statusText, body: errorInfo.body, error: errorInfo.message, errorType: errorInfo.errorType, durationMs: Date.now() - startTime })
           }
           throw error
         }

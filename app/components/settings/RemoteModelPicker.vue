@@ -17,6 +17,7 @@ interface RemoteModel {
 const props = defineProps<{
   baseUrl: string
   apiKey: string
+  proxyId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -81,7 +82,7 @@ async function fetchModels() {
   try {
     const data = await $fetch<{ models: RemoteModel[] }>('/api/remote-models', {
       method: 'POST',
-      body: { baseUrl: props.baseUrl, apiKey: props.apiKey },
+      body: { baseUrl: props.baseUrl, apiKey: props.apiKey, proxyId: props.proxyId },
     })
     remoteModels.value = data.models
     selectedIds.value.clear()

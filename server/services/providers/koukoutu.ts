@@ -12,6 +12,7 @@
 import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
+import { proxyFetch } from '../../utils/proxy'
 
 interface KoukoutuCreateResponse {
   code: number
@@ -44,7 +45,8 @@ export const koukoutuProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string) {
+  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
+    const fetchFn = proxyFetch(proxyUrl)
     return {
       async submit(params: GenerateParams): Promise<AsyncSubmitResult> {
         const { taskId, images, modelName } = params
@@ -103,7 +105,7 @@ export const koukoutuProvider: AsyncProvider = {
         })
 
         try {
-          const response = await $fetch<KoukoutuCreateResponse>(url, {
+          const res = await fetchFn(url, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -111,10 +113,11 @@ export const koukoutuProvider: AsyncProvider = {
             },
             body,
           })
+          const response = await res.json() as KoukoutuCreateResponse
 
           logTaskResponse(taskId, {
-            status: 200,
-            statusText: 'OK',
+            status: res.status,
+            statusText: res.statusText,
             body: response,
             durationMs: Date.now() - startTime,
           })
@@ -155,7 +158,7 @@ export const koukoutuProvider: AsyncProvider = {
 
         const body = Buffer.from(parts.join(''), 'utf-8')
 
-        const response = await $fetch<KoukoutuQueryResponse>(url, {
+        const res = await fetchFn(url, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -163,6 +166,7 @@ export const koukoutuProvider: AsyncProvider = {
           },
           body,
         })
+        const response = await res.json() as KoukoutuQueryResponse
 
         // state: 0=处理中, 1=成功, -1=失败
         let status: AsyncQueryResult['status'] = 'processing'

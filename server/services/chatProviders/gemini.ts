@@ -11,6 +11,7 @@ import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, 
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
 import { useUpstreamService } from '../upstream'
+import { proxyFetch } from '../../utils/proxy'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { GEMINI_THINKING_BUDGET } from '../../../app/shared/constants'
@@ -88,9 +89,10 @@ export const geminiProvider: ChatProvider = {
   apiFormat: 'gemini',
   label: 'Gemini',
 
-  createService(upstream: Upstream, keyName?: string): ChatService {
+  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService {
     const upstreamService = useUpstreamService()
     const apiKey = upstreamService.getApiKey(upstream, keyName)
+    const fetchFn = proxyFetch(proxyUrl)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -207,7 +209,7 @@ export const geminiProvider: ChatProvider = {
         }
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),
@@ -332,7 +334,7 @@ export const geminiProvider: ChatProvider = {
         let totalContent = ''
 
         try {
-          const response = await fetch(url, {
+          const response = await fetchFn(url, {
             method: 'POST',
             headers,
             body: JSON.stringify(body),

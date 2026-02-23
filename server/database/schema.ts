@@ -38,6 +38,18 @@ export const users = sqliteTable('users', {
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
+// 代理配置表（用户级别）
+export const proxies = sqliteTable('proxies', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  name: text('name').notNull(),
+  url: text('url').notNull(), // 代理地址，如 http://127.0.0.1:8080
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type Proxy = typeof proxies.$inferSelect
+export type NewProxy = typeof proxies.$inferInsert
+
 // 上游配置表（用户级别）- 原 model_configs
 export const upstreams = sqliteTable('upstreams', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -48,6 +60,7 @@ export const upstreams = sqliteTable('upstreams', {
   remark: text('remark'), // 备注说明
   sortOrder: integer('sort_order').notNull().default(999), // 排序顺序，0 表示置顶
   disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false), // 是否禁用
+  proxyId: integer('proxy_id'), // 关联代理配置（null=不使用代理）
   upstreamPlatform: text('upstream_platform').$type<UpstreamPlatform>(), // 上游平台类型（用于余额查询）
   userApiKey: text('user_api_key'), // 用户在该平台的 Key（用于余额查询等）
   upstreamInfo: text('upstream_info', { mode: 'json' }).$type<UpstreamInfo>(), // 上游信息缓存（余额、用户信息等）
