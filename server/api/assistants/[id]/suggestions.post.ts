@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
     // 不支持的格式，返回空
     return { suggestions: [] }
   }
-  const chatService = chatProvider.createService(upstream, keyName)
+  const chatService = await chatProvider.createService(upstream, keyName)
 
   const logContext: LogContext = {
     type: '开场白',

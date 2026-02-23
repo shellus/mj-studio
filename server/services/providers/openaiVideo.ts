@@ -13,7 +13,8 @@ import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams
 import type { SoraVideoParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
-import { proxyFetch } from '../../utils/proxy'
+import type { Upstream } from '../../database/schema'
+import { resolveUpstreamConnection } from '../providerConnection'
 
 interface OpenAIVideoCreateResponse {
   id: string
@@ -69,8 +70,8 @@ export const openaiVideoProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
     return {
       async submit(params: GenerateParams): Promise<AsyncSubmitResult> {
         const { taskId, prompt, images, modelName, modelParams } = params

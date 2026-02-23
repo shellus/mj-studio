@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
       message: `不支持的聊天 API 格式: ${apiFormat}`,
     })
   }
-  const chatService = chatProvider.createService(upstream, keyName)
+  const chatService = await chatProvider.createService(upstream, keyName)
 
   // 构建日志上下文
   const logContext: LogContext = {

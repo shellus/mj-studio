@@ -13,7 +13,8 @@
 import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo, classifyError } from '../errorClassifier'
-import { proxyFetch } from '../../utils/proxy'
+import type { Upstream } from '../../database/schema'
+import { resolveUpstreamConnection } from '../providerConnection'
 
 interface MJSubmitResponse {
   code: number
@@ -69,8 +70,8 @@ export const mjProvider: AsyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string): MJService {
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string): Promise<MJService> {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

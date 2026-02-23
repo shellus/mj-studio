@@ -5,8 +5,6 @@
  */
 import type { Upstream, Aimodel } from '../../database/schema'
 import { getProvider, isAsyncProvider, isSyncProvider, type ApiFormat } from '../providers'
-import { useUpstreamService } from '../upstream'
-import { getUpstreamProxyUrl } from '../proxy'
 import type { TestExecuteResult } from './index'
 
 /**
@@ -38,13 +36,8 @@ export async function testSyncImageModel(
       }
     }
 
-    // 获取 API Key
-    const upstreamService = useUpstreamService()
-    const apiKey = upstreamService.getApiKey(upstream, aimodel.keyName)
-    const proxyUrl = await getUpstreamProxyUrl(upstream)
-
     // 创建服务实例
-    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl)
+    const service = await provider.createService(upstream, aimodel.keyName)
 
     // 创建超时控制
     const controller = new AbortController()
@@ -130,13 +123,8 @@ export async function testAsyncModel(
       }
     }
 
-    // 获取 API Key
-    const upstreamService = useUpstreamService()
-    const apiKey = upstreamService.getApiKey(upstream, aimodel.keyName)
-    const proxyUrl = await getUpstreamProxyUrl(upstream)
-
     // 创建服务实例
-    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl)
+    const service = await provider.createService(upstream, aimodel.keyName)
     const submitResult = await service.submit({
       taskId: 0,
       prompt,
