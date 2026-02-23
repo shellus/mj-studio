@@ -4,7 +4,6 @@ import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, 
 import type { ModelParams, ImageModelParams, TaskUpstreamSummary } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { getProvider, getModelTypeDefaults, type GenerateParams, type AsyncService, type SyncService, type MJService } from './providers'
-import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { downloadFile, getFileUrl, readFileAsBase64, saveBase64File } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
@@ -28,7 +27,6 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useTaskService() {
-  const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
 
   // 将图片 URL 数组转换为 Base64 数组
