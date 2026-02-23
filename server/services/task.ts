@@ -4,8 +4,6 @@ import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, 
 import type { ModelParams, ImageModelParams, TaskUpstreamSummary } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { getProvider, getModelTypeDefaults, type GenerateParams, type AsyncService, type SyncService, type MJService } from './providers'
-import { useUpstreamService } from './upstream'
-import { getUpstreamProxyUrl } from './proxy'
 import { useAimodelService } from './aimodel'
 import { downloadFile, getFileUrl, readFileAsBase64, saveBase64File } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
@@ -29,13 +27,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 export function useTaskService() {
-  const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
-
-  // 获取配置的 API Key（支持多 Key）
-  function getApiKey(upstream: Upstream, aimodel?: Aimodel): string {
-    return upstreamService.getApiKey(upstream, aimodel?.keyName)
-  }
 
   // 将图片 URL 数组转换为 Base64 数组
   // fetchRemoteUrls: 是否下载远程 URL 转 base64（用于不支持 URL 的上游如抠抠图）
@@ -489,9 +481,7 @@ export function useTaskService() {
         return
       }
 
-      const apiKey = getApiKey(upstream, aimodel)
-      const proxyUrl = await getUpstreamProxyUrl(upstream)
-      const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl)
+      const service = await provider.createService(upstream, aimodel.keyName)
       // 如果 Provider 不支持图片 URL，需要下载远程 URL 转 base64
       const fetchRemoteUrls = !provider.meta.validation.supportsImageUrl
       const params: GenerateParams = {
@@ -604,9 +594,7 @@ export function useTaskService() {
       return task
     }
 
-    const apiKey = getApiKey(upstream, aimodel)
-    const proxyUrl = await getUpstreamProxyUrl(upstream)
-    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl) as AsyncService
+    const service = await provider.createService(upstream, aimodel.keyName) as AsyncService
     const logPrefix = `[Task] #${task.id}`
 
     try {
@@ -751,9 +739,7 @@ export function useTaskService() {
       return (await getTask(newTask.id))!
     }
 
-    const apiKey = getApiKey(upstream, aimodel)
-    const proxyUrl = await getUpstreamProxyUrl(upstream)
-    const service = provider.createService(upstream.baseUrl, apiKey, proxyUrl) as MJService
+    const service = await provider.createService(upstream, aimodel.keyName) as MJService
 
     try {
       const result = await service.action(parentTask.upstreamTaskId, customId, newTask.id)

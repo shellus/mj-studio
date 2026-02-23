@@ -9,8 +9,7 @@ import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType } from '../file'
-import { useUpstreamService } from '../upstream'
-import { proxyFetch } from '../../utils/proxy'
+import { resolveUpstreamConnection } from '../providerConnection'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { OPENAI_REASONING_EFFORT } from '../../../app/shared/constants'
@@ -106,10 +105,8 @@ export const openaiChatProvider: ChatProvider = {
   apiFormat: 'openai-chat',
   label: 'OpenAI Chat',
 
-  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService {
-    const upstreamService = useUpstreamService()
-    const apiKey = upstreamService.getApiKey(upstream, keyName)
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string): Promise<ChatService> {
+    const { apiKey, fetchFn } = await resolveUpstreamConnection(upstream, keyName)
 
     const headers = {
       'Authorization': `Bearer ${apiKey}`,

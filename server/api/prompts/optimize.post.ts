@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const chatService = chatProvider.createService(upstream, keyName)
+    const chatService = await chatProvider.createService(upstream, keyName)
     // 获取用户配置的提示词模板
     const optimizePromptTemplate = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_OPTIMIZE)
     // 替换占位符

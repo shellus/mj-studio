@@ -10,7 +10,8 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
-import { proxyFetch } from '../../utils/proxy'
+import type { Upstream } from '../../database/schema'
+import { resolveUpstreamConnection } from '../providerConnection'
 
 interface OpenAIChatResponse {
   id: string
@@ -63,8 +64,8 @@ export const openaiChatImageProvider: SyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

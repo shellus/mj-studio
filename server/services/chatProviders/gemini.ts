@@ -10,8 +10,7 @@ import type { Upstream, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
-import { useUpstreamService } from '../upstream'
-import { proxyFetch } from '../../utils/proxy'
+import { resolveUpstreamConnection } from '../providerConnection'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
 import { GEMINI_THINKING_BUDGET } from '../../../app/shared/constants'
@@ -89,10 +88,8 @@ export const geminiProvider: ChatProvider = {
   apiFormat: 'gemini',
   label: 'Gemini',
 
-  createService(upstream: Upstream, keyName?: string, proxyUrl?: string): ChatService {
-    const upstreamService = useUpstreamService()
-    const apiKey = upstreamService.getApiKey(upstream, keyName)
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string): Promise<ChatService> {
+    const { apiKey, fetchFn } = await resolveUpstreamConnection(upstream, keyName)
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

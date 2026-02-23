@@ -10,7 +10,8 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
-import { proxyFetch } from '../../utils/proxy'
+import type { Upstream } from '../../database/schema'
+import { resolveUpstreamConnection } from '../providerConnection'
 
 interface GeminiResponse {
   candidates: Array<{
@@ -48,8 +49,8 @@ export const geminiProvider: SyncProvider = {
     },
   },
 
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string) {
-    const fetchFn = proxyFetch(proxyUrl)
+  async createService(upstream: Upstream, keyName?: string) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
     // 文生图
     async function generateText2Image(params: GenerateParams): Promise<SyncResult> {
       const { taskId, prompt, modelName, modelParams, signal } = params

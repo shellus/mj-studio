@@ -4,7 +4,7 @@
  * 统一任务类服务（绘图/视频）的接口，分为同步和异步两种模式。
  */
 
-import type { ApiFormat, TaskStatus } from '../../database/schema'
+import type { ApiFormat, TaskStatus, Upstream } from '../../database/schema'
 import type { ImageModelParams, ModelType, ImageModelType, VideoModelType, ChatModelType, ModelCategory } from '../../../app/shared/types'
 
 // 重新导出，便于外部使用
@@ -100,7 +100,7 @@ export interface SyncService {
 /** 同步 Provider 配置 */
 export interface SyncProvider {
   readonly meta: ProviderMeta & { isAsync: false }
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string): SyncService
+  createService(upstream: Upstream, keyName?: string): Promise<SyncService>
 }
 
 // ============================================================================
@@ -134,7 +134,7 @@ export interface AsyncService {
 /** 异步 Provider 配置 */
 export interface AsyncProvider {
   readonly meta: ProviderMeta & { isAsync: true }
-  createService(baseUrl: string, apiKey: string, proxyUrl?: string): AsyncService
+  createService(upstream: Upstream, keyName?: string): Promise<AsyncService>
 }
 
 // ============================================================================
