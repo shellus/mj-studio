@@ -68,6 +68,7 @@ export default withMermaid(
           { text: '模型选择器', link: '/dev-spec/模型选择器组件设计文档' },
           { text: '日志系统说明', link: '/dev-spec/日志系统说明' },
           { text: '错误处理', link: '/dev-spec/错误处理' },
+          { text: '对话模块调用链', link: '/dev-spec/对话调用链' },
         ],
       },
       {
