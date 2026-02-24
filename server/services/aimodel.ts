@@ -2,6 +2,7 @@
 import { db } from '../database'
 import { aimodels, upstreams, assistants, type Aimodel, type NewAimodel, type ModelCategory, type ModelType, type ApiFormat } from '../database/schema'
 import { eq, and, isNull } from 'drizzle-orm'
+import { useUpstreamService } from './upstream'
 import type { ModelCapability } from '../../app/shared/types'
 
 export function useAimodelService() {
@@ -290,6 +291,19 @@ export function useAimodelService() {
     })
   }
 
+  // 校验 aimodel 是否属于指定用户（通过 upstream.userId）
+  async function verifyOwnership(aimodelId: number, userId: number): Promise<void> {
+    const aimodel = await getById(aimodelId)
+    if (!aimodel) {
+      throw new Error('模型配置不存在')
+    }
+    const upstreamService = useUpstreamService()
+    const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
+    if (!upstream || upstream.userId !== userId) {
+      throw new Error('无权使用该模型')
+    }
+  }
+
   return {
     listByUpstream,
     getById,
@@ -304,5 +318,6 @@ export function useAimodelService() {
     remove,
     removeByUpstream,
     syncByUpstream,
+    verifyOwnership,
   }
 }

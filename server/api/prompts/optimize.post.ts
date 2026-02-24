@@ -1,7 +1,6 @@
 // POST /api/prompts/optimize - AI 优化绘图提示词
 import { getChatProvider } from '../../services/chatProviders'
 import type { ChatApiFormat } from '../../services/chatProviders'
-import { useUpstreamService } from '../../services/upstream'
 import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
 import { getErrorMessage } from '../../../app/shared/types'
@@ -44,9 +43,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
   const settingsService = useUserSettingsService()
+
+  // 校验 aimodelId 所有权
+  await aimodelService.verifyOwnership(aimodelId, user.id)
 
   // 获取 AI 模型配置
   const aimodel = await aimodelService.getById(aimodelId)
@@ -54,15 +55,6 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 404,
       message: '模型配置不存在',
-    })
-  }
-
-  // 获取上游配置
-  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
-  if (!upstream) {
-    throw createError({
-      statusCode: 404,
-      message: '上游配置不存在',
     })
   }
 

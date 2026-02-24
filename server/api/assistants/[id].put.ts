@@ -1,5 +1,6 @@
 // PUT /api/assistants/[id] - 更新助手
 import { useAssistantService } from '../../services/assistant'
+import { useAimodelService } from '../../services/aimodel'
 import { useMcpServerService } from '../../services/mcpServer'
 
 export default defineEventHandler(async (event) => {
@@ -41,6 +42,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (aimodelId !== undefined) {
+    if (aimodelId) {
+      const aimodelService = useAimodelService()
+      await aimodelService.verifyOwnership(aimodelId, user.id)
+    }
     updateData.aimodelId = aimodelId || null
   }
 

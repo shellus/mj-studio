@@ -1,7 +1,6 @@
 // POST /api/conversations/[id]/generate-title - AI 智能生成对话标题
 import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
-import { useUpstreamService } from '../../../services/upstream'
 import { useAimodelService } from '../../../services/aimodel'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { getChatProvider } from '../../../services/chatProviders'
@@ -56,14 +55,6 @@ export default defineEventHandler(async (event) => {
 
   if (!aimodel) {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
-  }
-
-  // 获取上游配置
-  const upstreamService = useUpstreamService()
-  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
-
-  if (!upstream) {
-    throw createError({ statusCode: 404, message: '上游配置不存在' })
   }
 
   // 获取用户设置

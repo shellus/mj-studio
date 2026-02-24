@@ -10,7 +10,6 @@
 import { requireApiKeyAuth } from '../../utils/jwt'
 import { useAssistantService } from '../../services/assistant'
 import { useAimodelService } from '../../services/aimodel'
-import { useUpstreamService } from '../../services/upstream'
 import { useConversationService } from '../../services/conversation'
 import { getChatProvider } from '../../services/chatProviders'
 import type { ChatApiFormat } from '../../services/chatProviders'
@@ -52,6 +51,9 @@ export default defineEventHandler(async (event) => {
       return { status: 'error', error: '助手不存在' }
     }
 
+    const aimodelService = useAimodelService()
+    const conversationService = useConversationService()
+
     // 确定使用的模型 ID：优先使用一次性 aimodelId，否则用助手默认
     const effectiveAimodelId = aimodelId || assistant.aimodelId
     if (!effectiveAimodelId) {
@@ -59,22 +61,16 @@ export default defineEventHandler(async (event) => {
       return { status: 'error', error: '助手未配置模型，且未指定 aimodelId' }
     }
 
-    const aimodelService = useAimodelService()
-    const upstreamService = useUpstreamService()
-    const conversationService = useConversationService()
+    // 校验 aimodelId 所有权（仅当请求体显式传入时，助手默认的已在配置时校验）
+    if (aimodelId) {
+      await aimodelService.verifyOwnership(aimodelId, user.id)
+    }
 
     // 获取模型信息
     const aimodel = await aimodelService.getByIdWithUpstream(effectiveAimodelId)
     if (!aimodel) {
       setResponseStatus(event, 400)
       return { status: 'error', error: '模型配置无效' }
-    }
-
-    // 验证上游配置
-    const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
-    if (!upstream) {
-      setResponseStatus(event, 400)
-      return { status: 'error', error: '上游配置无效' }
     }
 
     // 对话管理

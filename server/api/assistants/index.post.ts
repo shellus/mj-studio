@@ -1,5 +1,6 @@
 // POST /api/assistants - 创建助手
 import { useAssistantService } from '../../services/assistant'
+import { useAimodelService } from '../../services/aimodel'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -10,6 +11,12 @@ export default defineEventHandler(async (event) => {
   // 验证必填字段
   if (!name?.trim()) {
     throw createError({ statusCode: 400, message: '请输入助手名称' })
+  }
+
+  // 校验 aimodelId 所有权
+  if (aimodelId) {
+    const aimodelService = useAimodelService()
+    await aimodelService.verifyOwnership(aimodelId, user.id)
   }
 
   const service = useAssistantService()
