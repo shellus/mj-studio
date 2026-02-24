@@ -176,7 +176,7 @@ export default defineEventHandler(async (event) => {
       setResponseStatus(event, 500)
       return { status: 'error', error: `不支持的聊天 API 格式: ${apiFormat}` }
     }
-    const chatService = await chatProvider.createService(upstream, aimodel.keyName)
+    const chatService = await chatProvider.createService(aimodel)
 
     const response = await chatService.chat(
       aimodel.modelName,

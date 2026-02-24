@@ -5,7 +5,7 @@
  * 端点: POST /v1/chat/completions
  */
 
-import type { Upstream, Message, MessageFile } from '../../database/schema'
+import type { Aimodel, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
 import { readFileAsBase64, readFileAsText, isNativeImageMimeType } from '../file'
@@ -105,8 +105,8 @@ export const openaiChatProvider: ChatProvider = {
   apiFormat: 'openai-chat',
   label: 'OpenAI Chat',
 
-  async createService(upstream: Upstream, keyName?: string): Promise<ChatService> {
-    const { apiKey, fetchFn } = await resolveUpstreamConnection(upstream, keyName)
+  async createService(aimodel: Aimodel): Promise<ChatService> {
+    const { apiKey, fetchFn, baseUrl, upstreamName } = await resolveUpstreamConnection(aimodel)
 
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
@@ -194,12 +194,12 @@ export const openaiChatProvider: ChatProvider = {
         signal?: AbortSignal,
         logContext?: LogContext
       ): Promise<ChatResult> {
-        const url = `${upstream.baseUrl}/v1/chat/completions`
+        const url = `${baseUrl}/v1/chat/completions`
         const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
         const startTime = Date.now()
 
         if (logContext) {
-          const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
+          const ctx = { ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
           const currentSize = calcSize(userMessage)
@@ -236,7 +236,7 @@ export const openaiChatProvider: ChatProvider = {
             const errorData = await response.json().catch(() => ({}))
             const errorMsg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
             if (logContext) {
-              logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
+              logError({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, errorMsg)
             }
             return { success: false, error: errorMsg }
           }
@@ -246,7 +246,7 @@ export const openaiChatProvider: ChatProvider = {
           const durationMs = Date.now() - startTime
 
           if (logContext) {
-            logResponse({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(content), durationMs)
+            logResponse({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, calcSize(content), durationMs)
           }
 
           return { success: true, content }
@@ -256,7 +256,7 @@ export const openaiChatProvider: ChatProvider = {
           }
           const errorMsg = getErrorMessage(error)
           if (logContext) {
-            logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
+            logError({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, errorMsg)
           }
           return { success: false, error: errorMsg }
         }
@@ -276,7 +276,7 @@ export const openaiChatProvider: ChatProvider = {
         _enableWebSearch?: boolean,
         tools?: ChatTool[]
       ): AsyncGenerator<ChatStreamChunk> {
-        const url = `${upstream.baseUrl}/v1/chat/completions`
+        const url = `${baseUrl}/v1/chat/completions`
         const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
         const startTime = Date.now()
 
@@ -321,7 +321,7 @@ export const openaiChatProvider: ChatProvider = {
         }
 
         if (logContext) {
-          const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
+          const ctx = { ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }
           const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
           const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
           const currentSize = userMessage ? calcSize(userMessage) : 0
@@ -375,7 +375,7 @@ export const openaiChatProvider: ChatProvider = {
             }
 
             if (logContext) {
-              logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMessage)
+              logError({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, errorMessage)
             }
             throw new Error(errorMessage)
           }
@@ -415,7 +415,7 @@ export const openaiChatProvider: ChatProvider = {
                 }
 
                 if (logContext) {
-                  logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
+                  logComplete({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, calcSize(totalContent), durationMs)
                 }
                 yield { content: '', done: true }
                 return
@@ -516,7 +516,7 @@ export const openaiChatProvider: ChatProvider = {
           }
 
           if (logContext) {
-            logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
+            logComplete({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, calcSize(totalContent), durationMs)
           }
           yield { content: '', done: true }
         } catch (error: unknown) {
@@ -539,7 +539,7 @@ export const openaiChatProvider: ChatProvider = {
           }
 
           if (logContext) {
-            logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
+            logError({ ...logContext, configName: upstreamName, baseUrl, modelName, keyName: aimodel.keyName }, errorMsg)
           }
           throw error
         }

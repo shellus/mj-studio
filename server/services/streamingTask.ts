@@ -4,7 +4,6 @@
 
 import { useConversationService } from './conversation'
 import { useAssistantService } from './assistant'
-import { useUpstreamService } from './upstream'
 import { useAimodelService } from './aimodel'
 import { getChatProvider } from './chatProviders'
 import type { ChatApiFormat, ChatTool } from './chatProviders'
@@ -60,7 +59,6 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
   const conversationService = useConversationService()
   const assistantService = useAssistantService()
-  const upstreamService = useUpstreamService()
   const aimodelService = useAimodelService()
 
   // 创建 AbortController 用于中止
@@ -93,11 +91,6 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     const aimodel = await aimodelService.getById(assistant.aimodelId)
     if (!aimodel) {
       throw new Error('模型配置不存在')
-    }
-
-    const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
-    if (!upstream) {
-      throw new Error('上游配置不存在')
     }
 
     // 从对话配置读取开关，结合模型能力判断最终状态
@@ -166,23 +159,20 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     await conversationService.updateMessageStatus(messageId, 'pending')
     updateSessionStatus(messageId, 'pending')
 
-    // 使用 aimodel 中的 apiFormat 和 keyName
     const apiFormat = aimodel.apiFormat as ChatApiFormat
-    const keyName = aimodel.keyName
 
     // 根据 apiFormat 获取对应的 ChatProvider
     const chatProvider = getChatProvider(apiFormat)
     if (!chatProvider) {
       throw new Error(`不支持的聊天 API 格式: ${apiFormat}`)
     }
-    const chatService = await chatProvider.createService(upstream, keyName)
+    const chatService = await chatProvider.createService(aimodel)
 
     // 构建日志上下文
     const logContext: LogContext = {
       type: isCompressRequest ? '压缩' : '聊天',
       conversationId,
       conversationTitle: result.conversation.title,
-      keyName,
     }
 
     // 发起流式请求

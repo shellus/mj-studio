@@ -13,7 +13,7 @@
 import type { SyncProvider, SyncResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { classifyFetchError, extractFetchErrorInfo, ERROR_MESSAGES } from '../errorClassifier'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import { resolveUpstreamConnection } from '../providerConnection'
 
 interface DalleResponse {
@@ -82,8 +82,8 @@ export const dalleProvider: SyncProvider = {
     },
   },
 
-  async createService(upstream: Upstream, keyName?: string) {
-    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
+  async createService(aimodel: Aimodel) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(aimodel)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

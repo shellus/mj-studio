@@ -65,9 +65,9 @@ export default defineEventHandler(async (event) => {
   // 执行测试
   let result
   if (aimodel.category === 'chat') {
-    result = await testChatModel(upstream, aimodel, body.prompt, timeout, body.keywords)
+    result = await testChatModel(aimodel, body.prompt, timeout, body.keywords)
   } else {
-    result = await testMediaModel(upstream, aimodel, body.prompt, timeout)
+    result = await testMediaModel(aimodel, body.prompt, timeout)
   }
 
   // 保存结果

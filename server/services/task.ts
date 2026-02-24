@@ -481,7 +481,7 @@ export function useTaskService() {
         return
       }
 
-      const service = await provider.createService(upstream, aimodel.keyName)
+      const service = await provider.createService(aimodel)
       // 如果 Provider 不支持图片 URL，需要下载远程 URL 转 base64
       const fetchRemoteUrls = !provider.meta.validation.supportsImageUrl
       const params: GenerateParams = {
@@ -508,7 +508,7 @@ export function useTaskService() {
         const syncService = service as SyncService
         const result = await syncService.generate(params)
 
-        await handleSyncResult(task, upstream, aimodel, result)
+        await handleSyncResult(task, aimodel, result)
       }
     } catch (error: unknown) {
       if (isAbortError(error)) {
@@ -526,7 +526,7 @@ export function useTaskService() {
   }
 
   // 处理同步API的结果
-  async function handleSyncResult(task: Task, upstream: Upstream, aimodel: Aimodel, result: { success: boolean; resourceUrl?: string; imageBase64?: string; mimeType?: string; error?: string }): Promise<void> {
+  async function handleSyncResult(task: Task, aimodel: Aimodel, result: { success: boolean; resourceUrl?: string; imageBase64?: string; mimeType?: string; error?: string }): Promise<void> {
     if (!result.success) {
       await updateTask(task.id, {
         status: 'failed',
@@ -594,7 +594,7 @@ export function useTaskService() {
       return task
     }
 
-    const service = await provider.createService(upstream, aimodel.keyName) as AsyncService
+    const service = await provider.createService(aimodel) as AsyncService
     const logPrefix = `[Task] #${task.id}`
 
     try {
@@ -739,7 +739,7 @@ export function useTaskService() {
       return (await getTask(newTask.id))!
     }
 
-    const service = await provider.createService(upstream, aimodel.keyName) as MJService
+    const service = await provider.createService(aimodel) as MJService
 
     try {
       const result = await service.action(parentTask.upstreamTaskId, customId, newTask.id)

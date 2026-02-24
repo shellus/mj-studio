@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { openaiResponseProvider } from '../openaiResponse'
 import { mockHistoryMessages, mockUserMessage, mockUserFiles, mockAssistantMessageWithTools, mockToolCalls } from '../../../../tests/fixtures/mock-data'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import * as fileUtils from '../../file'
 
 // Mock dependencies
@@ -37,22 +37,14 @@ vi.mock('../../utils/httpLogger', () => ({
 }))
 
 describe('OpenAI Response Provider', () => {
-  const mockUpstream: Upstream = {
-    id: 1,
-    userId: 1,
-    name: 'Test OpenAI Response',
-    baseUrl: 'https://api.openai.com',
-    apiKeys: [{ name: 'default', key: 'sk-test' }],
-    upstreamPlatform: null,
-    userApiKey: null,
-    upstreamInfo: null,
-    remark: null,
-    sortOrder: 0,
-    disabled: false,
-    createdAt: new Date(),
-    deletedAt: null,
-    proxyId: null,
-  }
+  const mockAimodel = {
+    id: 1, upstreamId: 1, category: 'chat' as const,
+    modelType: 'openai' as const, apiFormat: 'openai-chat' as const,
+    modelName: 'gpt-4', name: 'Test Model',
+    capabilities: null, estimatedTime: 60,
+    keyName: 'default', sortOrder: 0,
+    createdAt: new Date(), deletedAt: null,
+  } as Aimodel
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -66,7 +58,7 @@ describe('OpenAI Response Provider', () => {
 
   describe('buildRequestBody (via chat method)', () => {
     it('should build request body correctly with text only', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -99,7 +91,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should build request body with images', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -124,7 +116,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should handle assistant messages with tool calls', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -168,7 +160,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should not include instructions field when system prompt is null', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -187,7 +179,7 @@ describe('OpenAI Response Provider', () => {
 
   describe('buildRequestBody with web search (via chatStream)', () => {
     it('should include web_search_preview tool when enabled', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -212,7 +204,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should include MCP tools when provided', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -267,7 +259,7 @@ describe('OpenAI Response Provider', () => {
     }
 
     it('should parse text deltas', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.output_text.delta","delta":"Hello"}\n\n',
@@ -288,7 +280,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should parse reasoning/thinking deltas', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.reasoning_summary_text.delta","delta":"Thinking step 1..."}\n\n',
@@ -310,7 +302,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should parse function call arguments done event', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.function_call_arguments.done","call_id":"call_abc","name":"get_weather","arguments":"{\\"location\\":\\"London\\"}"}\n\n',
@@ -330,7 +322,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should parse function call from output_item.done event', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.output_item.done","item":{"type":"function_call","call_id":"call_xyz","name":"search","arguments":"{\\"query\\":\\"test\\"}"}}\n\n',
@@ -350,7 +342,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should parse web search events', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.web_search_call.in_progress"}\n\n',
@@ -374,7 +366,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should handle response.completed with tool_use stop reason', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"type":"response.function_call_arguments.done","call_id":"call_1","name":"test_tool","arguments":"{}"}\n\n',
@@ -392,7 +384,7 @@ describe('OpenAI Response Provider', () => {
     })
 
     it('should handle HTTP errors', async () => {
-      const service = await openaiResponseProvider.createService(mockUpstream)
+      const service = await openaiResponseProvider.createService(mockAimodel)
 
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,

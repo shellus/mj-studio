@@ -4,7 +4,7 @@
  * 统一对话服务的接口，支持同步和流式两种模式。
  */
 
-import type { Upstream, Message, MessageFile } from '../../database/schema'
+import type { Aimodel, Message, MessageFile } from '../../database/schema'
 import type { LogContext } from '../../utils/logger'
 
 /** Chat API 格式类型 */
@@ -88,5 +88,5 @@ export interface ChatService {
 export interface ChatProvider {
   readonly apiFormat: ChatApiFormat
   readonly label: string
-  createService(upstream: Upstream, keyName?: string): Promise<ChatService>
+  createService(aimodel: Aimodel): Promise<ChatService>
 }

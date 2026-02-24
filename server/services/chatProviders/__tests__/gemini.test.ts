@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { geminiProvider } from '../gemini'
 import { mockHistoryMessages, mockUserMessage, mockUserFiles, mockAssistantMessageWithTools, mockToolCalls } from '../../../../tests/fixtures/mock-data'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import * as fileUtils from '../../file'
 
 // Mock dependencies
@@ -36,22 +36,14 @@ vi.mock('../../utils/httpLogger', () => ({
 }))
 
 describe('Gemini Provider', () => {
-  const mockUpstream: Upstream = {
-    id: 1,
-    userId: 1,
-    name: 'Test Gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com',
-    apiKeys: [{ name: 'default', key: 'AIzaSyTest' }],
-    upstreamPlatform: null,
-    userApiKey: null,
-    upstreamInfo: null,
-    remark: null,
-    sortOrder: 0,
-    disabled: false,
-    createdAt: new Date(),
-    deletedAt: null,
-    proxyId: null,
-  }
+  const mockAimodel = {
+    id: 1, upstreamId: 1, category: 'chat' as const,
+    modelType: 'openai' as const, apiFormat: 'openai-chat' as const,
+    modelName: 'gpt-4', name: 'Test Model',
+    capabilities: null, estimatedTime: 60,
+    keyName: 'default', sortOrder: 0,
+    createdAt: new Date(), deletedAt: null,
+  } as Aimodel
 
 
   beforeEach(() => {
@@ -66,7 +58,7 @@ describe('Gemini Provider', () => {
 
   describe('buildMessages', () => {
     it('should build messages correctly with text only', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -89,7 +81,7 @@ describe('Gemini Provider', () => {
     })
 
     it('should build messages with images', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -112,7 +104,7 @@ describe('Gemini Provider', () => {
     })
 
     it('should handle assistant messages with tool calls', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -163,7 +155,7 @@ describe('Gemini Provider', () => {
     }
 
     it('should parse text deltas', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       // Gemini streaming response structure
       const sseData = [
@@ -185,7 +177,7 @@ describe('Gemini Provider', () => {
     })
 
     it('should parse function calls', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       const sseData = [
         'data: ' + JSON.stringify({
@@ -215,7 +207,7 @@ describe('Gemini Provider', () => {
     })
 
     it('should parse thinking content (Gemini 2.0)', async () => {
-      const service = await geminiProvider.createService(mockUpstream)
+      const service = await geminiProvider.createService(mockAimodel)
 
       const sseData = [
         'data: ' + JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Thinking...', thought: true }] } }] }) + '\n\n',

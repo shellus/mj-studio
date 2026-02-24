@@ -12,7 +12,7 @@
 import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams } from './types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import { resolveUpstreamConnection } from '../providerConnection'
 
 interface KoukoutuCreateResponse {
@@ -46,8 +46,8 @@ export const koukoutuProvider: AsyncProvider = {
     },
   },
 
-  async createService(upstream: Upstream, keyName?: string) {
-    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
+  async createService(aimodel: Aimodel) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(aimodel)
     return {
       async submit(params: GenerateParams): Promise<AsyncSubmitResult> {
         const { taskId, images, modelName } = params

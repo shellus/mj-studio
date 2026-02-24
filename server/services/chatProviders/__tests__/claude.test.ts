@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { claudeProvider } from '../claude'
 import { mockHistoryMessages, mockUserMessage, mockUserFiles, mockAssistantMessageWithTools, mockToolCalls } from '../../../../tests/fixtures/mock-data'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import * as fileUtils from '../../file'
 
 // Mock dependencies
@@ -36,22 +36,14 @@ vi.mock('../../utils/httpLogger', () => ({
 }))
 
 describe('Claude Provider', () => {
-  const mockUpstream: Upstream = {
-    id: 1,
-    userId: 1,
-    name: 'Test Claude',
-    baseUrl: 'https://api.anthropic.com',
-    apiKeys: [{ name: 'default', key: 'sk-ant-test' }],
-    upstreamPlatform: null,
-    userApiKey: null,
-    upstreamInfo: null,
-    remark: null,
-    sortOrder: 0,
-    disabled: false,
-    createdAt: new Date(),
-    deletedAt: null,
-    proxyId: null,
-  }
+  const mockAimodel = {
+    id: 1, upstreamId: 1, category: 'chat' as const,
+    modelType: 'openai' as const, apiFormat: 'openai-chat' as const,
+    modelName: 'gpt-4', name: 'Test Model',
+    capabilities: null, estimatedTime: 60,
+    keyName: 'default', sortOrder: 0,
+    createdAt: new Date(), deletedAt: null,
+  } as Aimodel
 
 
   beforeEach(() => {
@@ -68,7 +60,7 @@ describe('Claude Provider', () => {
 
   describe('buildMessages', () => {
     it('should build messages correctly with text only', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       // Mock fetch to capture the request body
       const fetchMock = vi.fn().mockResolvedValue({
@@ -92,7 +84,7 @@ describe('Claude Provider', () => {
     })
 
     it('should build messages with images', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -119,7 +111,7 @@ describe('Claude Provider', () => {
     })
 
     it('should handle assistant messages with tool calls', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -187,7 +179,7 @@ describe('Claude Provider', () => {
     }
 
     it('should parse text deltas', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       const sseData = [
         'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","role":"assistant"}}\n\n',
@@ -217,7 +209,7 @@ describe('Claude Provider', () => {
     })
 
     it('should parse tool use', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       const sseData = [
         'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","role":"assistant"}}\n\n',
@@ -244,7 +236,7 @@ describe('Claude Provider', () => {
     })
 
     it('should parse thinking blocks', async () => {
-      const service = await claudeProvider.createService(mockUpstream)
+      const service = await claudeProvider.createService(mockAimodel)
 
       const sseData = [
         'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}\n\n',

@@ -3,7 +3,7 @@
  *
  * 复用现有 providers 实现绘图和视频模型测试
  */
-import type { Upstream, Aimodel } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import { getProvider, isAsyncProvider, isSyncProvider, type ApiFormat } from '../providers'
 import type { TestExecuteResult } from './index'
 
@@ -11,7 +11,6 @@ import type { TestExecuteResult } from './index'
  * 测试同步绘图模型（DALL-E、Gemini 等）
  */
 export async function testSyncImageModel(
-  upstream: Upstream,
   aimodel: Aimodel,
   prompt: string,
   timeout: number
@@ -37,7 +36,7 @@ export async function testSyncImageModel(
     }
 
     // 创建服务实例
-    const service = await provider.createService(upstream, aimodel.keyName)
+    const service = await provider.createService(aimodel)
 
     // 创建超时控制
     const controller = new AbortController()
@@ -98,7 +97,6 @@ export async function testSyncImageModel(
  * 提交任务后轮询直到完成或超时
  */
 export async function testAsyncModel(
-  upstream: Upstream,
   aimodel: Aimodel,
   prompt: string,
   timeout: number
@@ -124,7 +122,7 @@ export async function testAsyncModel(
     }
 
     // 创建服务实例
-    const service = await provider.createService(upstream, aimodel.keyName)
+    const service = await provider.createService(aimodel)
     const submitResult = await service.submit({
       taskId: 0,
       prompt,
@@ -182,7 +180,6 @@ export async function testAsyncModel(
  * 测试绘图/视频模型（自动判断同步/异步）
  */
 export async function testMediaModel(
-  upstream: Upstream,
   aimodel: Aimodel,
   prompt: string,
   timeout: number
@@ -198,8 +195,8 @@ export async function testMediaModel(
   }
 
   if (isAsyncProvider(provider)) {
-    return testAsyncModel(upstream, aimodel, prompt, timeout)
+    return testAsyncModel(aimodel, prompt, timeout)
   } else {
-    return testSyncImageModel(upstream, aimodel, prompt, timeout)
+    return testSyncImageModel(aimodel, prompt, timeout)
   }
 }

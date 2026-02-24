@@ -12,7 +12,7 @@ import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams
 import type { VideoModelParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import { resolveUpstreamConnection } from '../providerConnection'
 
 interface VideoCreateResponse {
@@ -87,8 +87,8 @@ export const videoUnifiedProvider: AsyncProvider = {
     },
   },
 
-  async createService(upstream: Upstream, keyName?: string) {
-    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(upstream, keyName)
+  async createService(aimodel: Aimodel) {
+    const { apiKey, fetchFn, baseUrl } = await resolveUpstreamConnection(aimodel)
     const headers = {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',

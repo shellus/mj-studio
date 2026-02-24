@@ -97,9 +97,7 @@ export default defineEventHandler(async (event) => {
   const contextContent = contextMessages.join('\n\n')
   const prompt = titlePrompt.replace('{context}', contextContent)
 
-  // 使用 aimodel 中的 apiFormat 和 keyName
   const apiFormat = aimodel.apiFormat as ChatApiFormat
-  const keyName = aimodel.keyName
 
   // 获取 ChatProvider
   const chatProvider = getChatProvider(apiFormat)
@@ -109,14 +107,13 @@ export default defineEventHandler(async (event) => {
       message: `不支持的聊天 API 格式: ${apiFormat}`,
     })
   }
-  const chatService = await chatProvider.createService(upstream, keyName)
+  const chatService = await chatProvider.createService(aimodel)
 
   // 构建日志上下文
   const logContext: LogContext = {
     type: '标题',
     conversationId,
     conversationTitle: result.conversation.title,
-    keyName,
   }
 
   const startTime = Date.now()

@@ -7,7 +7,7 @@ import { conversations, messages, assistants } from '../../../database/schema'
 import { useConversationService } from '../../conversation'
 import { useAssistantService } from '../../assistant'
 import { useAimodelService } from '../../aimodel'
-import { useUpstreamService } from '../../upstream'
+
 import { getChatProvider } from '../../chatProviders'
 import type { ChatApiFormat } from '../../chatProviders'
 import { startStreamingTask } from '../../streamingTask'
@@ -43,22 +43,12 @@ export async function chat(
 
   const conversationService = useConversationService()
   const aimodelService = useAimodelService()
-  const upstreamService = useUpstreamService()
 
   // 获取模型信息
   const aimodel = await aimodelService.getByIdWithUpstream(assistant.aimodelId)
   if (!aimodel) {
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ error: '模型配置无效' }) }],
-      isError: true,
-    }
-  }
-
-  // 获取上游配置
-  const upstream = await upstreamService.getByIdSimple(aimodel.upstreamId)
-  if (!upstream) {
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ error: '上游配置无效' }) }],
       isError: true,
     }
   }
@@ -169,7 +159,7 @@ export async function chat(
       isError: true,
     }
   }
-  const chatService = await chatProvider.createService(upstream, aimodel.keyName)
+  const chatService = await chatProvider.createService(aimodel)
 
   try {
     const response = await chatService.chat(

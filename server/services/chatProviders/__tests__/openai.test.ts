@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { openaiChatProvider } from '../openaiChat'
 import { mockHistoryMessages, mockUserMessage, mockUserFiles, mockAssistantMessageWithTools, mockToolCalls } from '../../../../tests/fixtures/mock-data'
-import type { Upstream } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import * as fileUtils from '../../file'
 
 // Mock dependencies
@@ -36,22 +36,14 @@ vi.mock('../../utils/httpLogger', () => ({
 }))
 
 describe('OpenAI Chat Provider', () => {
-  const mockUpstream: Upstream = {
-    id: 1,
-    userId: 1,
-    name: 'Test OpenAI',
-    baseUrl: 'https://api.openai.com',
-    apiKeys: [{ name: 'default', key: 'sk-test' }],
-    upstreamPlatform: null,
-    userApiKey: null,
-    upstreamInfo: null,
-    remark: null,
-    sortOrder: 0,
-    disabled: false,
-    createdAt: new Date(),
-    deletedAt: null,
-    proxyId: null,
-  }
+  const mockAimodel = {
+    id: 1, upstreamId: 1, category: 'chat' as const,
+    modelType: 'openai' as const, apiFormat: 'openai-chat' as const,
+    modelName: 'gpt-4', name: 'Test Model',
+    capabilities: null, estimatedTime: 60,
+    keyName: 'default', sortOrder: 0,
+    createdAt: new Date(), deletedAt: null,
+  } as Aimodel
 
 
   beforeEach(() => {
@@ -66,7 +58,7 @@ describe('OpenAI Chat Provider', () => {
 
   describe('buildMessages', () => {
     it('should build messages correctly with text only', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -87,7 +79,7 @@ describe('OpenAI Chat Provider', () => {
     })
 
     it('should build messages with images', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -111,7 +103,7 @@ describe('OpenAI Chat Provider', () => {
     })
 
     it('should handle assistant messages with tool calls', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -163,7 +155,7 @@ describe('OpenAI Chat Provider', () => {
     }
 
     it('should parse text deltas', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
@@ -185,7 +177,7 @@ describe('OpenAI Chat Provider', () => {
     })
 
     it('should parse tool calls', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       // Split tool call into multiple chunks to test accumulation
       const sseData = [
@@ -211,7 +203,7 @@ describe('OpenAI Chat Provider', () => {
     })
 
     it('should parse reasoning content (o1 model)', async () => {
-      const service = await openaiChatProvider.createService(mockUpstream)
+      const service = await openaiChatProvider.createService(mockAimodel)
 
       const sseData = [
         'data: {"choices":[{"delta":{"reasoning_content":"Thinking..."}}]}\n\n',

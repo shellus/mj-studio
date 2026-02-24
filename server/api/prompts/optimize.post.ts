@@ -67,8 +67,6 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // 使用 aimodel 中的 keyName 和 modelName
-    const keyName = aimodel.keyName
     const modelName = aimodel.modelName
     const apiFormat = aimodel.apiFormat as ChatApiFormat
 
@@ -81,7 +79,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const chatService = await chatProvider.createService(upstream, keyName)
+    const chatService = await chatProvider.createService(aimodel)
     // 获取用户配置的提示词模板
     const optimizePromptTemplate = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_OPTIMIZE)
     // 替换占位符

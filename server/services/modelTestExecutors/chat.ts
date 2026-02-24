@@ -3,7 +3,7 @@
  *
  * 复用现有 chatProviders 实现对话模型测试
  */
-import type { Upstream, Aimodel } from '../../database/schema'
+import type { Aimodel } from '../../database/schema'
 import { getChatProvider, type ChatApiFormat } from '../chatProviders'
 import type { TestExecuteResult } from './index'
 
@@ -11,7 +11,6 @@ import type { TestExecuteResult } from './index'
  * 测试对话模型
  */
 export async function testChatModel(
-  upstream: Upstream,
   aimodel: Aimodel,
   prompt: string,
   timeout: number,
@@ -31,7 +30,7 @@ export async function testChatModel(
     }
 
     // 创建服务实例
-    const service = await provider.createService(upstream, aimodel.keyName)
+    const service = await provider.createService(aimodel)
 
     // 创建超时控制
     const controller = new AbortController()

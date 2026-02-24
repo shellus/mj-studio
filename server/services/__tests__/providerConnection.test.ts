@@ -26,16 +26,26 @@ describe('resolveUpstreamConnection', () => {
     createdAt: new Date(), deletedAt: null,
   }
 
+  const mockAimodel = {
+    id: 1, upstreamId: 1, category: 'chat' as const,
+    modelType: 'openai' as const, apiFormat: 'openai-chat' as const,
+    modelName: 'gpt-4', name: 'GPT-4',
+    capabilities: null, estimatedTime: 60,
+    keyName: 'default', sortOrder: 0,
+    createdAt: new Date(), deletedAt: null,
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(upstreamService.useUpstreamService).mockReturnValue({
       getApiKey: vi.fn().mockReturnValue('sk-test'),
+      getByIdSimple: vi.fn().mockResolvedValue(mockUpstream),
     } as any)
     vi.mocked(proxyService.getUpstreamProxyUrl).mockResolvedValue(undefined)
   })
 
   it('should return apiKey, fetchFn, and baseUrl', async () => {
-    const result = await resolveUpstreamConnection(mockUpstream)
+    const result = await resolveUpstreamConnection(mockAimodel)
     expect(result.apiKey).toBe('sk-test')
     expect(result.baseUrl).toBe('https://api.example.com')
     expect(result.fetchFn).toBeDefined()
@@ -43,16 +53,19 @@ describe('resolveUpstreamConnection', () => {
 
   it('should pass keyName to getApiKey', async () => {
     const getApiKey = vi.fn().mockReturnValue('sk-custom')
-    vi.mocked(upstreamService.useUpstreamService).mockReturnValue({ getApiKey } as any)
+    vi.mocked(upstreamService.useUpstreamService).mockReturnValue({
+      getApiKey,
+      getByIdSimple: vi.fn().mockResolvedValue(mockUpstream),
+    } as any)
 
-    const result = await resolveUpstreamConnection(mockUpstream, 'custom')
+    const result = await resolveUpstreamConnection({ ...mockAimodel, keyName: 'custom' })
     expect(getApiKey).toHaveBeenCalledWith(mockUpstream, 'custom')
     expect(result.apiKey).toBe('sk-custom')
   })
 
   it('should resolve proxy URL', async () => {
     vi.mocked(proxyService.getUpstreamProxyUrl).mockResolvedValue('http://proxy:8080')
-    const result = await resolveUpstreamConnection(mockUpstream)
+    const result = await resolveUpstreamConnection(mockAimodel)
     expect(proxyService.getUpstreamProxyUrl).toHaveBeenCalledWith(mockUpstream)
     expect(result.fetchFn).toBeDefined()
   })

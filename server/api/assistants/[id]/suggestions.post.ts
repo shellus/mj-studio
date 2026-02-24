@@ -82,9 +82,7 @@ export default defineEventHandler(async (event) => {
   // 替换占位符
   const prompt = suggestionsPrompt.replace('{time}', timeStr)
 
-  // 使用 aimodel 中的 apiFormat 和 keyName
   const apiFormat = aimodel.apiFormat as ChatApiFormat
-  const keyName = aimodel.keyName
 
   // 获取 ChatProvider
   const chatProvider = getChatProvider(apiFormat)
@@ -92,13 +90,12 @@ export default defineEventHandler(async (event) => {
     // 不支持的格式，返回空
     return { suggestions: [] }
   }
-  const chatService = await chatProvider.createService(upstream, keyName)
+  const chatService = await chatProvider.createService(aimodel)
 
   const logContext: LogContext = {
     type: '开场白',
     assistantId,
     assistantName: assistant.name,
-    keyName,
   }
 
   try {
