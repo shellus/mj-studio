@@ -80,7 +80,7 @@ export const videoUnifiedProvider: AsyncProvider = {
       duration: true,
       orientation: true,
       enhancePrompt: true,
-      upsample: true,
+      enableUpsample: true,
     },
     validation: {
       supportsImageUrl: true,
@@ -108,7 +108,7 @@ export const videoUnifiedProvider: AsyncProvider = {
         if (p?.aspectRatio) body.aspect_ratio = p.aspectRatio
         if (p?.size) body.size = p.size
         if (p?.enhancePrompt !== undefined) body.enhance_prompt = p.enhancePrompt
-        if (p?.upsample !== undefined) body.enable_upsample = p.upsample
+        if (p?.enableUpsample !== undefined) body.enable_upsample = p.enableUpsample
         if (images && images.length > 0) body.images = images
         if (p?.orientation) body.orientation = p.orientation
         if (p?.duration) body.duration = p.duration

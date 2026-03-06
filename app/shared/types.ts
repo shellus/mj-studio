@@ -339,7 +339,7 @@ export interface VideoModelParams {
   aspectRatio?: string
   size?: string
   enhancePrompt?: boolean
-  upsample?: boolean
+  enableUpsample?: boolean
   orientation?: 'portrait' | 'landscape'
   duration?: number
   watermark?: boolean

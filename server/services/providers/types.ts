@@ -30,7 +30,7 @@ export interface ModelCapabilities {
   duration?: boolean          // 支持时长
   orientation?: boolean       // 支持方向
   enhancePrompt?: boolean     // 支持提示词增强
-  upsample?: boolean          // 支持超分
+  enableUpsample?: boolean    // 支持超分
 }
 
 /** 验证规则 */

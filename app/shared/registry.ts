@@ -33,7 +33,7 @@ export interface ModelCapabilities {
   duration?: boolean
   orientation?: boolean
   enhancePrompt?: boolean
-  upsample?: boolean
+  enableUpsample?: boolean
 }
 
 export interface ModelTypeMeta {

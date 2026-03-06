@@ -22,7 +22,7 @@ export interface ModelCapabilities {
   duration?: boolean
   orientation?: boolean
   enhancePrompt?: boolean
-  upsample?: boolean
+  enableUpsample?: boolean
 }
 
 /** 模型类型元数据 */
