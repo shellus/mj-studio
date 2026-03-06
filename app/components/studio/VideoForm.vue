@@ -32,6 +32,12 @@ const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedAimodelId = ref<number | null>(null)
 
+// Veo 图片模式
+const veoImageMode = ref<'reference' | 'frames'>('reference')
+// 首尾帧：首帧（必填）和尾帧（可选）
+const veoFirstFrame = ref<string | null>(null)
+const veoLastFrame = ref<string | null>(null)
+
 // 从 selectedAimodelId 计算 selectedUpstreamId
 const selectedUpstreamId = computed(() => {
   if (!selectedAimodelId.value) return null
@@ -147,6 +153,27 @@ const showModelInfoModal = ref(false)
 // 上传中状态
 const isUploading = ref(false)
 
+// 处理图片上传（通用）
+async function uploadImage(file: File): Promise<string | null> {
+  if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
+    toast.add({ title: '图片大小不能超过10MB', color: 'error' })
+    return null
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    const result = await $fetch<{ success: boolean; url: string }>('/api/images/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    return result.success ? result.url : null
+  } catch (error: any) {
+    toast.add({ title: '图片上传失败', description: error.message, color: 'error' })
+    return null
+  }
+}
+
 // 处理图片上传
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -155,33 +182,49 @@ async function handleFileChange(event: Event) {
   const file = input.files[0]
   if (!file) return
 
-  if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
-    toast.add({ title: '图片大小不能超过10MB', color: 'error' })
-    input.value = ''
-    return
-  }
-
   // 上传到服务器
   isUploading.value = true
   try {
-    const formData = new FormData()
-    formData.append('file', file!)
-
-    const result = await $fetch<{ success: boolean; url: string }>('/api/images/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (result.success) {
-      referenceImages.value = [result.url]
+    const url = await uploadImage(file)
+    if (url) {
+      referenceImages.value = [url]
     }
-  } catch (error: any) {
-    toast.add({ title: '图片上传失败', description: error.message, color: 'error' })
   } finally {
     isUploading.value = false
+    input.value = ''
   }
+}
 
-  input.value = ''
+// 处理 Veo 首帧上传
+async function handleFirstFrameChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  const file = input.files[0]
+  if (!file) return
+  isUploading.value = true
+  try {
+    const url = await uploadImage(file)
+    if (url) veoFirstFrame.value = url
+  } finally {
+    isUploading.value = false
+    input.value = ''
+  }
+}
+
+// 处理 Veo 尾帧上传
+async function handleLastFrameChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  const file = input.files[0]
+  if (!file) return
+  isUploading.value = true
+  try {
+    const url = await uploadImage(file)
+    if (url) veoLastFrame.value = url
+  } finally {
+    isUploading.value = false
+    input.value = ''
+  }
 }
 
 // 移除参考图
@@ -201,10 +244,18 @@ async function handleSubmit() {
     return
   }
 
+  // Veo 首尾帧模式下首帧必填
+  if (isVeoModel.value && veoImageMode.value === 'frames' && !veoFirstFrame.value) {
+    toast.add({ title: '首尾帧模式需要上传首帧图片', color: 'warning' })
+    return
+  }
+
   isSubmitting.value = true
   try {
     // 根据模型类型构建 modelParams
     let modelParams: ModelParams = {}
+    // 根据模型类型决定 images
+    let submitImages: string[] = referenceImages.value
 
     if (isJimengModel.value) {
       modelParams = {
@@ -212,10 +263,18 @@ async function handleSubmit() {
         size: size.value,
       }
     } else if (isVeoModel.value) {
+      if (veoImageMode.value === 'frames') {
+        // 首尾帧模式：按顺序组装 images
+        const frames: string[] = []
+        if (veoFirstFrame.value) frames.push(veoFirstFrame.value)
+        if (veoLastFrame.value) frames.push(veoLastFrame.value)
+        submitImages = frames
+      }
       modelParams = {
         aspectRatio: veoAspectRatioOptions.some(o => o.value === aspectRatio.value) ? aspectRatio.value : '16:9',
         enhancePrompt: enhancePrompt.value,
         enableUpsample: enableUpsample.value,
+        imageMode: veoImageMode.value === 'frames' ? 'frames' : (submitImages.length > 0 ? 'reference' : undefined),
       }
     } else if (isSoraModel.value) {
       modelParams = {
@@ -234,7 +293,7 @@ async function handleSubmit() {
 
     emit('submit', {
       prompt: prompt.value,
-      images: referenceImages.value,
+      images: submitImages,
       aimodelId: selectedAimodelId.value!,
       modelType: selectedAimodel.value.modelType as VideoModelType,
       apiFormat: selectedAimodel.value.apiFormat,
@@ -249,7 +308,12 @@ async function handleSubmit() {
 // 设置面板内容（供外部调用）
 function setContent(newPrompt: string | null, images: string[]) {
   prompt.value = newPrompt || ''
-  referenceImages.value = images.slice(0, 1)
+  if (isVeoModel.value && veoImageMode.value === 'frames') {
+    veoFirstFrame.value = images[0] ?? null
+    veoLastFrame.value = images[1] ?? null
+  } else {
+    referenceImages.value = images.slice(0, 1)
+  }
 }
 
 // 暴露给父组件
@@ -307,45 +371,6 @@ defineExpose({
     <!-- 分隔线 -->
     <div class="border-t border-(--ui-border)" />
 
-    <!-- 参考图上传区 -->
-    <UFormField v-if="selectedAimodel" label="参考图 (可选)">
-      <template #hint>
-        <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，最大10MB</span>
-      </template>
-
-      <div class="flex gap-3 flex-wrap">
-        <!-- 已上传的图片 -->
-        <div
-          v-if="referenceImages.length > 0"
-          class="relative w-24 h-24 rounded-lg overflow-hidden group"
-        >
-          <img :src="referenceImages[0]" class="w-full h-full object-cover" />
-          <button
-            type="button"
-            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-            @click="removeImage"
-          >
-            <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
-          </button>
-        </div>
-
-        <!-- 上传按钮 -->
-        <label
-          v-if="referenceImages.length === 0"
-          class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
-        >
-          <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
-          <span class="text-(--ui-text-dimmed) text-xs">上传</span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg"
-            class="hidden"
-            @change="handleFileChange"
-          />
-        </label>
-      </div>
-    </UFormField>
-
     <!-- 提示词输入 -->
     <UFormField label="描述你想要的视频">
       <UTextarea
@@ -378,7 +403,7 @@ defineExpose({
       </UFormField>
     </template>
 
-    <!-- Veo：宽高比 + 提示词增强 + 超分 -->
+    <!-- Veo：宽高比 + 图片模式 + 提示词增强 + 超分 -->
     <template v-if="isVeoModel">
       <UFormField label="宽高比">
         <USelect
@@ -389,6 +414,120 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
+
+      <!-- 图片模式切换 -->
+      <UFormField label="图片模式">
+        <USelect
+          v-model="veoImageMode"
+          :items="[
+            { label: '参考图', value: 'reference' },
+            { label: '首尾帧', value: 'frames' },
+          ]"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+
+      <!-- 首尾帧上传区（frames 模式） -->
+      <template v-if="veoImageMode === 'frames'">
+        <UFormField label="首帧（必填）">
+          <template #hint>
+            <span class="text-(--ui-text-dimmed) text-xs">视频开始画面</span>
+          </template>
+          <div class="flex gap-3">
+            <div v-if="veoFirstFrame" class="relative w-24 h-24 rounded-lg overflow-hidden group">
+              <img :src="veoFirstFrame" class="w-full h-full object-cover" />
+              <button
+                type="button"
+                class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                @click="veoFirstFrame = null"
+              >
+                <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
+              </button>
+            </div>
+            <label
+              v-else
+              class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
+            >
+              <UIcon name="i-heroicons-photo" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
+              <span class="text-(--ui-text-dimmed) text-xs">首帧</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                class="hidden"
+                :disabled="isUploading"
+                @change="handleFirstFrameChange"
+              />
+            </label>
+          </div>
+        </UFormField>
+
+        <UFormField label="尾帧（可选）">
+          <template #hint>
+            <span class="text-(--ui-text-dimmed) text-xs">视频结束画面，仅部分模型支持</span>
+          </template>
+          <div class="flex gap-3">
+            <div v-if="veoLastFrame" class="relative w-24 h-24 rounded-lg overflow-hidden group">
+              <img :src="veoLastFrame" class="w-full h-full object-cover" />
+              <button
+                type="button"
+                class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                @click="veoLastFrame = null"
+              >
+                <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
+              </button>
+            </div>
+            <label
+              v-else
+              class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
+            >
+              <UIcon name="i-heroicons-photo" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
+              <span class="text-(--ui-text-dimmed) text-xs">尾帧</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                class="hidden"
+                :disabled="isUploading"
+                @change="handleLastFrameChange"
+              />
+            </label>
+          </div>
+        </UFormField>
+      </template>
+
+      <!-- 参考图上传（参考图模式） -->
+      <UFormField v-else-if="selectedAimodel" label="参考图 (可选)">
+        <template #hint>
+          <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，最大10MB</span>
+        </template>
+        <div class="flex gap-3 flex-wrap">
+          <div v-if="referenceImages.length > 0" class="relative w-24 h-24 rounded-lg overflow-hidden group">
+            <img :src="referenceImages[0]" class="w-full h-full object-cover" />
+            <button
+              type="button"
+              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              @click="removeImage"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
+            </button>
+          </div>
+          <label
+            v-else
+            class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
+          >
+            <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
+            <span class="text-(--ui-text-dimmed) text-xs">上传</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              class="hidden"
+              @change="handleFileChange"
+            />
+          </label>
+        </div>
+      </UFormField>
+
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <div class="flex flex-col">
@@ -469,6 +608,38 @@ defineExpose({
         <UInput value="720P" disabled class="w-full" />
       </UFormField>
     </template>
+
+    <!-- 非 Veo 模型的参考图上传区 -->
+    <UFormField v-if="selectedAimodel && !isVeoModel" label="参考图 (可选)">
+      <template #hint>
+        <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，最大10MB</span>
+      </template>
+      <div class="flex gap-3 flex-wrap">
+        <div v-if="referenceImages.length > 0" class="relative w-24 h-24 rounded-lg overflow-hidden group">
+          <img :src="referenceImages[0]" class="w-full h-full object-cover" />
+          <button
+            type="button"
+            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+            @click="removeImage"
+          >
+            <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
+          </button>
+        </div>
+        <label
+          v-else
+          class="w-24 h-24 rounded-lg border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer"
+        >
+          <UIcon name="i-heroicons-cloud-arrow-up" class="w-8 h-8 text-(--ui-text-dimmed) mb-1" />
+          <span class="text-(--ui-text-dimmed) text-xs">上传</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            class="hidden"
+            @change="handleFileChange"
+          />
+        </label>
+      </div>
+    </UFormField>
 
     <!-- 提交按钮 -->
     <UButton

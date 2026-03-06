@@ -9,7 +9,7 @@
  */
 
 import type { AsyncProvider, AsyncSubmitResult, AsyncQueryResult, GenerateParams } from './types'
-import type { VideoModelParams } from '../../../app/shared/types'
+import type { VideoModelParams, VeoVideoParams } from '../../../app/shared/types'
 import { logTaskRequest, logTaskResponse } from '../../utils/httpLogger'
 import { extractFetchErrorInfo } from '../errorClassifier'
 import type { Aimodel } from '../../database/schema'
@@ -113,6 +113,9 @@ export const videoUnifiedProvider: AsyncProvider = {
         if (p?.orientation) body.orientation = p.orientation
         if (p?.duration) body.duration = p.duration
         if (p?.watermark !== undefined) body.watermark = p.watermark
+        // Veo 图片模式（reference / frames / components）
+        const veoP = p as VeoVideoParams | undefined
+        if (veoP?.imageMode) body.image_mode = veoP.imageMode
 
         const startTime = Date.now()
         logTaskRequest(taskId, { url, method: 'POST', headers, body })
