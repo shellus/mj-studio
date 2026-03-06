@@ -60,7 +60,7 @@ export const IMAGE_MODEL_REGISTRY: ModelTypeMeta[] = [
     icon: 'i-heroicons-cpu-chip',
     cardDisplay: { label: 'Gemini', color: 'bg-blue-500/80' },
     defaults: { modelName: 'gemini-2.5-flash-image', estimatedTime: 15 },
-    capabilities: { referenceImage: true },
+    capabilities: { referenceImage: true, aspectRatio: true, size: true },
   },
   {
     type: 'flux',
