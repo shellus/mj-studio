@@ -14,10 +14,10 @@ vi.mock('../../file', () => ({
   readFileAsText: vi.fn(),
 }))
 
-vi.mock('../providerConnection', () => ({
+vi.mock('../../providerConnection', () => ({
   resolveUpstreamConnection: vi.fn().mockResolvedValue({
     apiKey: 'sk-test',
-    fetchFn: globalThis.fetch,
+    fetchFn: (...args: any[]) => globalThis.fetch(...args),
     baseUrl: 'https://api.openai.com',
   }),
 }))
