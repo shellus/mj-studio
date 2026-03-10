@@ -157,6 +157,7 @@ pnpm install && pnpm dev
 - [上游和模型配置](docs/features/上游和模型配置.md)
 - [MCP接口功能介绍](docs/features/MCP接口功能介绍.md)
 - [HTTP API接口介绍](docs/features/HTTP API接口介绍.md)
+- [CLI工具介绍](docs/features/CLI工具介绍.md)
 - [MCP客户端功能介绍](docs/features/MCP客户端功能介绍.md)
 
 ### 开发规范
