@@ -1,0 +1,3 @@
+[submodule "mjcli"]
+	path = mjcli
+	url = git@github.com:shellus/mj-studio-cli.git
