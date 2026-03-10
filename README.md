@@ -109,6 +109,26 @@ pnpm install && pnpm dev
 
 访问 http://localhost:3000 ，注册账户后在「设置」页面添加 API 配置即可开始使用。
 
+## CLI 工具
+
+通过命令行调用 AI 对话、图片生成、视频生成能力：
+
+```bash
+# 安装
+npm install -g @shellus/mjcli
+
+# 配置（在 Web 端「设置 → API 管理」生成 API Key）
+export MJCLI_URL=https://your-domain.com
+export MJCLI_KEY=mjs_xxxxxxxxxxxx
+
+# 使用
+mjcli model ls -t image        # 列出图片模型
+mjcli image "一只猫" -m 5      # 生成图片
+mjcli chat "你好" -a 1         # AI 对话
+```
+
+详见 [CLI 工具介绍](docs/features/CLI工具介绍.md)。
+
 ## 核心概念
 
 ### 上游（Upstream）
