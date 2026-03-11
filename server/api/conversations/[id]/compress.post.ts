@@ -77,14 +77,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: '可压缩的消息太少' })
   }
 
-  // 构建待压缩的消息内容
-  const messagesContent = messagesToCompress
-    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
-    .join('\n\n')
-
-  // 替换占位符
-  const finalPrompt = compressPrompt.replace('{messages}', messagesContent)
-
   // 计算 sortId
   // 压缩请求的 sortId = 待压缩消息最后一条的 sortId + 1
   const lastCompressMsg = messagesToCompress[messagesToCompress.length - 1]
@@ -93,11 +85,11 @@ export default defineEventHandler(async (event) => {
   }
   const compressRequestSortId = (lastCompressMsg.sortId || lastCompressMsg.id) + 1
 
-  // 插入压缩请求消息（不存储 content，只存储标记）
+  // 插入压缩请求消息
   const compressRequest = await conversationService.addMessage(user.id, {
     conversationId,
     role: 'user',
-    content: '[压缩请求]',  // 只存储标记，不存储完整的 prompt
+    content: compressPrompt,  // 直接存储压缩指令
     mark: MESSAGE_MARK.COMPRESS_REQUEST,
     sortId: compressRequestSortId,
   })
@@ -147,10 +139,10 @@ export default defineEventHandler(async (event) => {
   setImmediate(() => {
     startStreamingTask({
       messageId: assistantMessage.id,
-      userMessageId: null,
+      userMessageId: compressRequest.id,  // 传递压缩请求消息 ID
       conversationId,
       userId: user.id,
-      userContent: finalPrompt,
+      userContent: compressPrompt,  // 传递压缩指令
       userFiles: undefined,
       isCompressRequest: true,
       responseMark: MESSAGE_MARK.COMPRESS_RESPONSE,
