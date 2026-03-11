@@ -123,7 +123,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     let historyMessages = result.messages
 
     if (isCompressRequest) {
-      // 压缩请求：发送待压缩的消息（从上次压缩点到压缩请求之前）
+      // 压缩请求:保持消息数组结构,不拼接
       const compressRequestIndex = result.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
       if (compressRequestIndex > 0) {
         let startIndex = 0
@@ -134,8 +134,11 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
             break
           }
         }
-        historyMessages = result.messages.slice(startIndex, compressRequestIndex)
+        // 包含从上次压缩点到压缩请求(包含压缩请求本身)
+        historyMessages = result.messages.slice(startIndex, compressRequestIndex + 1)
       }
+      // 过滤掉 SYSTEM_PROMPT 消息,避免重复
+      historyMessages = historyMessages.filter(m => m.mark !== MESSAGE_MARK.SYSTEM_PROMPT)
     } else {
       // 普通消息：从最后一个 compress-response 消息开始（包含它）
       // 排除 compress-request 消息和当前的 AI 消息（status 为非 completed 的）
