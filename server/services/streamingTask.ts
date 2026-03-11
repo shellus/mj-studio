@@ -124,7 +124,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
     if (isCompressRequest) {
       // 压缩请求:保持消息数组结构,不拼接
-      const compressRequestIndex = result.messages.findIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
+      const compressRequestIndex = result.messages.findLastIndex(m => m.mark === MESSAGE_MARK.COMPRESS_REQUEST)
       if (compressRequestIndex > 0) {
         let startIndex = 0
         for (let i = compressRequestIndex - 1; i >= 0; i--) {
