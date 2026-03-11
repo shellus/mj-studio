@@ -737,15 +737,12 @@ export type UserSettingKey = typeof USER_SETTING_KEYS[keyof typeof USER_SETTING_
 
 /**
  * 默认对话压缩 Prompt
- * 占位符：{messages} - 待压缩的历史消息内容
  */
-export const DEFAULT_COMPRESS_PROMPT = `请将以下对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
+export const DEFAULT_COMPRESS_PROMPT = `请将以上对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
 1. 讨论的主要话题和结论
 2. 重要的技术细节、代码片段或配置信息
 3. 用户的关键需求和偏好
 4. 待解决的问题或后续任务
-
-{messages}
 
 直接输出摘要内容，不要加标题或格式说明。`
 
