@@ -247,16 +247,40 @@ function getFileIcon(mimeType: string): string {
   return 'i-heroicons-document'
 }
 
-// 计算对话大小（模拟发送给 AI 的上下文）
+// 估算文本 token 数（基于 Claude BPE tokenizer 特性）
+// CJK 字符：约 1.5 token/字符（UTF-8 多字节，BPE 词表覆盖有限）
+// ASCII/拉丁字符：约 1 token/4 字符（BPE 合并效率高）
+function estimateTokens(text: string): number {
+  let tokens = 0
+  for (const char of text) {
+    const code = char.codePointAt(0)!
+    if (
+      (code >= 0x4E00 && code <= 0x9FFF)   // CJK 基本区
+      || (code >= 0x3400 && code <= 0x4DBF) // CJK 扩展 A
+      || (code >= 0xF900 && code <= 0xFAFF) // CJK 兼容
+      || (code >= 0x3000 && code <= 0x303F) // CJK 标点
+      || (code >= 0xFF00 && code <= 0xFFEF) // 全角字符
+      || (code >= 0xAC00 && code <= 0xD7AF) // 韩文
+      || (code >= 0x3040 && code <= 0x30FF) // 日文假名
+    ) {
+      tokens += 1.5
+    } else {
+      tokens += 0.25
+    }
+  }
+  return Math.ceil(tokens)
+}
+
+// 计算对话 token 数（模拟发送给 AI 的上下文）
 // 从最后一个 compress-response 开始，排除 compress-request
 const conversationStats = computed(() => {
-  // 计算系统提示词大小
-  const systemPromptSize = props.systemPrompt
-    ? new TextEncoder().encode(props.systemPrompt).length
+  // 计算系统提示词 token 数
+  const systemPromptTokens = props.systemPrompt
+    ? estimateTokens(props.systemPrompt)
     : 0
 
   if (!props.messages?.length) {
-    return { size: systemPromptSize, messageCount: 0, hasCompressed: false, fileCount: 0 }
+    return { tokens: systemPromptTokens, messageCount: 0, hasCompressed: false, fileCount: 0 }
   }
 
   // 找到最后一个 compress-response 消息的位置
@@ -275,35 +299,34 @@ const conversationStats = computed(() => {
     .filter(msg => msg.mark !== MESSAGE_MARK.COMPRESS_REQUEST)
 
   let fileCount = 0
-  const messagesSize = relevantMessages.reduce((sum, msg) => {
-    let msgSize = new TextEncoder().encode(msg.content).length
-    // 计算文件大小（图片会转为 base64，大小约为原始的 4/3）
+  const messagesTokens = relevantMessages.reduce((sum, msg) => {
+    let msgTokens = estimateTokens(msg.content)
+    // 计算图片文件的 token 数
     if (msg.files?.length) {
       fileCount += msg.files.length
       for (const file of msg.files) {
-        // 只有图片会作为 base64 发送给 AI
         if (file.mimeType.startsWith('image/')) {
-          msgSize += Math.ceil(file.size * 4 / 3) // base64 编码后的大小
+          // Claude 图片 token 估算：base64 编码后按 ASCII 字符估算
+          msgTokens += Math.ceil(file.size * 4 / 3 / 4)
         }
       }
     }
-    return sum + msgSize
+    return sum + msgTokens
   }, 0)
 
   return {
-    size: systemPromptSize + messagesSize,
+    tokens: systemPromptTokens + messagesTokens,
     messageCount: relevantMessages.length,
     hasCompressed: startIndex > 0,
     fileCount,
   }
 })
 
-// 格式化大小显示
+// 格式化 token 数显示
 const sizeDisplay = computed(() => {
-  const { size } = conversationStats.value
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / 1024 / 1024).toFixed(2)} MB`
+  const { tokens } = conversationStats.value
+  if (tokens < 1000) return `~${tokens} tokens`
+  return `~${(tokens / 1000).toFixed(1)}K tokens`
 })
 
 // 是否需要压缩提醒（超过8条消息）
