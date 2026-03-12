@@ -4,6 +4,7 @@ import { conversations, messages, type Conversation, type Message, type MessageM
 import { eq, and, desc, inArray, isNull, isNotNull } from 'drizzle-orm'
 import { emitToUser, type ChatConversationCreated, type ChatConversationUpdated, type ChatConversationDeleted, type ChatMessageCreated, type ChatMessageUpdated, type ChatMessageDeleted, type ChatMessagesDeleted } from './globalEvents'
 import { useAssistantService } from './assistant'
+import { MESSAGE_MARK } from '~~/app/shared/constants'
 
 export function useConversationService() {
   // 获取用户在某个助手下的对话（支持按类型筛选和分页）
