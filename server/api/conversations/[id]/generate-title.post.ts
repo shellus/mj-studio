@@ -7,7 +7,7 @@ import { getChatProvider } from '../../../services/chatProviders'
 import type { ChatApiFormat } from '../../../services/chatProviders'
 import type { LogContext } from '../../../utils/logger'
 import { logTitleResponse } from '../../../utils/logger'
-import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
+import { USER_SETTING_KEYS, MESSAGE_MARK } from '../../../../app/shared/constants'
 import { getErrorMessage } from '../../../../app/shared/types'
 
 export default defineEventHandler(async (event) => {
@@ -62,31 +62,27 @@ export default defineEventHandler(async (event) => {
   const titlePrompt = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_GENERATE_TITLE)
   const titleMaxLength = await settingsService.get<number>(user.id, USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH)
 
-  // 准备用于生成标题的消息（前2条 + 后2条）
-  const contextMessages: string[] = []
+  // 提取 systemPrompt（参照 streamingTask.ts）
+  const systemPromptMessage = messages.find(m => m.mark === MESSAGE_MARK.SYSTEM_PROMPT)
+  const systemPrompt = systemPromptMessage?.content || assistant.systemPrompt || null
 
-  // 前2条
-  for (let i = 0; i < Math.min(2, messages.length); i++) {
+  // 构建 historyMessages（参照 streamingTask.ts 普通消息逻辑）
+  let historyMessages = messages
+
+  // 从最后一个 COMPRESS_RESPONSE 消息开始（包含它）
+  for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i]
-    if (msg) {
-      contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
+    if (msg && msg.mark === MESSAGE_MARK.COMPRESS_RESPONSE) {
+      historyMessages = messages.slice(i)
+      break
     }
   }
 
-  // 后2条（如果和前2条不重叠）
-  if (messages.length > 2) {
-    const startIdx = Math.max(messages.length - 2, 2)
-    for (let i = startIdx; i < messages.length; i++) {
-      const msg = messages[i]
-      if (msg) {
-        contextMessages.push(`${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content.slice(0, 200)}`)
-      }
-    }
-  }
-
-  // 替换占位符
-  const contextContent = contextMessages.join('\n\n')
-  const prompt = titlePrompt.replace('{context}', contextContent)
+  // 过滤掉特殊消息
+  historyMessages = historyMessages.filter(m =>
+    m.mark !== MESSAGE_MARK.COMPRESS_REQUEST
+    && m.mark !== MESSAGE_MARK.SYSTEM_PROMPT
+  )
 
   const apiFormat = aimodel.apiFormat as ChatApiFormat
 
@@ -112,9 +108,9 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await chatService.chat(
       aimodel.modelName,
-      '你是一个标题生成助手，擅长根据对话内容生成简洁准确的标题。',
-      [],
-      prompt,
+      systemPrompt,
+      historyMessages,
+      titlePrompt,
       undefined,  // userFiles
       undefined,  // signal
       logContext
