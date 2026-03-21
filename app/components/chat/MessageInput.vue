@@ -125,6 +125,7 @@ async function uploadFile(file: File) {
       success: boolean
       fileName: string
       url: string
+      publicUrl?: string | null
       mimeType: string
       size: number
     }>('/api/files/upload', {
@@ -143,6 +144,7 @@ async function uploadFile(file: File) {
         result: {
           name: file.name,
           fileName: response.fileName,
+          publicUrl: response.publicUrl ?? undefined,
           mimeType: response.mimeType,
           size: response.size,
         },
