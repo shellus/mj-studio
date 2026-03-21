@@ -9,7 +9,7 @@
 import type { Aimodel, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
-import { readFileAsBase64, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
+import { getFilePublicUrl, readFileAsText, isNativeImageMimeType, isPdfMimeType } from '../file'
 import { resolveUpstreamConnection } from '../providerConnection'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
@@ -20,6 +20,7 @@ import { getErrorMessage, isAbortError, type ToolCallRecord } from '../../../app
 type GeminiPart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } }
+  | { fileData: { mimeType: string; fileUri: string } }
   | { functionCall: { name: string; args: Record<string, unknown> } }
   | { functionResponse: { name: string; response: { content: unknown } } }
 
@@ -35,24 +36,18 @@ function filesToGeminiParts(files: MessageFile[]): GeminiPart[] {
   for (const file of files) {
     // 1. 图片类型（非 SVG）→ 作为 inlineData
     if (isNativeImageMimeType(file.mimeType)) {
-      const base64 = readFileAsBase64(file.fileName)
-      if (base64) {
-        const match = base64.match(/^data:([^;]+);base64,(.+)$/)
-        if (match?.[1] && match[2]) {
-          parts.push({ inlineData: { mimeType: match[1], data: match[2] } })
-        }
+      const url = getFilePublicUrl(file)
+      if (url) {
+        parts.push({ fileData: { mimeType: file.mimeType, fileUri: url } })
       }
       continue
     }
 
-    // 2. PDF → 作为 inlineData（Gemini 支持 PDF）
+    // 2. PDF → 作为 fileData（Gemini 支持 PDF）
     if (isPdfMimeType(file.mimeType)) {
-      const base64 = readFileAsBase64(file.fileName)
-      if (base64) {
-        const match = base64.match(/^data:([^;]+);base64,(.+)$/)
-        if (match?.[1] && match[2]) {
-          parts.push({ inlineData: { mimeType: match[1], data: match[2] } })
-        }
+      const url = getFilePublicUrl(file)
+      if (url) {
+        parts.push({ fileData: { mimeType: file.mimeType, fileUri: url } })
       }
       continue
     }
