@@ -1,5 +1,6 @@
 // 上传文件
 import { saveFile, getFileUrl } from '../../services/file'
+import { getFullResourceUrl } from '../../utils/url'
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event)
@@ -30,10 +31,13 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const localUrl = getFileUrl(result.fileName)
+
   return {
     success: true,
     fileName: result.fileName,
-    url: getFileUrl(result.fileName),
+    url: localUrl,
+    publicUrl: getFullResourceUrl(localUrl),
     mimeType: result.mimeType,
     size: result.size,
   }
