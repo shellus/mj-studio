@@ -7,7 +7,7 @@ import * as fileUtils from '../../file'
 
 // Mock dependencies
 vi.mock('../../file', () => ({
-  readFileAsBase64: vi.fn(),
+  getFilePublicUrl: vi.fn(),
   isImageMimeType: vi.fn(),
   isNativeImageMimeType: vi.fn(),
   isPdfMimeType: vi.fn(),
@@ -51,7 +51,7 @@ describe('OpenAI Response Provider', () => {
     vi.mocked(fileUtils.isImageMimeType).mockImplementation((mime) => mime.startsWith('image/'))
     vi.mocked(fileUtils.isNativeImageMimeType).mockImplementation((mime) => mime.startsWith('image/') && mime !== 'image/svg+xml')
     vi.mocked(fileUtils.isPdfMimeType).mockImplementation((mime) => mime === 'application/pdf')
-    vi.mocked(fileUtils.readFileAsBase64).mockReturnValue('data:image/png;base64,mockbase64data')
+    vi.mocked(fileUtils.getFilePublicUrl).mockReturnValue('https://example.com/api/files/test-file-name.png')
     vi.mocked(fileUtils.readFileAsText).mockReturnValue(null)
     global.fetch = vi.fn()
   })
@@ -112,7 +112,7 @@ describe('OpenAI Response Provider', () => {
       expect(userMessage.content[0].type).toBe('input_text')
       expect(userMessage.content[0].text).toBe(mockUserMessage)
       expect(userMessage.content[1].type).toBe('input_image')
-      expect(userMessage.content[1].image_url).toBe('data:image/png;base64,mockbase64data')
+      expect(userMessage.content[1].image_url).toBe('https://example.com/api/files/test-file-name.png')
     })
 
     it('should handle assistant messages with tool calls', async () => {

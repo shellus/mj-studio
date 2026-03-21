@@ -25,6 +25,7 @@ export const mockUserFiles = [
     fileName: 'test-file-name.png',
     mimeType: 'image/png',
     size: 1024,
+    publicUrl: 'https://example.com/api/files/test-file-name.png',
   },
 ]
 

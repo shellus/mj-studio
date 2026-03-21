@@ -7,7 +7,7 @@ import * as fileUtils from '../../file'
 
 // Mock dependencies
 vi.mock('../../file', () => ({
-  readFileAsBase64: vi.fn(),
+  getFilePublicUrl: vi.fn(),
   isImageMimeType: vi.fn(),
   isNativeImageMimeType: vi.fn(),
   isPdfMimeType: vi.fn(),
@@ -51,7 +51,7 @@ describe('Claude Provider', () => {
     vi.mocked(fileUtils.isImageMimeType).mockImplementation((mime) => mime.startsWith('image/'))
     vi.mocked(fileUtils.isNativeImageMimeType).mockImplementation((mime) => mime.startsWith('image/') && mime !== 'image/svg+xml')
     vi.mocked(fileUtils.isPdfMimeType).mockImplementation((mime) => mime === 'application/pdf')
-    vi.mocked(fileUtils.readFileAsBase64).mockReturnValue('data:image/png;base64,mockbase64data')
+    vi.mocked(fileUtils.getFilePublicUrl).mockReturnValue('https://example.com/api/files/test-file-name.png')
     vi.mocked(fileUtils.readFileAsText).mockReturnValue(null)
 
     // Reset global fetch mock
@@ -103,9 +103,8 @@ describe('Claude Provider', () => {
       expect(lastMessage.content).toHaveLength(2)
       // Claude puts images before text
       expect(lastMessage.content[0].type).toBe('image')
-      expect(lastMessage.content[0].source.type).toBe('base64')
-      expect(lastMessage.content[0].source.media_type).toBe('image/png')
-      expect(lastMessage.content[0].source.data).toBe('mockbase64data')
+      expect(lastMessage.content[0].source.type).toBe('url')
+      expect(lastMessage.content[0].source.url).toBe('https://example.com/api/files/test-file-name.png')
       expect(lastMessage.content[1].type).toBe('text')
       expect(lastMessage.content[1].text).toBe(mockUserMessage)
     })
