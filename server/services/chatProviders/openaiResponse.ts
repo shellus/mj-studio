@@ -13,7 +13,7 @@
 import type { Aimodel, Message, MessageFile } from '../../database/schema'
 import type { ChatProvider, ChatService, ChatResult, ChatStreamChunk, WebSearchResultItem, ChatTool, ToolUseRequest } from './types'
 import type { LogContext } from '../../utils/logger'
-import { readFileAsBase64, readFileAsText, isNativeImageMimeType } from '../file'
+import { getFilePublicUrl, readFileAsText, isNativeImageMimeType } from '../file'
 import { resolveUpstreamConnection } from '../providerConnection'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../../utils/logger'
 import { logConversationRequest, logConversationResponse } from '../../utils/httpLogger'
@@ -53,11 +53,11 @@ function filesToContent(files: MessageFile[]): ResponseMessageContent[] {
   for (const file of files) {
     // 1. 图片类型（非 SVG）→ 作为 input_image
     if (isNativeImageMimeType(file.mimeType)) {
-      const base64 = readFileAsBase64(file.fileName)
-      if (base64) {
+      const url = getFilePublicUrl(file)
+      if (url) {
         contents.push({
           type: 'input_image',
-          image_url: base64,
+          image_url: url,
           detail: 'auto',
         })
       }
