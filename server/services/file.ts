@@ -384,6 +384,16 @@ export function saveBase64FileWithUrl(base64Data: string, originalName?: string)
 }
 
 /**
+ * 获取文件的公网 URL
+ * 优先使用 MessageFile 的 publicUrl，否则通过 getFullResourceUrl 拼接
+ */
+export function getFilePublicUrl(file: MessageFile): string | null {
+  if (file.publicUrl) return file.publicUrl
+  const localUrl = getFileUrl(file.fileName)
+  return getFullResourceUrl(localUrl)
+}
+
+/**
  * 提取并保存消息内容中的 base64 图片
  * 用于对话生图场景，检测 AI 返回的 base64 图片并保存到本地
  *
